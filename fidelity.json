@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 2,
+  "updatedAt": "2026-08-26T00:00:00.000Z",
+  "coreVersion": "sim-core-1.0.0",
+  "note": "保真度声明: 本模拟器用于规则验证与策略迭代，模拟结果不能直接宣称为真机成绩。未标定子系统不会被包装成真机结论。",
+  "subsystems": {
+    "rules": {
+      "status": "verified",
+      "label": "已验证",
+      "evidence": "Sim.Core 确定性内核 + Sim.Tests 固定 seed 回归(dotnet test 全绿)与 Sim.Cli replay-check 逐位复现；覆盖登台/掉台/推块计分/同帧掉台/消极/重启判罚/超时。不代表真机物理标定。"
+    },
+    "fieldGray": {
+      "status": "hand_drawn",
+      "label": "手绘",
+      "evidence": "FieldModel.GetFieldGrayInfo 为程序化场地灰度函数(手绘模型)，尚未载入实测灰度表。"
+    },
+    "vision": {
+      "status": "random_stub",
+      "label": "随机桩",
+      "evidence": "ClassifyRateVision 为确定性随机识别概率(可复现)，尚未接入真机视觉结果。"
+    },
+    "friction": {
+      "status": "uncalibrated",
+      "label": "未标定",
+      "parameters": ["vehicle.latFrictionK", "params.BLOCK_MU_K"],
+      "evidence": "等待横向滑移与能量块滑行/推块遥测。"
+    },
+    "collision": {
+      "status": "uncalibrated",
+      "label": "未标定",
+      "parameters": ["vehicle.angDamping", "params.COLLISION_RESTITUTION"],
+      "evidence": "等待撞墙、偏心对冲与正面对冲遥测。"
+    },
+    "stall": {
+      "status": "uncalibrated",
+      "label": "未标定",
+      "parameters": ["params.STALL_SPEED"],
+      "evidence": "等待带真实堵转标签的命令/速度遥测。"
+    },
+    "mount": {
+      "status": "hand_drawn",
+      "label": "手绘",
+      "evidence": "6cm 台阶与登台门槛来自规则/工程假设，等待真机登台轨迹验证。"
+    },
+    "render": {
+      "status": "scaffold",
+      "label": "脚手架",
+      "evidence": "Godot 4 .NET 桌面壳未编译验证(本机未装 Godot)；渲染仅消费快照、不参与判分，物理为诊断用途。"
+    }
+  }
+}

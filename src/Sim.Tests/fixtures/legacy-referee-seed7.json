@@ -1,0 +1,214 @@
+{
+ "scenario": "legacy-referee-seed7",
+ "seed": 7,
+ "frozenWhilePaused": true,
+ "events": [
+  {
+   "seq": 1,
+   "t": 0,
+   "cls": "us",
+   "msg": "[我方] [fsm] 重置完成 → WAIT_START, 发令(arm) 或 手动/外部策略模式"
+  },
+  {
+   "seq": 2,
+   "t": 0,
+   "cls": "us",
+   "msg": "[我方] [fsm] 发令! WAIT_START → MOUNT_RING"
+  },
+  {
+   "seq": 3,
+   "t": 0,
+   "cls": "them",
+   "msg": "[对手] [fsm] 发令! WAIT_START → MOUNT_RING"
+  },
+  {
+   "seq": 4,
+   "t": 0.1,
+   "cls": "us",
+   "msg": "[我方] [fsm] MOUNT_RING: 姿态确认 (不在台上) → 摆正"
+  },
+  {
+   "seq": 5,
+   "t": 0.1,
+   "cls": "them",
+   "msg": "[对手] [fsm] MOUNT_RING: 姿态确认 (不在台上) → 摆正"
+  },
+  {
+   "seq": 6,
+   "t": 0.1,
+   "cls": "score",
+   "msg": "[我方] [referee] 调试判罚, 对方 +3 (0:3)"
+  },
+  {
+   "seq": 7,
+   "t": 0.1,
+   "cls": "score",
+   "msg": "[对手] [referee] 重启判罚, 对方 +4 (4:3)"
+  },
+  {
+   "seq": 8,
+   "t": 0.1,
+   "cls": "warn",
+   "msg": "[我方] [referee] 比赛暂停: baseline"
+  },
+  {
+   "seq": 9,
+   "t": 0.1,
+   "cls": "score",
+   "msg": "[我方] [referee] 比赛继续"
+  },
+  {
+   "seq": 10,
+   "t": 0.1,
+   "cls": "us",
+   "msg": "[我方] [fsm] MOUNT_RING: 摆正完成 → 倒车登台(780/800)"
+  },
+  {
+   "seq": 11,
+   "t": 0.1,
+   "cls": "them",
+   "msg": "[对手] [fsm] MOUNT_RING: 摆正完成 → 倒车登台(780/800)"
+  }
+ ],
+ "final": {
+  "scores": {
+   "us": 4,
+   "them": 3
+  },
+  "done": false,
+  "doneReason": "",
+  "match": {
+   "phase": "RUNNING",
+   "restartPenalties": {
+    "us": 3,
+    "them": 4
+   }
+  },
+  "robots": {
+   "us": {
+    "x": 0.95,
+    "y": 0.3,
+    "th": -1.5708,
+    "v": 0,
+    "w": 0,
+    "vx": 0,
+    "vy": 0,
+    "state": "MOUNT_RING",
+    "action": "摆正(后向对准擂台)",
+    "onPlatform": false,
+    "hang": false,
+    "isStalled": false,
+    "wedgedFront": false,
+    "timer": 119.9,
+    "simT": 0.1
+   },
+   "them": {
+    "x": 2.85,
+    "y": 3.5,
+    "th": 1.5708,
+    "v": 0,
+    "w": 0,
+    "vx": 0,
+    "vy": 0,
+    "state": "MOUNT_RING",
+    "action": "摆正(后向对准擂台)",
+    "onPlatform": false,
+    "hang": false,
+    "isStalled": false,
+    "wedgedFront": false,
+    "timer": 119.9,
+    "simT": 0.1
+   }
+  },
+  "sensors": {
+   "us": {
+    "gF": 28.95,
+    "gB": 24.88,
+    "gL": 0,
+    "gR": 29.454,
+    "uL": 0.011,
+    "uR": 0,
+    "sFL": 0.296,
+    "sFR": 0.305,
+    "dLF": 0,
+    "dRF": 0.014,
+    "dLB": 0.128,
+    "dRB": 0,
+    "f": 0.007,
+    "r": 0.401
+   },
+   "them": {
+    "gF": 13.834,
+    "gB": 27.313,
+    "gL": 0,
+    "gR": 0,
+    "uL": 0.014,
+    "uR": 0,
+    "sFL": 0.293,
+    "sFR": 0.314,
+    "dLF": 0,
+    "dRF": 0,
+    "dLB": 0.011,
+    "dRB": 0,
+    "f": 0.004,
+    "r": 0.082
+   }
+  },
+  "rawSensors": {
+   "us": {
+    "gF": 28.95,
+    "gB": 24.88,
+    "gL": 0,
+    "gR": 29.454,
+    "uL": 0.011,
+    "uR": 0,
+    "sFL": 0.296,
+    "sFR": 0.305,
+    "dLF": 0,
+    "dRF": 0.014,
+    "dLB": 0.128,
+    "dRB": 0,
+    "f": 0.007,
+    "r": 0.401
+   },
+   "them": {
+    "gF": 13.834,
+    "gB": 27.313,
+    "gL": 0,
+    "gR": 0,
+    "uL": 0.014,
+    "uR": 0,
+    "sFL": 0.293,
+    "sFR": 0.314,
+    "dLF": 0,
+    "dRF": 0,
+    "dLB": 0.011,
+    "dRB": 0,
+    "f": 0.004,
+    "r": 0.082
+   }
+  },
+  "objects": {
+   "buffs": [
+    {
+     "x": 1.0699,
+     "y": 1.1553,
+     "onPlatform": true,
+     "out": false
+    },
+    {
+     "x": 2.7107,
+     "y": 2.2383,
+     "onPlatform": true,
+     "out": false
+    }
+   ],
+   "debuff": {
+    "x": 1.8426,
+    "y": 1.4579,
+    "onPlatform": true,
+    "out": false
+   }
+  }
+ }
+}

@@ -1,0 +1,25 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+
+# Generated replay files and local evaluation artifacts — never commit
+# (see design.md "Replay and Diagnostics"; replays are reproducible from
+#  their ReplayHeader + recorded actions, so the binaries carry no value)
+replays/*
+!replays/.gitkeep
+
+# Test results and local tooling output
+TestResults/
+.sim_runs/
+
+# IDE
+.vs/
+.idea/
+*.user
+
+# Python caches (controller scripts, tooling)
+__pycache__/
+*.pyc
+
+# Godot editor cache (generated on first open)
+godot/.godot/

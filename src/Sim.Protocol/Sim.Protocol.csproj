@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Root namespace intentionally matches directory so DTO namespaces stay flat. -->
+    <RootNamespace>Sim.Protocol</RootNamespace>
+  </PropertyGroup>
+
+</Project>

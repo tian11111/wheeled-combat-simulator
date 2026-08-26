@@ -1,0 +1,196 @@
+{
+ "scenario": "legacy-pushoff-seed42",
+ "seed": 42,
+ "steps": 300,
+ "dt": 0.05,
+ "scriptedActions": {
+  "us": {
+   "v": 1,
+   "w": 0
+  },
+  "them": {
+   "v": 0,
+   "w": 0
+  }
+ },
+ "stageTransitions": [
+  {
+   "step": 25,
+   "role": "us",
+   "kind": "drop"
+  }
+ ],
+ "events": [
+  {
+   "seq": 1,
+   "t": 0,
+   "cls": "us",
+   "msg": "[我方] [fsm] 重置完成 → WAIT_START, 发令(arm) 或 手动/外部策略模式"
+  },
+  {
+   "seq": 2,
+   "t": 1.2,
+   "cls": "score",
+   "msg": "[我方] [score] 增益块被推下擂台! 我方 +3 (3:0)"
+  },
+  {
+   "seq": 3,
+   "t": 1.3,
+   "cls": "score",
+   "msg": "[我方] [score] 我方掉台, 对方 +1 (3:1)"
+  },
+  {
+   "seq": 4,
+   "t": 10,
+   "cls": "warn",
+   "msg": "[对手] [score] 消极比赛超过10秒, 对方 +1 (4:1)"
+  },
+  {
+   "seq": 5,
+   "t": 11.3,
+   "cls": "score",
+   "msg": "[对手] [score] 登台/掉台读秒: 对手 +1 (4:2)"
+  }
+ ],
+ "final": {
+  "scores": {
+   "us": 4,
+   "them": 2
+  },
+  "done": false,
+  "doneReason": "",
+  "match": {
+   "phase": "RUNNING",
+   "restartPenalties": {
+    "us": 0,
+    "them": 0
+   }
+  },
+  "robots": {
+   "us": {
+    "x": 3.4445,
+    "y": 1.9,
+    "th": 0,
+    "v": 1,
+    "w": 0,
+    "vx": 0.5627,
+    "vy": 0,
+    "state": "MANUAL",
+    "action": "外部策略 v=1.00 w=0.00",
+    "onPlatform": false,
+    "hang": false,
+    "isStalled": true,
+    "wedgedFront": false,
+    "timer": 105,
+    "simT": 15
+   },
+   "them": {
+    "x": 1.9,
+    "y": 2.5,
+    "th": 0,
+    "v": 0,
+    "w": 0,
+    "vx": 0,
+    "vy": 0,
+    "state": "MANUAL",
+    "action": "外部策略 v=0.00 w=0.00",
+    "onPlatform": true,
+    "hang": false,
+    "isStalled": false,
+    "wedgedFront": false,
+    "timer": 105,
+    "simT": 15
+   }
+  },
+  "sensors": {
+   "us": {
+    "gF": 0,
+    "gB": 0,
+    "gL": 0,
+    "gR": 0,
+    "uL": 0,
+    "uR": 0,
+    "sFL": 0.973,
+    "sFR": 0.949,
+    "dLF": 0.902,
+    "dRF": 0.92,
+    "dLB": 0.046,
+    "dRB": 0.005,
+    "f": 0.915,
+    "r": 0.01
+   },
+   "them": {
+    "gF": 626.979,
+    "gB": 643.18,
+    "gL": 569.22,
+    "gR": 717.532,
+    "uL": 1.009,
+    "uR": 1.012,
+    "sFL": 1.004,
+    "sFR": 1.002,
+    "dLF": 0.026,
+    "dRF": 0.004,
+    "dLB": 0.006,
+    "dRB": 0.831,
+    "f": 1.006,
+    "r": 0.82
+   }
+  },
+  "rawSensors": {
+   "us": {
+    "gF": 0,
+    "gB": 0,
+    "gL": 0,
+    "gR": 0,
+    "uL": 0,
+    "uR": 0,
+    "sFL": 0.973,
+    "sFR": 0.949,
+    "dLF": 0.902,
+    "dRF": 0.92,
+    "dLB": 0.046,
+    "dRB": 0.005,
+    "f": 0.915,
+    "r": 0.01
+   },
+   "them": {
+    "gF": 626.979,
+    "gB": 643.18,
+    "gL": 569.22,
+    "gR": 717.532,
+    "uL": 1.009,
+    "uR": 1.012,
+    "sFL": 1.004,
+    "sFR": 1.002,
+    "dLF": 0.026,
+    "dRF": 0.004,
+    "dLB": 0.006,
+    "dRB": 0.831,
+    "f": 1.006,
+    "r": 0.82
+   }
+  },
+  "objects": {
+   "buffs": [
+    {
+     "x": 3.68,
+     "y": 1.9,
+     "onPlatform": false,
+     "out": true
+    },
+    {
+     "x": 1.35,
+     "y": 1.35,
+     "onPlatform": true,
+     "out": false
+    }
+   ],
+   "debuff": {
+    "x": 1.6,
+    "y": 2.4,
+    "onPlatform": true,
+    "out": false
+   }
+  }
+ }
+}

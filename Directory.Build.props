@@ -1,0 +1,18 @@
+<Project>
+
+  <!--
+    Shared build settings for all projects in the RobotSimulator solution.
+    - net8.0 keeps the simulation core aligned with the installed LTS runtime.
+    - Warnings-as-errors is intentionally NOT enabled here; CI may add
+      `-warnaserror` when the pipeline exists (see task design.md).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+  </PropertyGroup>
+
+</Project>
