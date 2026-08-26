@@ -43,3 +43,38 @@
 - 安装 Godot 4 .NET 后: 验证/补全 godot 场景与机器人可视网格
 - 实现 Godot↔Sim.Cli 同种子一致性测试 (implement.md 第 7 项)
 - 初始化 git 仓库并提交当前成果; 考虑归档 00-bootstrap-guidelines 模板任务
+
+
+## Session 2: 武术擂台模拟器架构重构收尾 — 提交与归档
+
+**Date**: 2026-08-26
+**Task**: 武术擂台模拟器架构重构收尾 — 提交与归档
+**Branch**: `main`
+
+### Summary
+
+完成收尾: 初始化 git 仓库并提交全部成果(28e516e), 归档任务 08-26-robot-simulator-architecture。89/89 测试通过, 两条回放校验逐位复现。
+
+### Main Changes
+
+- git init + 工作提交: 内核/协议/CLI/测试/Godot脚手架/文档/保真度声明
+- .gitignore 补充 __pycache__/.godot/*.user
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `28e516e` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 89/89; replay-check 两条 PASS
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 安装 Godot 4 .NET 后新建后续任务: 验证场景脚本 + Godot↔CLI 同种子一致性测试
+- 评估是否归档遗留模板任务 00-bootstrap-guidelines
