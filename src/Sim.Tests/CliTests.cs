@@ -64,4 +64,16 @@ public class CliTests : IDisposable
         Assert.Contains("score 我方", output);
         Assert.Contains("done=", output);
     }
+
+    [Fact]
+    public void MatchWithCustomDuration_EndsEarly()
+    {
+        using var sink = new StringWriter();
+        Console.SetOut(sink);
+        var code = Run("match", "--seed", "42", "--duration", "3");
+        Console.SetOut(_stdout);
+        Assert.Equal(0, code);
+        Assert.Contains("ticks=60", sink.ToString());
+        Assert.Contains("比赛时间结束", sink.ToString());
+    }
 }

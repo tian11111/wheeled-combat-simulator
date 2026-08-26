@@ -100,6 +100,31 @@ public class MatchEngineTests(ITestOutputHelper output)
         Assert.All(engine.Events.Events, e => Assert.Empty(e.ToProtocolEvent().Validate()));
     }
 
+    [Fact]
+    public void DefaultMatchDuration_RunsExactly120Seconds()
+    {
+        var engine = new MatchEngine(FixedScenario(seed: 42));
+        var snapshots = Run(engine);
+        Assert.Equal(2400, snapshots.Count); // 120 s / 0.05 s
+        Assert.Equal("比赛时间结束", snapshots[^1].DoneReason);
+    }
+
+    [Fact]
+    public void CustomMatchDuration_HonorsScenarioField()
+    {
+        var scenario = FixedScenario(seed: 5) with
+        {
+            Field = FixedScenario(seed: 5).Field with { MatchDuration = 3 },
+        };
+        var engine = new MatchEngine(scenario);
+        Assert.Equal(3, engine.MatchTimer, precision: 9);
+
+        var snapshots = Run(engine);
+        Assert.Equal(60, snapshots.Count); // 3 s / 0.05 s
+        Assert.True(engine.Done);
+        Assert.Equal("比赛时间结束", snapshots[^1].DoneReason);
+    }
+
     // ---------- determinism ----------
 
     [Fact]

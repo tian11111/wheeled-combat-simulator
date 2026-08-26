@@ -51,7 +51,7 @@ public sealed class MatchEngine
 
     private MatchControlPhase _phase = MatchControlPhase.Prep;
     private double _prepRemaining = 60;
-    private double _matchTimer = 120;
+    private double _matchTimer;
     private bool _paused;
     private double _scoreUs;
     private double _scoreThem;
@@ -86,6 +86,13 @@ public sealed class MatchEngine
 
         _us = CreateRobot(RoleNames.Us, "我方", scenario.Field.Starts[RoleNames.Us], usVehicle);
         _them = CreateRobot(RoleNames.Them, "对手", scenario.Field.Starts[RoleNames.Them], themVehicle);        _blocks = CreateBlocks(scenario, _us, _them);
+
+        // 比赛时长来自场景（官方默认 120s）；全局计时器与双方 FSM 计时器同源，
+        // 避免 --duration / 自定义场景被运行时常量覆盖。
+        var matchDuration = scenario.Field.MatchDuration;
+        _matchTimer = matchDuration;
+        _us.Fsm.Timer = matchDuration;
+        _them.Fsm.Timer = matchDuration;
 
         _events = new EventBus();
         _physics = new PhysicsWorld(_field, _params, _us, _them, _blocks, _events);
