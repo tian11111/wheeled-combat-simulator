@@ -28,4 +28,11 @@ public static class ProtocolVersion
     /// any layoutVersion tag are legacy identity layouts and stay valid.
     /// </summary>
     public const string ArenaLayoutV1 = "arena-layout-v1";
+
+    /// <summary>
+    /// Version tag of the offline telemetry contract (telemetry-v1): strict
+    /// SI units, typed trials per physical experiment kind, consumed by the
+    /// calibration tool. Never part of match/replay traffic.
+    /// </summary>
+    public const string TelemetryFormat = "telemetry-v1";
 }

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Deterministic calibration math + atomic artifact writing (no clocks in
+         content, no network). Sim.Core is referenced only for the shared
+         physical constants (Gravity, BlockLinearDamping) so the fitter model
+         and the kernel integration can never drift apart. -->
+    <RootNamespace>Sim.Calibration</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sim.Protocol\Sim.Protocol.csproj" />
+    <ProjectReference Include="..\Sim.Core\Sim.Core.csproj" />
+  </ItemGroup>
+
+</Project>

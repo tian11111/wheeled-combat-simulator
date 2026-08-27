@@ -11,6 +11,14 @@ public sealed class PhysicsWorld
 {
     // 登台门控阈值来自 SimParameters (MOUNT_V_MIN/MOUNT_ANGLE_MAX, 默认 0.3/0.26),
     // 供离线标定工具按真机登台试验调整; 默认值与原私有常量逐位一致。
+    /// <summary>Standard gravity (m/s^2) used by the block Coulomb friction step;
+    /// the offline calibrator's block model must use the same constant.</summary>
+    public const double Gravity = 9.81;
+
+    /// <summary>Linear viscous damping (1/s) applied to block speed each step;
+    /// shared with the offline fitter's model v' = v·exp(-damping·dt) - mu·g·dt.</summary>
+    public const double BlockLinearDamping = 2.2;
+
     private const double BodyRadius = 0.16;  // legacy BODY fallback
     private const double FenceMargin = 0.12; // robot/block fence margin (m)
 
@@ -965,10 +973,10 @@ public sealed class PhysicsWorld
             }
             else
             {
-                var fric = Math.Exp(-2.2 * dt);
+                var fric = Math.Exp(-BlockLinearDamping * dt);
                 o.Vx *= fric;
                 o.Vy *= fric;
-                var muK = (_params.BlockMuK != 0 ? _params.BlockMuK : 0.5) * 9.81 * dt;
+                var muK = (_params.BlockMuK != 0 ? _params.BlockMuK : 0.5) * Gravity * dt;
                 spd = Js.Hypot(o.Vx, o.Vy);
                 if (spd > muK)
                 {

@@ -1,0 +1,1114 @@
+{
+ "protocolVersion": "v1",
+ "schema": "telemetry-v1",
+ "schemaVersion": 1,
+ "units": {
+  "length": "m",
+  "time": "s",
+  "angle": "rad"
+ },
+ "vehicle": {
+  "id": "selftest-bot",
+  "name": "合成自测"
+ },
+ "capture": {
+  "source": "synthetic",
+  "date": "2026-08-27",
+  "fieldId": "wushu-ring-2026",
+  "condition": "synthetic",
+  "notes": "由遗留 sim_calibrate_selftest.js 数据等价生成; 仅验证拟合器, 永不用于 fidelity 晋升。"
+ },
+ "trials": [
+  {
+   "id": "lateral-fit",
+   "kind": "lateral_coast",
+   "set": "fit",
+   "frames": [
+    {
+     "t": 0.0,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.05,
+     "robot": {
+      "x": 0.0,
+      "y": 0.05,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.1,
+     "robot": {
+      "x": 0.0,
+      "y": 0.083516002,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.15000000000000002,
+     "robot": {
+      "x": 0.0,
+      "y": 0.105982451,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.2,
+     "robot": {
+      "x": 0.0,
+      "y": 0.121042161,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.25,
+     "robot": {
+      "x": 0.0,
+      "y": 0.131136987,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.30000000000000004,
+     "robot": {
+      "x": 0.0,
+      "y": 0.137903751,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.35000000000000003,
+     "robot": {
+      "x": 0.0,
+      "y": 0.142439649,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.4,
+     "robot": {
+      "x": 0.0,
+      "y": 0.145480152,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "angular-fit",
+   "kind": "angular_coast",
+   "set": "fit",
+   "frames": [
+    {
+     "t": 0.0,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.05,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.1
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.1,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.186070798
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.15000000000000002,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.26015262
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.2,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.323915435
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.25,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.378796598
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.30000000000000004,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.426033254
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.35000000000000003,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.46669022
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.4,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.501683995
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "block-fit",
+   "kind": "block_push",
+   "set": "fit",
+   "frames": [
+    {
+     "t": 0.0,
+     "block": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.05,
+     "block": {
+      "x": 0.1,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.1,
+     "block": {
+      "x": 0.178547164,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.15000000000000002,
+     "block": {
+      "x": 0.237876144,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.2,
+     "block": {
+      "x": 0.27998882,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.25,
+     "block": {
+      "x": 0.306678542,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.30000000000000004,
+     "block": {
+      "x": 0.319551857,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.35000000000000003,
+     "block": {
+      "x": 0.320047961,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.4,
+     "block": {
+      "x": 0.320047961,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.45,
+     "block": {
+      "x": 0.320047961,
+      "y": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "collision-fit-0",
+   "kind": "collision",
+   "set": "fit",
+   "normal": {
+    "x": 1.0,
+    "y": 0.0
+   },
+   "impact": {
+    "pre": {
+     "robot": {
+      "vx": 1.0,
+      "vy": 0.0
+     }
+    },
+    "post": {
+     "robot": {
+      "vx": -0.33,
+      "vy": 0.0
+     }
+    }
+   }
+  },
+  {
+   "id": "collision-fit-1",
+   "kind": "collision",
+   "set": "fit",
+   "normal": {
+    "x": 1.0,
+    "y": 0.0
+   },
+   "impact": {
+    "pre": {
+     "robot": {
+      "vx": 0.8,
+      "vy": 0.0
+     }
+    },
+    "post": {
+     "robot": {
+      "vx": -0.264,
+      "vy": 0.0
+     }
+    }
+   }
+  },
+  {
+   "id": "collision-fit-2",
+   "kind": "collision",
+   "set": "fit",
+   "normal": {
+    "x": 1.0,
+    "y": 0.0
+   },
+   "impact": {
+    "pre": {
+     "robot": {
+      "vx": 1.2,
+      "vy": 0.0
+     }
+    },
+    "post": {
+     "robot": {
+      "vx": -0.396,
+      "vy": 0.0
+     }
+    }
+   }
+  },
+  {
+   "id": "collision-holdout-0",
+   "kind": "collision",
+   "set": "holdout",
+   "normal": {
+    "x": 1.0,
+    "y": 0.0
+   },
+   "impact": {
+    "pre": {
+     "robot": {
+      "vx": 0.9,
+      "vy": 0.0
+     }
+    },
+    "post": {
+     "robot": {
+      "vx": -0.297,
+      "vy": 0.0
+     }
+    }
+   }
+  },
+  {
+   "id": "collision-holdout-1",
+   "kind": "collision",
+   "set": "holdout",
+   "normal": {
+    "x": 1.0,
+    "y": 0.0
+   },
+   "impact": {
+    "pre": {
+     "robot": {
+      "vx": 1.05,
+      "vy": 0.0
+     }
+    },
+    "post": {
+     "robot": {
+      "vx": -0.3465,
+      "vy": 0.0
+     }
+    }
+   }
+  },
+  {
+   "id": "stall-fit",
+   "kind": "stall",
+   "set": "fit",
+   "frames": [
+    {
+     "t": 0.0,
+     "speed": 0.01,
+     "stalled": true,
+     "command": {
+      "v": 0.6,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.1,
+     "speed": 0.02,
+     "stalled": true,
+     "command": {
+      "v": 0.6,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.2,
+     "speed": 0.025,
+     "stalled": true,
+     "command": {
+      "v": 0.6,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.3,
+     "speed": 0.07,
+     "stalled": false,
+     "command": {
+      "v": 0.6,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.4,
+     "speed": 0.09,
+     "stalled": false,
+     "command": {
+      "v": 0.6,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.5,
+     "speed": 0.12,
+     "stalled": false,
+     "command": {
+      "v": 0.6,
+      "w": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "stall-holdout",
+   "kind": "stall",
+   "set": "holdout",
+   "frames": [
+    {
+     "t": 0.0,
+     "speed": 0.012,
+     "stalled": true,
+     "command": {
+      "v": 0.6,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.1,
+     "speed": 0.018,
+     "stalled": true,
+     "command": {
+      "v": 0.6,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.2,
+     "speed": 0.022,
+     "stalled": true,
+     "command": {
+      "v": 0.6,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.3,
+     "speed": 0.065,
+     "stalled": false,
+     "command": {
+      "v": 0.6,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.4,
+     "speed": 0.095,
+     "stalled": false,
+     "command": {
+      "v": 0.6,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.5,
+     "speed": 0.14,
+     "stalled": false,
+     "command": {
+      "v": 0.6,
+      "w": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "lateral-holdout",
+   "kind": "lateral_coast",
+   "set": "holdout",
+   "frames": [
+    {
+     "t": 0.0,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.05,
+     "robot": {
+      "x": 0.0,
+      "y": 0.05,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.1,
+     "robot": {
+      "x": 0.0,
+      "y": 0.083516002,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.15000000000000002,
+     "robot": {
+      "x": 0.0,
+      "y": 0.105982451,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.2,
+     "robot": {
+      "x": 0.0,
+      "y": 0.121042161,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.25,
+     "robot": {
+      "x": 0.0,
+      "y": 0.131136987,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.30000000000000004,
+     "robot": {
+      "x": 0.0,
+      "y": 0.137903751,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.35000000000000003,
+     "robot": {
+      "x": 0.0,
+      "y": 0.142439649,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.4,
+     "robot": {
+      "x": 0.0,
+      "y": 0.145480152,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "angular-holdout",
+   "kind": "angular_coast",
+   "set": "holdout",
+   "frames": [
+    {
+     "t": 0.0,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.0
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.05,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.1
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.1,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.186070798
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.15000000000000002,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.26015262
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.2,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.323915435
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.25,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.378796598
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.30000000000000004,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.426033254
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.35000000000000003,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.46669022
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    },
+    {
+     "t": 0.4,
+     "robot": {
+      "x": 0.0,
+      "y": 0.0,
+      "th": 0.501683995
+     },
+     "command": {
+      "v": 0.0,
+      "w": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "block-holdout",
+   "kind": "block_push",
+   "set": "holdout",
+   "frames": [
+    {
+     "t": 0.0,
+     "block": {
+      "x": 0.0,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.05,
+     "block": {
+      "x": 0.1,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.1,
+     "block": {
+      "x": 0.178547164,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.15000000000000002,
+     "block": {
+      "x": 0.237876144,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.2,
+     "block": {
+      "x": 0.27998882,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.25,
+     "block": {
+      "x": 0.306678542,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.30000000000000004,
+     "block": {
+      "x": 0.319551857,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.35000000000000003,
+     "block": {
+      "x": 0.320047961,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.4,
+     "block": {
+      "x": 0.320047961,
+      "y": 0.0
+     }
+    },
+    {
+     "t": 0.45,
+     "block": {
+      "x": 0.320047961,
+      "y": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "mount-0",
+   "kind": "mount",
+   "set": "fit",
+   "approach": {
+    "vn": 0.2,
+    "vt": 0.0
+   },
+   "outcome": false
+  },
+  {
+   "id": "mount-1",
+   "kind": "mount",
+   "set": "fit",
+   "approach": {
+    "vn": 0.2,
+    "vt": 0.05
+   },
+   "outcome": false
+  },
+  {
+   "id": "mount-2",
+   "kind": "mount",
+   "set": "fit",
+   "approach": {
+    "vn": 0.29,
+    "vt": 0.02
+   },
+   "outcome": false
+  },
+  {
+   "id": "mount-3",
+   "kind": "mount",
+   "set": "fit",
+   "approach": {
+    "vn": 0.31,
+    "vt": 0.01
+   },
+   "outcome": true
+  },
+  {
+   "id": "mount-4",
+   "kind": "mount",
+   "set": "fit",
+   "approach": {
+    "vn": 0.35,
+    "vt": 0.05
+   },
+   "outcome": true
+  },
+  {
+   "id": "mount-5",
+   "kind": "mount",
+   "set": "fit",
+   "approach": {
+    "vn": 0.35,
+    "vt": 0.1
+   },
+   "outcome": false
+  },
+  {
+   "id": "mount-6",
+   "kind": "mount",
+   "set": "fit",
+   "approach": {
+    "vn": 0.45,
+    "vt": 0.08
+   },
+   "outcome": true
+  },
+  {
+   "id": "mount-7",
+   "kind": "mount",
+   "set": "fit",
+   "approach": {
+    "vn": 0.6,
+    "vt": 0.05
+   },
+   "outcome": true
+  },
+  {
+   "id": "mount-8",
+   "kind": "mount",
+   "set": "fit",
+   "approach": {
+    "vn": 0.6,
+    "vt": 0.3
+   },
+   "outcome": false
+  },
+  {
+   "id": "mount-9",
+   "kind": "mount",
+   "set": "fit",
+   "approach": {
+    "vn": 0.8,
+    "vt": 0.1
+   },
+   "outcome": true
+  },
+  {
+   "id": "mount-10",
+   "kind": "mount",
+   "set": "fit",
+   "approach": {
+    "vn": 1.1,
+    "vt": 0.05
+   },
+   "outcome": true
+  },
+  {
+   "id": "mount-11",
+   "kind": "mount",
+   "set": "fit",
+   "approach": {
+    "vn": 1.2,
+    "vt": 0.6
+   },
+   "outcome": false
+  },
+  {
+   "id": "mount-ho-0",
+   "kind": "mount",
+   "set": "holdout",
+   "approach": {
+    "vn": 0.25,
+    "vt": 0.0
+   },
+   "outcome": false
+  },
+  {
+   "id": "mount-ho-1",
+   "kind": "mount",
+   "set": "holdout",
+   "approach": {
+    "vn": 0.25,
+    "vt": 0.03
+   },
+   "outcome": false
+  },
+  {
+   "id": "mount-ho-2",
+   "kind": "mount",
+   "set": "holdout",
+   "approach": {
+    "vn": 0.32,
+    "vt": 0.02
+   },
+   "outcome": true
+  },
+  {
+   "id": "mount-ho-3",
+   "kind": "mount",
+   "set": "holdout",
+   "approach": {
+    "vn": 0.4,
+    "vt": 0.04
+   },
+   "outcome": true
+  },
+  {
+   "id": "mount-ho-4",
+   "kind": "mount",
+   "set": "holdout",
+   "approach": {
+    "vn": 0.4,
+    "vt": 0.15
+   },
+   "outcome": false
+  },
+  {
+   "id": "mount-ho-5",
+   "kind": "mount",
+   "set": "holdout",
+   "approach": {
+    "vn": 0.55,
+    "vt": 0.06
+   },
+   "outcome": true
+  },
+  {
+   "id": "mount-ho-6",
+   "kind": "mount",
+   "set": "holdout",
+   "approach": {
+    "vn": 0.7,
+    "vt": 0.08
+   },
+   "outcome": true
+  },
+  {
+   "id": "mount-ho-7",
+   "kind": "mount",
+   "set": "holdout",
+   "approach": {
+    "vn": 0.7,
+    "vt": 0.25
+   },
+   "outcome": false
+  },
+  {
+   "id": "mount-ho-8",
+   "kind": "mount",
+   "set": "holdout",
+   "approach": {
+    "vn": 0.9,
+    "vt": 0.1
+   },
+   "outcome": true
+  },
+  {
+   "id": "mount-ho-9",
+   "kind": "mount",
+   "set": "holdout",
+   "approach": {
+    "vn": 0.9,
+    "vt": 0.4
+   },
+   "outcome": false
+  },
+  {
+   "id": "mount-ho-10",
+   "kind": "mount",
+   "set": "holdout",
+   "approach": {
+    "vn": 1.15,
+    "vt": 0.12
+   },
+   "outcome": true
+  },
+  {
+   "id": "mount-ho-11",
+   "kind": "mount",
+   "set": "holdout",
+   "approach": {
+    "vn": 1.3,
+    "vt": 0.9
+   },
+   "outcome": false
+  }
+ ]
+}

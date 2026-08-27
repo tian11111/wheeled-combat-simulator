@@ -21,6 +21,7 @@ public static class Program
                 "match" => RunMatch(ParseOptions(args)),
                 "replay-record" => RunReplayRecord(ParseOptions(args)),
                 "replay-check" => RunReplayCheck(args),
+                "calibrate" => CalibrateCommand.Run(args),
                 "--help" or "-h" => Help(),
                 _ => Unknown(args[0]),
             };
@@ -326,6 +327,10 @@ public static class Program
               dotnet run --project src/Sim.Cli -- replay-record --seed 42 --out replays/seed-42.json
                          [--scenario <path>] [--controller-us <cmd>] [--events]
               dotnet run --project src/Sim.Cli -- replay-check replays/seed-42.json
+              dotnet run --project src/Sim.Cli -- calibrate --input telemetry.json [--out calibration/report.json]
+                         [--vehicle-id ID] [--base-scenario scenarios/wushu-ring-2026.json]
+                         [--emit-scenario scenarios/calibrated.json] [--fidelity fidelity.json]
+                         [--update-fidelity] [--force]
 
             说明:
               --controller-* 启动外部策略进程（JSONL stdio 协议, decide(obs) -> {"v":..,"w":..});

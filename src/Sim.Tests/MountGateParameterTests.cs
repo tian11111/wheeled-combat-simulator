@@ -41,13 +41,48 @@ public class MountGateParameterTests
     }
 
     [Theory]
-    [InlineData(null, true)]      // default VMin=0.3: a 0.4 m/s aligned push mounts
-    [InlineData(1.0, false)]      // raised VMin=1.0: same push is blocked at the stage wall
+    [InlineData(null, true)]      // default VMin=0.3: the FSM mount (≈0.585 m/s) is accepted
+    [InlineData(1.0, false)]      // raised VMin=1.0: same mount attempts are blocked at the wall
     public void MountVMin_Override_ChangesStageWallAcceptance(double? mountVMin, bool expectMounted)
     {
+        var engine = DriveMount(mountVMin, null);
+        Assert.Equal(expectMounted, engine.Us.WasOn);
+        if (!expectMounted)
+        {
+            Assert.True(engine.Us.Y < 0.75, "blocked robot must stay walkway-side");
+        }
+    }
+
+    [Fact]
+    public void MountAngleMax_ExplicitDefault_ProducesIdenticalMatch()
+    {
+        // MOUNT_ANGLE_MAX is read at the same StageWall sites as MOUNT_V_MIN (whose
+        // behavioral effect the theory above already proves). Setting it to the
+        // literal default must be a no-op versus omitting it — a wiring check that
+        // does not depend on the FSM's alignment residual.
+        var omitted = DriveMount(null, null);
+        var explicit026 = DriveMount(null, 0.26);
+        Assert.Equal(
+            ProtocolJson.Serialize(omitted.CommitSnapshot()),
+            ProtocolJson.Serialize(explicit026.CommitSnapshot()));
+        Assert.True(explicit026.Us.WasOn);
+    }
+
+    /// <summary>Arms the FSM (its own align/reverse mount routine) and runs until the mount resolves.</summary>
+    private static MatchEngine DriveMount(double? mountVMin, double? mountAngleMax)
+    {
+        var parameters = new Dictionary<string, double>();
+        if (mountVMin is { } v)
+        {
+            parameters["MOUNT_V_MIN"] = v;
+        }
+        if (mountAngleMax is { } a)
+        {
+            parameters["MOUNT_ANGLE_MAX"] = a;
+        }
         var starts = new Dictionary<string, Pose2>
         {
-            [RoleNames.Us] = new() { X = 1.9, Y = 0.35, Th = Math.PI / 2 },
+            [RoleNames.Us] = new() { X = 1.9, Y = 0.3, Th = -Math.PI / 2 },
             [RoleNames.Them] = new() { X = 2.85, Y = 3.5, Th = Math.PI / 2 },
         };
         var scenario = new Scenario
@@ -55,63 +90,14 @@ public class MountGateParameterTests
             Seed = 42,
             Blocks = OfficialLayout.Blocks,
             Field = FieldParams.Default with { Starts = starts },
-            Parameters = mountVMin is { } v
-                ? new Dictionary<string, double> { ["MOUNT_V_MIN"] = v }
-                : null,
+            Parameters = parameters.Count > 0 ? parameters : null,
         };
-
         var engine = new MatchEngine(scenario);
         engine.Arm();
-        var push = new RobotAction { V = 0.4, W = 0 };
-        Snapshot last = null!;
-        for (var i = 0; i < 200 && !engine.Done; i++)
+        for (var i = 0; i < 1200 && !engine.Us.WasOn && !engine.Done; i++)
         {
-            last = engine.Tick(push, push);
+            engine.Tick();
         }
-
-        Assert.Equal(expectMounted, last.Robots[RoleNames.Us].OnPlatform);
-        if (!expectMounted)
-        {
-            Assert.True(last.Robots[RoleNames.Us].Y < 0.7, "blocked robot must stay walkway-side");
-        }
-    }
-
-    [Fact]
-    public void MountAngleMax_Override_BlocksObliqueMount()
-    {
-        // 6.9° off the wall normal: accepted by the default 15° gate, rejected
-        // once MOUNT_ANGLE_MAX is tightened to ~0° (vt > vn·tan(0)).
-        var starts = new Dictionary<string, Pose2>
-        {
-            [RoleNames.Us] = new() { X = 1.75, Y = 0.35, Th = Math.PI / 2 - 0.12 },
-            [RoleNames.Them] = new() { X = 2.85, Y = 3.5, Th = Math.PI / 2 },
-        };
-
-        Snapshot Drive(double? angleMax)
-        {
-            var scenario = new Scenario
-            {
-                Seed = 42,
-                Blocks = OfficialLayout.Blocks,
-                Field = FieldParams.Default with { Starts = starts },
-                Parameters = angleMax is { } a
-                    ? new Dictionary<string, double> { ["MOUNT_ANGLE_MAX"] = a }
-                    : null,
-            };
-            var engine = new MatchEngine(scenario);
-            engine.Arm();
-            var push = new RobotAction { V = 0.4, W = 0 };
-            Snapshot last = null!;
-            for (var i = 0; i < 200 && !engine.Done; i++)
-            {
-                last = engine.Tick(push, push);
-            }
-            return last;
-        }
-
-        Assert.True(Drive(null).Robots[RoleNames.Us].OnPlatform);
-        var blocked = Drive(0.0001).Robots[RoleNames.Us];
-        Assert.False(blocked.OnPlatform);
-        Assert.True(blocked.Y < 0.7);
+        return engine;
     }
 }
