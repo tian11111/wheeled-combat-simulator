@@ -1,0 +1,33 @@
+{
+  "id": "real-robot-physics-calibration",
+  "name": "real-robot-physics-calibration",
+  "title": "真机遥测物理标定闭环",
+  "description": "迁移并强化真机遥测离线标定流程，为摩擦、碰撞、堵转和登台建立可审计的参数拟合与验证闭环。",
+  "status": "in_progress",
+  "dev_type": "feature",
+  "scope": "cross-layer",
+  "package": null,
+  "priority": "P2",
+  "creator": "neco",
+  "assignee": "neco",
+  "createdAt": "2026-08-27",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "src/Sim.Protocol/Profiles.cs",
+    "src/Sim.Protocol/Scenario.cs",
+    "src/Sim.Core/SimParameters.cs",
+    "src/Sim.Core/Physics.cs",
+    "src/Sim.Cli/Program.cs",
+    "fidelity.json"
+  ],
+  "notes": "",
+  "meta": {}
+}

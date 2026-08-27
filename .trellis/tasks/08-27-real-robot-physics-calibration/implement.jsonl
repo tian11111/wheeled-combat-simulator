@@ -1,0 +1,3 @@
+{"file":".trellis/spec/sim/index.md","reason":"Determinism contract, additive protocol evolution, kernel-no-IO rule and the arena-layout identity gate that the mount-parameter promotion must preserve."}
+{"file":".trellis/tasks/08-27-real-robot-physics-calibration/research/current-calibration-audit.md","reason":"Legacy fitter inventory, parameter surface map, mount-gap finding, and planning consequences driving the design."}
+{"file":".trellis/tasks/08-27-real-robot-physics-calibration/design.md","reason":"Binding contract: telemetry-v1 schema, fitter numerics, holdout targets, eligibility rules, CLI shape, identity-gate ordering."}

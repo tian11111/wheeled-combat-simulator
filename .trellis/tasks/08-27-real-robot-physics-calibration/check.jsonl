@@ -1,0 +1,4 @@
+{"file":".trellis/tasks/08-27-real-robot-physics-calibration/prd.md","reason":"Verify every acceptance criterion: error paths, legacy-number equivalence, determinism, holdout-based promotion, fidelity honesty."}
+{"file":".trellis/tasks/08-27-real-robot-physics-calibration/design.md","reason":"Verify implementation matches agreed targets, telemetry schema, eligibility rules and the never-touch-shipped-fidelity constraint."}
+{"file":".trellis/tasks/08-27-real-robot-physics-calibration/research/current-calibration-audit.md","reason":"Verify legacy algorithms were ported faithfully and the mount gap is closed or explicitly insufficiency-reported."}
+{"file":".trellis/spec/sim/index.md","reason":"Verify Sim.Core stays IO-free, protocol evolution is additive, identity replay gate green, fidelity claims match fidelity.json."}
