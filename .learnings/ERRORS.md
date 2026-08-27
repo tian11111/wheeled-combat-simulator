@@ -218,6 +218,35 @@ Split generated-file replacements from independent metadata edits; replace the s
 
 ---
 
+## [ERR-20260827-009] mount-gate-checkpoint-tests
+
+**Logged**: 2026-08-27T15:05:00+08:00
+**Priority**: medium
+**Status**: pending
+**Area**: tests
+
+### Summary
+The in-progress mount-gate parameter checkpoint has two failing behavioral tests and must not be committed as a verified change.
+
+### Error
+```
+MountVMin_Override_ChangesStageWallAcceptance: expected mounted, actual false
+MountAngleMax_Override_BlocksObliqueMount: expected default mount, actual false
+```
+
+### Context
+- Full test result: 139 passed, 2 failed, 141 total.
+- Existing committed code remains unaffected; failures are in the new uncommitted tests.
+
+### Suggested Fix
+Build the test scenario around the actual stage-wall integration/FSM semantics, then rerun the identity replay gate before committing.
+
+### Metadata
+- Reproducible: yes
+- Related Files: src/Sim.Tests/MountGateParameterTests.cs, src/Sim.Core/Physics.cs, src/Sim.Core/SimParameters.cs
+
+---
+
 ## [ERR-20260826-001] dotnet-build
 
 **Logged**: 2026-08-26T22:30:00+08:00

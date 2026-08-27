@@ -26,6 +26,8 @@ public sealed class SimParameters
     public double BlockStickSpeed { get; set; } = 0.02;   // 能量块静摩擦"粘住"阈值 (m/s)
     public double BlockMuK { get; set; } = 0.5;           // 能量块库仑动摩擦系数
     public double? CollisionRestitution { get; set; }     // null=速度相关恢复公式(确定性回归验证)
+    public double MountVMin { get; set; } = 0.3;          // 登台门槛最小法向速度 (m/s), 原 PhysicsWorld 常量
+    public double MountAngleMax { get; set; } = 0.26;     // 登台最大入射角 (rad≈15°), 原 PhysicsWorld 常量
 
     /// <summary>Legacy parameter names accepted from scenario JSON, mapped to properties.</summary>
     public static SimParameters FromDictionary(IReadOnlyDictionary<string, double>? source)
@@ -59,6 +61,22 @@ public sealed class SimParameters
                 case "BLOCK_STICK_SPEED": parameters.BlockStickSpeed = value; break;
                 case "BLOCK_MU_K": parameters.BlockMuK = value; break;
                 case "COLLISION_RESTITUTION": parameters.CollisionRestitution = value; break;
+                case "MOUNT_V_MIN":
+                    if (!(value > 0 && value <= 2) || !double.IsFinite(value))
+                    {
+                        throw new ArgumentException(
+                            $"simulation parameter 'MOUNT_V_MIN' must be in (0, 2], got {value}.", nameof(source));
+                    }
+                    parameters.MountVMin = value;
+                    break;
+                case "MOUNT_ANGLE_MAX":
+                    if (!(value > 0 && value < 1.2) || !double.IsFinite(value))
+                    {
+                        throw new ArgumentException(
+                            $"simulation parameter 'MOUNT_ANGLE_MAX' must be in (0, 1.2), got {value}.", nameof(source));
+                    }
+                    parameters.MountAngleMax = value;
+                    break;
                 default:
                     throw new ArgumentException(
                         $"Unknown simulation parameter '{name}'. Known parameters are the legacy CORE params (see SimParameters).",

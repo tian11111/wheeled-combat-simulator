@@ -9,8 +9,8 @@ namespace Sim.Core;
 /// </summary>
 public sealed class PhysicsWorld
 {
-    private const double MountVMin = 0.3;    // 登台最小法向速度 (m/s)
-    private const double MountAngle = 0.26;  // 登台最大入射角 (rad≈15°)
+    // 登台门控阈值来自 SimParameters (MOUNT_V_MIN/MOUNT_ANGLE_MAX, 默认 0.3/0.26),
+    // 供离线标定工具按真机登台试验调整; 默认值与原私有常量逐位一致。
     private const double BodyRadius = 0.16;  // legacy BODY fallback
     private const double FenceMargin = 0.12; // robot/block fence margin (m)
 
@@ -99,6 +99,8 @@ public sealed class PhysicsWorld
     /// </summary>
     private void StageWall(RobotRuntime r, double px, double py)
     {
+        var mountVMin = _params.MountVMin;
+        var mountAngleMax = _params.MountAngleMax;
         var t = _field.Transform;
         var (lpx, lpy) = t.WorldToLocalPoint(px, py);
         if (_field.OnPlatformLocal(lpx, lpy))
@@ -152,7 +154,7 @@ public sealed class PhysicsWorld
             }
             var vn = desiredVx * wall.Nx + desiredVy * wall.Ny;
             var cmdN = cmdV * Math.Cos(lth) * wall.Nx + cmdV * Math.Sin(lth) * wall.Ny;
-            if (vn > 0.05 && vn < MountVMin && cmdN > MountVMin)
+            if (vn > 0.05 && vn < mountVMin && cmdN > mountVMin)
             {
                 vn = cmdN;
             }
@@ -172,7 +174,7 @@ public sealed class PhysicsWorld
         if (contacts.Count == 1)
         {
             var c = contacts[0];
-            if (c.Vn > MountVMin && c.Vt < c.Vn * Math.Tan(MountAngle))
+            if (c.Vn > mountVMin && c.Vt < c.Vn * Math.Tan(mountAngleMax))
             {
                 return;
             }
