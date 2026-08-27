@@ -1,0 +1,32 @@
+{
+  "id": "mbri-sensor-calibration-import",
+  "name": "mbri-sensor-calibration-import",
+  "title": "MBri 传感器标定数据导入",
+  "description": "导入 MBri 灰度、前头 ADC 与铲子标定数据，建立版本化证据和原始日志回放门禁。",
+  "status": "planning",
+  "dev_type": "feature",
+  "scope": "cross-layer",
+  "package": null,
+  "priority": "P2",
+  "creator": "neco",
+  "assignee": "neco",
+  "createdAt": "2026-08-27",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "src/Sim.Protocol/",
+    "src/Sim.Calibration/",
+    "src/Sim.Cli/",
+    "src/Sim.Tests/",
+    "fidelity.json"
+  ],
+  "notes": "",
+  "meta": {}
+}

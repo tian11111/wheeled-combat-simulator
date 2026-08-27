@@ -172,3 +172,22 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Next Steps
 
 - 拿到真机遥测后按 telemetry/README.md 跑首轮真实拟合+留出报告, 达标子系统 --update-fidelity 晋升; 若 mount 误判超标需另立项改造登台模型(斜穿/铲面上台)
+
+
+## Session 6: 收尾 00-bootstrap-guidelines: spec 填充提交与归档
+
+**Date**: 2026-08-27
+**Task**: 收尾 00-bootstrap-guidelines: spec 填充提交与归档
+**Branch**: `main`
+
+### Summary
+
+另一会话已填充 backend/frontend 编码规范并勾选 PRD, 本会话完成核验 (无占位残留、内容与仓库真实形态一致)、提交 (spec + learnings 三条) 并归档任务。bootstrap 任务线结束。
+
+### Git Commits
+
+(No commits - planning session)
+
+### Status
+
+[OK] **Completed**
