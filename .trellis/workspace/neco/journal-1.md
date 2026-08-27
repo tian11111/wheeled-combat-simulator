@@ -99,3 +99,38 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 4: 场地布局校准 + 桌面布局编辑器 + glTF 外观导入 (08-27-arena-layout-editor)
+
+**Date**: 2026-08-27
+**Task**: 场地布局校准 + 桌面布局编辑器 + glTF 外观导入 (08-27-arena-layout-editor)
+**Branch**: `main`
+
+### Summary
+
+按 2026 规则图纸校准场地几何并交付 arena-layout-v1 布局层: 协议纯增量(layoutVersion/field.pose), Sim.Core 以 FieldTransform 统一场局部↔世界映射且身份位姿逐位直通, 桌面端 E 键编辑模式(选择/拖动/旋转/吸附/撤销重做/恢复官方/打开/另存/Apply 重建会话)与机器人 .glb/.gltf 外观导入(错误回退 primitive)。
+
+### Main Changes
+
+- 协议: Scenario.layoutVersion + FieldParams.Pose + 边界校验; scenarios/wushu-ring-2026.json 写入 canonical 字段; 尺寸回归断言(外场3.8/擂台2.4/6cm/走道0.7/围栏0.2/出发区0.5x0.4距台沿0.2)
+- 内核: FieldTransform(身份短路逐位直通); FieldModel 世界/局部双入口; 台壁/围栏/FenceDist 场局部求解; 出生点/块种子放置经变换; 掉台方位词场局部罗盘
+- 桌面壳: ArenaVisualizer/SnapshotView/MatchCamera 全 Scenario 驱动(FieldGray 同源灰度台面纹理、出发区、武字 Label3D、20cm 围栏、相机按位姿取景); LayoutDraft(快照历史/拖拽分组/原子保存)+LayoutEditor(E 编辑模式)+RobotModelLoader(GltfDocument 运行时导入、缺法线 GenerateNormals 兜底、上限/回退)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6580e81` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 130/130; CLI replay-check + Godot --parity-check 对旧 seed42 基线逐位 PASS; rotated-seed42(340 事件/2400 tick/16:8)两端逐位 PASS; --edit-smoke 22 项断言全过; glTF 模型 capture model=114~404px, 坏路径/坏扩展回退 primitive; headless 构建/加载零错误; git diff --check 干净
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 真机遥测标定(摩擦/碰撞/堵转/登台); 可选: 场地尺寸编辑器(官方固定尺寸不可缩放为当前 MVP 边界); 灰度实测表载入(GrayGridMap 已有槽位)
