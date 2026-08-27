@@ -1,1 +1,5 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/sim/index.md","reason":"Calibration contract (validation-at-entry, no auto-merge, evidence files out of git), determinism and protocol additive rules this import must obey while touching nothing in FieldModel/SensorSampler/fidelity."}
+{"file":".trellis/spec/backend/directory-structure.md","reason":"Project ownership: Sim.Protocol owns DTOs, Sim.Calibration pure math, Sim.Cli owns IO/CSV/paths — the design's layer split mirrored in the spec."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"CLI validation-first failure behavior and exit-code conventions for `sensor-calibration import`."}
+{"file":".trellis/tasks/08-27-mbri-sensor-calibration-import/research/current-sensor-data-audit.md","reason":"Verified file families/headers, stored-vs-recomputed-vs-config drift table, and why gray CSVs cannot become a GrayGridMap."}
+{"file":".trellis/tasks/08-27-mbri-sensor-calibration-import/design.md","reason":"Binding contract: sensor-calibration-v1 schema, selection manifest rules, replay evaluator semantics, drift/eligibility policy, CLI surface."}
