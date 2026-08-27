@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 6
+- **Total Sessions**: 7
 - **Last Active**: 2026-08-27
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~193 | Active |
+| `journal-1.md` | ~227 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 7 | 2026-08-27 | MBri 传感器标定证据导入 (08-27-mbri-sensor-calibration-import) | - | `main` |
 | 6 | 2026-08-27 | 收尾 00-bootstrap-guidelines: spec 填充提交与归档 | - | `main` |
 | 5 | 2026-08-27 | 真机遥测物理标定闭环 (08-27-real-robot-physics-calibration) | `ad8502f`, `fb1a2ad` | `main` |
 | 4 | 2026-08-27 | 场地布局校准 + 桌面布局编辑器 + glTF 外观导入 (08-27-arena-layout-editor) | `6580e81` | `main` |

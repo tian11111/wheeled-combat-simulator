@@ -191,3 +191,37 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 7: MBri 传感器标定证据导入 (08-27-mbri-sensor-calibration-import)
+
+**Date**: 2026-08-27
+**Task**: MBri 传感器标定证据导入 (08-27-mbri-sensor-calibration-import)
+**Branch**: `main`
+
+### Summary
+
+交付 sensor-calibration-v1 离线证据线: 严格选择清单 + 表头精确匹配的 MBri CSV 导入、三个纯回放评估器 (灰度 zone/white、前差带、铲子迟滞)、stored/重算/config 三源漂移只报告不合并、运行时候选标志与 contentSha256 确定性指纹。真实数据实测: gray 可见 near-edge 漂移 (0.5 vs 0.35) 候选否、front 带模型重算精确复现 -75.1/63.5 候选是、shovel 混合批次漂移如实 rejected。运行时/fidelity/回放全程零触碰。
+
+### Main Changes
+
+- Sim.Protocol: SensorCalibration.cs (sensor-calibration-v1 DTO+校验) + ProtocolVersion 常量
+- Sim.Calibration: CsvTable/SensorReplay/SensorEvidenceBuilder/ConfigSnapshot/SensorEvidence 指纹
+- Sim.Cli: sensor-calibration import 命令 (校验先于输出/原子写/--force/0-1-2 退出码)
+- fixtures/mbri-mini 12 个真实文件子集入库; docs CLI/telemetry/README; sim spec 传感器证据契约
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] dotnet test 187/187; seed-42 replay-check 752/752 PASS; 确定性双跑同 contentSha256; 无效输入 4 条路径零输出; fidelity.json 字节断言不变; 真数据 (187 文件) 实测运行 14 用/173 忽略/0 拒
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 数据批次明确后的人工复核; 若需运行时传感器响应集成, 另立 sensor-response-runtime-profile 任务并只接受人工批准的报告
