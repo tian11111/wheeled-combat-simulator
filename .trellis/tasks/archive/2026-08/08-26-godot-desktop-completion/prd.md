@@ -25,14 +25,14 @@
 
 ## Acceptance Criteria
 
-- [ ] `dotnet run --project src/Sim.Cli -- match --seed 42 --duration 3` 在 60 tick 左右结束，结束原因是比赛时间到；默认 120 秒仍为 2400 tick。
-- [ ] 针对自定义比赛时长新增核心和 CLI 回归测试，完整 `dotnet test` 全绿。
-- [ ] `godot --headless --path godot --editor --quit` 成功且无脚本/场景解析错误。
-- [ ] Godot 桌面程序可启动并完成一场比赛；场地、机器人、能量块、HUD 和控制均可用。
-- [ ] Godot 可打开 CLI 生成的回放并完成播放、暂停、单步和跳转。
-- [ ] 固定 seed 跨端测试比对最终比分、结束原因和事件指纹，结果一致。
-- [ ] `Sim.Core` 仍不依赖 Godot、文件系统、网络、进程或系统时钟。
-- [ ] README、Godot 文档和架构文档不再把桌面端标记为未验证脚手架，并准确说明保真度边界。
+- [x] `dotnet run --project src/Sim.Cli -- match --seed 42 --duration 3` 在 60 tick 左右结束，结束原因是比赛时间到；默认 120 秒仍为 2400 tick。
+- [x] 针对自定义比赛时长新增核心和 CLI 回归测试，完整 `dotnet test` 全绿。
+- [x] `godot --headless --path godot --editor --quit` 成功且无脚本/场景解析错误。
+- [x] Godot 桌面程序可启动并完成一场比赛；场地、机器人、能量块、HUD 和控制均可用。
+- [x] Godot 可打开 CLI 生成的回放并完成播放、暂停、单步和跳转。
+- [x] 固定 seed 跨端测试比对最终比分、结束原因和事件指纹，结果一致。
+- [x] `Sim.Core` 仍不依赖 Godot、文件系统、网络、进程或系统时钟。
+- [x] README、Godot 文档和架构文档不再把桌面端标记为未验证脚手架，并准确说明保真度边界。
 
 ## Out Of Scope
 
