@@ -1,0 +1,42 @@
+{
+  "protocolVersion": "v1",
+  "schema": "telemetry-v1",
+  "schemaVersion": 1,
+  "units": { "length": "m", "time": "s", "angle": "rad" },
+  "vehicle": { "id": "<车辆唯一ID>", "name": "<车辆名>" },
+  "capture": {
+    "source": "real",
+    "date": "<YYYY-MM-DD>",
+    "fieldId": "wushu-ring-2026",
+    "condition": "<场地/电池/地面条件>",
+    "notes": "<可选备注>"
+  },
+  "trials": [
+    { "id": "lateral-1", "kind": "lateral_coast", "set": "fit",
+      "frames": [
+        { "t": 0.00, "robot": { "x": 0.0, "y": 0.0, "th": 0.0 }, "command": { "v": 0.0, "w": 0.0 } },
+        { "t": 0.05, "robot": { "x": 0.0, "y": 0.05, "th": 0.0 }, "command": { "v": 0.0, "w": 0.0 } }
+      ] },
+    { "id": "angular-1", "kind": "angular_coast", "set": "fit",
+      "frames": [
+        { "t": 0.00, "robot": { "x": 0.0, "y": 0.0, "th": 0.0 }, "command": { "v": 0.0, "w": 0.0 } }
+      ] },
+    { "id": "block-1", "kind": "block_push", "set": "fit",
+      "frames": [
+        { "t": 0.00, "block": { "x": 0.0, "y": 0.0 } },
+        { "t": 0.05, "block": { "x": 0.1, "y": 0.0 } }
+      ] },
+    { "id": "collision-1", "kind": "collision", "set": "fit",
+      "normal": { "x": 1.0, "y": 0.0 },
+      "impact": {
+        "pre":  { "robot": { "vx": 1.0, "vy": 0.0 }, "opponent": { "vx": 0.0, "vy": 0.0 } },
+        "post": { "robot": { "vx": -0.3, "vy": 0.0 }, "opponent": { "vx": 0.0, "vy": 0.0 } }
+      } },
+    { "id": "stall-1", "kind": "stall", "set": "fit",
+      "frames": [
+        { "t": 0.0, "speed": 0.01, "stalled": true, "command": { "v": 0.6 } }
+      ] },
+    { "id": "mount-1", "kind": "mount", "set": "fit",
+      "approach": { "vn": 0.45, "vt": 0.03 }, "outcome": true }
+  ]
+}

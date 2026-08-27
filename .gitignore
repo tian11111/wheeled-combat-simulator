@@ -26,3 +26,11 @@ godot/.godot/
 
 # Godot reimport metadata for evidence screenshots (regenerated on editor open)
 godot/docs/*.png.import
+
+# Calibration inputs/reports derived from operator-held telemetry (like
+# replays: reproducible from the data + calibrate command, no binary value
+# in git). Commit deliberately with `git add -f` when an audit needs it.
+calibration/*
+!calibration/.gitkeep
+telemetry/data/*
+!telemetry/data/.gitkeep

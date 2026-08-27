@@ -45,7 +45,7 @@ Godot 物理仅用于可视摆放与可选诊断，**不参与判分**。未来�
 
 | 手段 | 命令 | 说明 |
 | --- | --- | --- |
-| 内核回归 | `dotnet test` | 130 个测试：规则、确定性、回放复现、跨端校验、视图适配、场地布局 |
+| 内核回归 | `dotnet test` | 167 个测试：规则、确定性、回放复现、跨端校验、视图适配、场地布局、标定闭环 |
 | 无头复现 | `dotnet run --project src/Sim.Cli -- replay-check <file>` | 用记录的动作流逐位重放并比对 |
 | 跨端一致 | `godot --headless --path godot -- --parity-check <file>` | Godot 壳按 CLI `replay-check` 语义比对最终比分/结束原因/末帧/事件指纹（无 Godot 时由 `CrossEndTests` 回归同一代码路径） |
 | 视图适配 | `SnapshotViewTests` | 快照→渲染帧投影/插值不失真 |
@@ -66,6 +66,25 @@ Godot↔CLI 的同种子一致性已闭环：`godot --headless --path godot -- -
 CLI 与 Godot 直接加载复现；机器人 `.glb/.gltf` 外观模型仅存在于渲染层与本地偏好文件，
 不进入 `Scenario`/`Snapshot`/回放指纹。
 
+## 标定闭环（真机 → 参数 → 保真度）
+
+物理参数（横向摩擦衰减、自转阻尼、块摩擦、恢复系数、堵转阈值、登台门控）的真值来自
+**离线遥测标定**，而不是猜测：
+
+```
+真机试验导出 telemetry-v1 (SI, 严格入口校验)
+   → Sim.Calibration 拟合 (fit 集) + 留出验证 (holdout 集) + mount 混淆矩阵
+   → 报告 (输入 SHA-256 + contentSha256, 双列指标, 晋升条件与原因)
+   → 推荐 patch → 新场景文件 (官方场景/旧回放逐位不变)
+   → --update-fidelity 显式登记 (仅 holdout 达标且 capture.source=real)
+```
+
+- 算法数值等价迁移自遗留 `sim_calibrate.js`，以固定 fixture 回归（合成数据可恢复
+  遗留预设参数，但**合成数据永不晋升** fidelity）。
+- 登台门控 `MOUNT_V_MIN`/`MOUNT_ANGLE_MAX` 已是显式场景参数；标定器对它是
+  **验证而非拟合**——真机成败与确定性门控对不上时如实报告"模型不足"，保持未标定。
+- 契约细节与采集规范见 `telemetry/README.md`，命令见 `docs/CLI.md`。
+
 ## 保真度
 
 见根目录 [`fidelity.json`](../fidelity.json)。规则与场地布局已验证；场地灰度为手绘、视觉为随机桩、
@@ -76,7 +95,8 @@ CLI 与 Godot 直接加载复现；机器人 `.glb/.gltf` 外观模型仅存在�
 - `src/Sim.Core/MatchEngine.cs` — 比赛内核（发令/暂停/重启判罚/单步/快照/回放头）。
 - `src/Sim.Core/FieldTransform.cs` — 场局部↔仿真世界唯一变换（纯函数，身份路径逐位直通）。
 - `src/Sim.Core/{Physics,Sensors,Fsm,RuntimeState,DeterministicRandom,Js}.cs` — 物理/传感器/状态机/随机数。
-- `src/Sim.Protocol/` — 版本化协议 DTO 与 JSON 校验（含 `arena-layout-v1` 布局字段）。
+- `src/Sim.Protocol/` — 版本化协议 DTO 与 JSON 校验（含 `arena-layout-v1` 布局字段与 `telemetry-v1` 遥测契约）。
+- `src/Sim.Calibration/` — 纯标定库：拟合器、分解层、mount 门控评估、报告指纹。
 - `src/Sim.Cli/Program.cs` — 无头命令；`PythonBridge.cs` — 外部策略进程适配。
 - `godot/src/SnapshotView.cs` — 快照→渲染帧（无 Godot 依赖，可单测）。
 - `godot/src/MatchSession.cs` — 会话门面：固定步长实况 + 回放重构/缓存/导航（无 Godot 依赖，可单测）。

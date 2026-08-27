@@ -62,3 +62,19 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   （见 `godot/src/RobotModelLoader.cs::EnsureNormals`）。
 - 视觉 QA 以 `--capture` 视口像素分桶为机器可判定证据；桌面截图存 `godot/docs/`
   （其 `.import` 元数据不入库），调试用临时图不入库。
+
+## 标定契约（telemetry-v1）
+
+- 真机数据 → 参数只能经 `calibrate` 命令的固定链路：遥测入口一次性严格校验
+  （SI 单位、类型、时间戳、kind 必填字段），**校验失败不得产出报告或 patch**。
+  拟合/验证数学全部在 `Sim.Calibration` 纯库内，CLI 只做 IO 编排。
+- **拟合器与内核必须共享模型常数**（`PhysicsWorld.Gravity`/`BlockLinearDamping`）；
+  改内核物理模型时同步改拟合模型，否则标定结果失真。
+- **留出集门禁**：晋升 fidelity 需要 `set:"holdout"` 的独立试验达到目标误差；
+  拟合集误差、合成数据、单次试验永远不够。`capture.source != "real"` 一律拒绝晋升。
+- 标定只产**新场景/patch 文件**；官方场景、代码常量、运行中的引擎不受影响，
+  旧回放逐位不变（晋升前后都须过 `replay-check` + `--parity-check`）。
+- `mount` 门控只验证不拟合：真机成败与确定性门控的混淆矩阵误判率 >10% 或
+  速度×角度覆盖不足时，必须如实报告"模型不足"，保持未标定。
+- 标定原始遥测（`telemetry/data/`）与报告（`calibration/`）默认不入库，与
+  replays 同理（可从数据重导）；审计需要时显式 `git add -f`。

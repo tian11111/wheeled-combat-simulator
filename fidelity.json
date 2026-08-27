@@ -27,25 +27,33 @@
     "friction": {
       "status": "uncalibrated",
       "label": "未标定",
-      "parameters": ["vehicle.latFrictionK", "params.BLOCK_MU_K"],
-      "evidence": "等待横向滑移与能量块滑行/推块遥测。"
+      "parameters": [
+        "vehicle.latFrictionK",
+        "params.BLOCK_MU_K"
+      ],
+      "evidence": "等待横向滑移与能量块滑行/推块遥测。telemetry-v1 契约 + calibrate 闭环已就绪(拟合+留出双指标, 见 telemetry/README.md); 晋升需真机数据留出达标。"
     },
     "collision": {
       "status": "uncalibrated",
       "label": "未标定",
-      "parameters": ["vehicle.angDamping", "params.COLLISION_RESTITUTION"],
-      "evidence": "等待撞墙、偏心对冲与正面对冲遥测。"
+      "parameters": [
+        "vehicle.angDamping",
+        "params.COLLISION_RESTITUTION"
+      ],
+      "evidence": "等待撞墙、偏心对冲与正面对冲遥测。telemetry-v1 + calibrate 已就绪(恢复系数最小二乘/角衰减, 留出达标方可晋升)。"
     },
     "stall": {
       "status": "uncalibrated",
       "label": "未标定",
-      "parameters": ["params.STALL_SPEED"],
-      "evidence": "等待带真实堵转标签的命令/速度遥测。"
+      "parameters": [
+        "params.STALL_SPEED"
+      ],
+      "evidence": "等待带真实堵转标签的命令/速度遥测。telemetry-v1 + calibrate 已就绪(阈值分类, 留出准确率≥95%方可晋升)。"
     },
     "mount": {
       "status": "hand_drawn",
       "label": "手绘",
-      "evidence": "6cm 台阶与登台门槛来自规则/工程假设，等待真机登台轨迹验证。"
+      "evidence": "6cm 台阶与登台门槛来自规则/工程假设(参数已显式化: MOUNT_V_MIN/MOUNT_ANGLE_MAX)。calibrate 仅按速度/角度分桶混淆矩阵验证门控, 真机成败误判>10%时保持未标定。"
     },
     "render": {
       "status": "verified",

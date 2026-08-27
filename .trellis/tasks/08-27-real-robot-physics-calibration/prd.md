@@ -41,13 +41,13 @@
 
 ## Acceptance Criteria
 
-- [ ] 无效单位、非递增时间、缺失位姿/速度、未知试验类型和样本不足均返回明确错误，且不产生可应用 patch。
-- [ ] 遗留合成数据的等价夹具能在容差内恢复 `latFrictionK=8`、`angDamping=3`、`BLOCK_MU_K=0.45`、`COLLISION_RESTITUTION=0.33` 和位于正反堵转样本之间的 `STALL_SPEED`。
-- [ ] 同一输入多次运行产生相同参数、数据哈希和确定性报告内容；生成时间等非决定字段不参与内容指纹。
-- [ ] 至少一个标定 profile/场景可被 CLI 和 Godot 共用，且旧 seed-42 回放在未选择该 profile 时保持逐位一致。
-- [ ] 报告分别展示拟合集和留出集指标；合成自测、训练误差或单次试验不能单独触发 fidelity 升级。
-- [ ] 登台验证覆盖成功与失败样本，并按速度/角度分桶输出预测混淆矩阵；达不到目标时保持 `mount` 为未标定或手绘状态。
-- [ ] `dotnet build`、`dotnet test`、CLI replay-check、Godot parity-check、标定器合成回归和真实/样例遥测端到端检查全部通过。
+- [x] 无效单位、非递增时间、缺失位姿/速度、未知试验类型和样本不足均返回明确错误，且不产生可应用 patch。
+- [x] 遗留合成数据的等价夹具能在容差内恢复 `latFrictionK=8`、`angDamping=3`、`BLOCK_MU_K=0.45`、`COLLISION_RESTITUTION=0.33` 和位于正反堵转样本之间的 `STALL_SPEED`。
+- [x] 同一输入多次运行产生相同参数、数据哈希和确定性报告内容；生成时间等非决定字段不参与内容指纹。
+- [x] 至少一个标定 profile/场景可被 CLI 和 Godot 共用，且旧 seed-42 回放在未选择该 profile 时保持逐位一致。
+- [x] 报告分别展示拟合集和留出集指标；合成自测、训练误差或单次试验不能单独触发 fidelity 升级。
+- [x] 登台验证覆盖成功与失败样本，并按速度/角度分桶输出预测混淆矩阵；达不到目标时保持 `mount` 为未标定或手绘状态。
+- [x] `dotnet build`、`dotnet test`、CLI replay-check、Godot parity-check、标定器合成回归和真实/样例遥测端到端检查全部通过。
 
 ## Out Of Scope
 
@@ -58,6 +58,7 @@
 
 ## Open Decision
 
+- (已裁决 2026-08-27: 仓库无真机遥测, 按缺省范围交付 — 工具链 + 模板 + 合成/样例验证; fidelity 保持未标定。真机数据到位后直接跑 telemetry/README.md 的流程即可补"首轮真实参数与留出验证报告"。)
 - 是否已有可用于本任务的真机遥测，决定验收范围是否包含“首轮真实参数与留出验证报告”；如果没有，本任务只能交付工具链、实验模板和合成/样例数据验证，`fidelity.json` 必须继续保持未标定。
 
 ## Notes

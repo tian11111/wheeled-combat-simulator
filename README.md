@@ -9,7 +9,7 @@
 
 ```bash
 dotnet build                                   # 构建
-dotnet test                                    # 130 个回归测试(规则/确定性/回放/跨端/视图/场地布局)
+dotnet test                                    # 167 个回归测试(规则/确定性/回放/跨端/视图/场地布局/标定)
 
 # 无头比赛(内置 FSM)
 dotnet run --project src/Sim.Cli -- match --seed 42
@@ -21,6 +21,9 @@ dotnet run --project src/Sim.Cli -- match --seed 42 \
 # 录制并校验回放(确定性证据)
 dotnet run --project src/Sim.Cli -- replay-record --seed 42 --out replays/seed-42.json
 dotnet run --project src/Sim.Cli -- replay-check replays/seed-42.json
+
+# 离线标定真机遥测(telemetry-v1 → 参数报告/新场景; 采集规范见 telemetry/README.md)
+dotnet run --project src/Sim.Cli -- calibrate --input telemetry/data/<export>.json --out calibration/report.json
 ```
 
 ## 桌面端(Godot 4 .NET)
@@ -51,12 +54,14 @@ godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.j
 | 路径 | 内容 |
 | --- | --- |
 | `src/Sim.Core` | 确定性比赛内核（规则/物理/传感器/事件/快照），无引擎依赖 |
-| `src/Sim.Protocol` | 版本化协议 DTO 与 JSON 校验 |
-| `src/Sim.Cli` | 无头评测/回放 + Python 进程适配器 |
+| `src/Sim.Protocol` | 版本化协议 DTO 与 JSON 校验（含 telemetry-v1 遥测契约） |
+| `src/Sim.Cli` | 无头评测/回放 + Python 进程适配器 + `calibrate` 离线标定 |
+| `src/Sim.Calibration` | 纯标定库（拟合器/mount 门控评估/报告指纹），无 IO 副作用于内核 |
 | `src/Sim.Tests` | xUnit 回归 |
 | `godot/` | Godot 4 .NET 桌面壳（已编译验证，见 `godot/README.md`） |
 | `controllers/` | 示例外部策略（JSONL stdio） |
 | `scenarios/` | 固定布局回归场景 |
+| `telemetry/` | 真机遥测实验规范与模板（数据在 `telemetry/data/`，不入库） |
 | `replays/` | 回放文件（不入库） |
 | `tools/legacy-baseline.js` | 从旧原型再生成回归基线 |
 | `fidelity.json` | 保真度声明 |
