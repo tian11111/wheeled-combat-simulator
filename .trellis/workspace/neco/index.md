@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 2
-- **Last Active**: 2026-08-26
+- **Total Sessions**: 3
+- **Last Active**: 2026-08-27
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~80 | Active |
+| `journal-1.md` | ~101 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 3 | 2026-08-27 | 完成 Godot 桌面端与跨端一致性验收 | `73fd2d1` | `main` |
 | 2 | 2026-08-26 | 武术擂台模拟器架构重构收尾 — 提交与归档 | `28e516e` | `main` |
 | 1 | 2026-08-26 | 武术擂台模拟器架构重构 — 内核/CLI/回放/Godot 脚手架/文档收尾 | - | `-` |
 <!-- @@@/auto:session-history -->

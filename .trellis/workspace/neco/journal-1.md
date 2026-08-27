@@ -78,3 +78,24 @@
 
 - 安装 Godot 4 .NET 后新建后续任务: 验证场景脚本 + Godot↔CLI 同种子一致性测试
 - 评估是否归档遗留模板任务 00-bootstrap-guidelines
+
+
+## Session 3: 完成 Godot 桌面端与跨端一致性验收
+
+**Date**: 2026-08-27
+**Task**: 完成 Godot 桌面端与跨端一致性验收
+**Branch**: `main`
+
+### Summary
+
+Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可回放; 壳层按会话/可视化/HUD/相机/回放职责重构, 指令全部路由 Sim.Core; 回放由内核重构 ReplayFile 缓存并提供播放/暂停/单步/跳转/时间轴; --duration bug 修复(3s→60tick, 120s→2400tick); ReplayFile 移入 Sim.Protocol; ParityCheck 与 CLI replay-check 同语义, headless --parity-check 对 seed-42 基线 PASS(4:49, 2400 tick, 752 指纹); 桌面冒烟 1280x720/1920x1080 + --capture 像素分桶截图 QA; 95/95 测试全绿; 文档移除脚手架表述
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `73fd2d1` | (see git log) |
+
+### Status
+
+[OK] **Completed**
