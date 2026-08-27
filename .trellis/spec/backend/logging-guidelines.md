@@ -1,51 +1,14 @@
 # Logging Guidelines
 
-> How logging is done in this project.
+The project uses deterministic console diagnostics, not a logging framework.
+`Console.WriteLine` is for command results and summaries; `Console.Error` is
+for usage errors, validation failures, warnings, and controller faults.
 
----
+There are no configured log levels or structured logger sinks. Keep output
+stable enough for CLI tests and scripts; do not print per-tick noise by default.
+Include the command, path, exit-relevant reason, and useful counts or hash
+prefixes. `CalibrateCommand` and `PythonBridge` are reference sites.
 
-## Overview
-
-<!--
-Document your project's logging conventions here.
-
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
-
-(To be filled by the team)
-
----
-
-## Log Levels
-
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
-
-## Structured Logging
-
-<!-- Log format, required fields -->
-
-(To be filled by the team)
-
----
-
-## What to Log
-
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+Never log secrets, full controller payloads, or nondeterministic timestamps in
+the simulation event stream. Authoritative events are emitted through
+`EventBus`, not through logging.

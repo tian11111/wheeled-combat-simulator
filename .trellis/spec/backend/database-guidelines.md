@@ -1,51 +1,17 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
+Database access is not part of this project. Do not introduce an ORM, migration
+runner, connection pool, or persistence service for simulation concerns.
 
----
+Simulation state is held in memory by `MatchEngine`; scenarios, reports, and
+replays are explicit JSON files handled at the CLI boundary.
 
-## Overview
+Use `ProtocolJson.Serialize`/`Deserialize` and typed DTO validation. Do not use
+ad-hoc string manipulation for protocol JSON.
 
-<!--
-Document your project's database conventions here.
+There are no migrations. Adding a persisted field is a protocol-evolution task:
+preserve existing JSON shape and add fields or versions additively. DTO
+properties use PascalCase in C# and serialize as camelCase.
 
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
-
-(To be filled by the team)
-
----
-
-## Query Patterns
-
-<!-- How should queries be written? Batch operations? -->
-
-(To be filled by the team)
-
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+Common mistake: placing file IO in `Sim.Core`. Keep writes in `Sim.Cli` or the
+Godot shell; core tests must run without an engine or external services.

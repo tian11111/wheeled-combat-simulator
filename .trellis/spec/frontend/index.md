@@ -1,39 +1,16 @@
-# Frontend Development Guidelines
+# Frontend / Godot Shell Guidelines
 
-> Best practices for frontend development in this project.
+The frontend template maps to the Godot 4 .NET desktop shell. There is no
+React, browser, CSS, or server-state layer in this repository.
 
----
+| Guide | Description |
+|---|---|
+| [Directory Structure](./directory-structure.md) | Godot shell organization |
+| [Component Guidelines](./component-guidelines.md) | Scene/node and adapter boundaries |
+| [Hook Guidelines](./hook-guidelines.md) | C# session/model helpers; React hooks do not apply |
+| [State Management](./state-management.md) | Match session and immutable render state |
+| [Quality Guidelines](./quality-guidelines.md) | Headless/parity and visual checks |
+| [Type Safety](./type-safety.md) | C# records, DTOs, and nullability |
 
-## Overview
-
-This directory contains guidelines for frontend development. Fill in each file with your project's specific conventions.
-
----
-
-## Guidelines Index
-
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | To fill |
-| [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
-| [State Management](./state-management.md) | Local state, global state, server state | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
-
----
-
-## How to Fill These Guidelines
-
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
-
----
-
-**Language**: All documentation should be written in **English**.
+All guidance describes the current Godot shell and its tested, engine-free
+adapters; do not infer browser conventions from these filenames.

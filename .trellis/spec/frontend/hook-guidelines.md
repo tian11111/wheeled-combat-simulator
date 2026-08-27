@@ -1,51 +1,13 @@
 # Hook Guidelines
 
-> How hooks are used in this project.
+React-style hooks are not used. The analogous reusable stateful helpers are
+plain C# session/model classes.
 
----
+Use `MatchSession` for replay/live lifecycle and `LayoutDraft` for editable
+layout state with undo/redo. Keep pure transformations in static helpers such
+as `SnapshotView`. There is no network data-fetching layer; files are loaded
+explicitly by the session/editor boundary and validated as protocol objects.
 
-## Overview
-
-<!--
-Document your project's hook conventions here.
-
-Questions to answer:
-- What custom hooks do you have?
-- How do you handle data fetching?
-- What are the naming conventions?
-- How do you share stateful logic?
--->
-
-(To be filled by the team)
-
----
-
-## Custom Hook Patterns
-
-<!-- How to create and structure custom hooks -->
-
-(To be filled by the team)
-
----
-
-## Data Fetching
-
-<!-- How data fetching is handled (React Query, SWR, etc.) -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Hook naming rules (use*, etc.) -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Hook-related mistakes your team has made -->
-
-(To be filled by the team)
+Do not invent `use*` abstractions or hidden per-frame global state; name helpers
+after the domain operation they perform. See `godot/src/MatchSession.cs`,
+`godot/src/LayoutDraft.cs`, and `godot/src/SnapshotView.cs`.

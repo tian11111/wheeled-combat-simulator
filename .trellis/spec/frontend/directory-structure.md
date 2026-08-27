@@ -1,54 +1,21 @@
 # Directory Structure
 
-> How frontend code is organized in this project.
-
----
-
-## Overview
-
-<!--
-Document your project's frontend directory structure here.
-
-Questions to answer:
-- Where do components live?
-- How are features/modules organized?
-- Where are shared utilities?
-- How are assets organized?
--->
-
-(To be filled by the team)
-
----
-
-## Directory Layout
+Godot code is organized by shell responsibility under `godot/src`.
+Pure adapters are kept free of Godot namespaces so they can be linked into
+`Sim.Tests`; rendering and input code may depend on Godot.
 
 ```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
+godot/src/SnapshotView.cs    # pure Snapshot -> RenderFrame projection
+godot/src/MatchSession.cs    # replay/live session lifecycle
+godot/src/ParityCheck.cs     # headless cross-end validation
+godot/src/LayoutDraft.cs     # pure layout editing model and serialization
+godot/src/ArenaVisualizer.cs # Godot rendering/input orchestration
 ```
 
----
+Keep rendering consumers downstream of `SnapshotView`; keep layout edits in
+`LayoutDraft` and apply them by building a new `Scenario`. Do not mutate a
+running `MatchEngine` from editor UI code. Use PascalCase C# names and suffix
+pure projections/models with `View`, `Draft`, or `Check` when appropriate.
 
-## Module Organization
-
-<!-- How should new features be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+Examples: `godot/src/SnapshotView.cs`, `godot/src/LayoutDraft.cs`, and
+`godot/src/ParityCheck.cs`.

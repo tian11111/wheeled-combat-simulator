@@ -1,51 +1,19 @@
 # Quality Guidelines
 
-> Code quality standards for backend development.
+Backend/CLI changes are held to the deterministic regression bar.
 
----
+Do not add a web framework, global mutable singleton, blocking IO to
+`Sim.Core`, or broad exception swallowing. Do not alter protocol JSON names or
+replay event ordering in a convenience refactor.
 
-## Overview
+Keep parsing and IO at the command boundary, use typed DTOs and `Validate()`,
+and cover new behavior with xUnit tests. Reuse `ProtocolJson`,
+`Scenario.Validate`, and existing command helpers before adding utilities.
 
-<!--
-Document your project's quality standards here.
+Run `dotnet build`, `dotnet test`, and for behavior affecting the kernel or
+protocol run `dotnet run --project src/Sim.Cli -- replay-check <fixture>`.
+Determinism-sensitive changes also require the Godot parity check in
+`.trellis/spec/sim/index.md`.
 
-Questions to answer:
-- What patterns are forbidden?
-- What linting rules do you enforce?
-- What are your testing requirements?
-- What code review standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Forbidden Patterns
-
-<!-- Patterns that should never be used and why -->
-
-(To be filled by the team)
-
----
-
-## Required Patterns
-
-<!-- Patterns that must always be used -->
-
-(To be filled by the team)
-
----
-
-## Testing Requirements
-
-<!-- What level of testing is expected -->
-
-(To be filled by the team)
-
----
-
-## Code Review Checklist
-
-<!-- What reviewers should check -->
-
-(To be filled by the team)
+Review boundary ownership, error exit codes, additive protocol compatibility,
+test coverage, and whether old seed-42 replay fingerprints remain unchanged.

@@ -1,54 +1,25 @@
 # Directory Structure
 
-> How backend code is organized in this project.
-
----
-
-## Overview
-
-<!--
-Document your project's backend directory structure here.
-
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
-
-(To be filled by the team)
-
----
-
-## Directory Layout
+The solution is split by runtime responsibility rather than HTTP layers.
+There are no routes, controllers, ORM models, or database migrations.
 
 ```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
+src/Sim.Protocol    # DTOs, JSON converters, validation, versioned contracts
+src/Sim.Core        # deterministic match engine, physics, sensors, FSM
+src/Sim.Calibration # pure telemetry fitting and report models
+src/Sim.Cli         # command parsing, file/process IO, replay/calibration commands
+src/Sim.Tests       # xUnit regression and cross-layer tests
+godot/src           # desktop shell and Godot-free adapters linked into tests
 ```
 
----
+Put protocol changes in `Sim.Protocol`, deterministic behavior in `Sim.Core`,
+pure calibration math in `Sim.Calibration`, and filesystem/process orchestration
+in `Sim.Cli`. The core may reference Protocol, but must not reference CLI,
+Godot, filesystem, network, or wall-clock APIs. See
+`src/Sim.Core/MatchEngine.cs` and `src/Sim.Cli/CalibrateCommand.cs`.
 
-## Module Organization
+Use one primary public type per PascalCase `.cs` file. Keep command helpers next
+to their command and tests named after the behavior they protect.
 
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+Examples: `src/Sim.Core/Physics.cs`, `src/Sim.Protocol/Telemetry.cs`,
+`src/Sim.Calibration/Fitters.cs`, and `src/Sim.Tests/ReplayHeaderTests.cs`.

@@ -1,59 +1,14 @@
 # Component Guidelines
 
-> How components are built in this project.
+Godot scenes/nodes are the UI components; the data contract is `RenderFrame`.
+`ArenaVisualizer` owns Godot nodes and input. It consumes the immutable output
+of `SnapshotView.From`/`Lerp` rather than recomputing physics, scoring, or sensor
+rules locally.
 
----
+Prefer typed records (`RobotVisual`, `BlockVisual`, `HudState`) over dictionaries
+for data passed between shell helpers. Keep node lookup and visual updates in
+the visualizer. Inputs map to referee/session commands and remain separate from
+rendering; parity behavior must be testable headlessly through `ParityCheck`.
 
-## Overview
-
-<!--
-Document your project's component conventions here.
-
-Questions to answer:
-- What component patterns do you use?
-- How are props defined?
-- How do you handle composition?
-- What accessibility standards apply?
--->
-
-(To be filled by the team)
-
----
-
-## Component Structure
-
-<!-- Standard structure of a component file -->
-
-(To be filled by the team)
-
----
-
-## Props Conventions
-
-<!-- How props should be defined and typed -->
-
-(To be filled by the team)
-
----
-
-## Styling Patterns
-
-<!-- How styles are applied (CSS modules, styled-components, Tailwind, etc.) -->
-
-(To be filled by the team)
-
----
-
-## Accessibility
-
-<!-- A11y requirements and patterns -->
-
-(To be filled by the team)
-
----
-
-## Common Mistakes
-
-<!-- Component-related mistakes your team has made -->
-
-(To be filled by the team)
+Common mistake: adding local score or collision logic to a visual node. The
+authoritative implementation remains in `Sim.Core`.

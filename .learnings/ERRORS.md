@@ -247,6 +247,96 @@ Build the test scenario around the actual stage-wall integration/FSM semantics, 
 
 ---
 
+## [ERR-20260827-010] github-push-approval
+
+**Logged**: 2026-08-27T15:30:00+08:00
+**Priority**: medium
+**Status**: pending
+**Area**: infra
+
+### Summary
+The environment approval proxy rejected `git push` while the repository itself was ready to upload.
+
+### Error
+```
+Automatic approval review failed: 503 Service Unavailable
+```
+
+### Context
+- Remote: `https://github.com/tian11111/wheeled-combat-simulator.git`
+- Local branch: `main`, clean working tree, ahead of `origin/main` by 4 commits.
+- Local verification: 167/167 tests and seed-42 replay-check passed.
+
+### Suggested Fix
+Retry the push after the approval service recovers; do not bypass the approval boundary.
+
+### Metadata
+- Reproducible: unknown
+- Related Files: none
+
+---
+
+## [ERR-20260827-011] git-index-sandbox-permission
+
+**Logged**: 2026-08-27T17:06:48+08:00
+**Priority**: medium
+**Status**: pending
+**Area**: infra
+
+### Summary
+An approved local commit could not create `.git/index.lock` under the workspace sandbox.
+
+### Error
+```
+fatal: Unable to create 'D:/project/robot-simulator/.git/index.lock': Permission denied
+```
+
+### Context
+- Operation: stage Trellis spec files and commit the completed bootstrap task.
+- Product files and task artifacts were already written successfully.
+- The workspace policy exposes `.git` read-only, so Git mutations require escalation.
+
+### Suggested Fix
+Run the exact reviewed `git add` and `git commit` commands with controlled escalated permissions.
+
+### Metadata
+- Reproducible: yes
+- Related Files: `.git/index`, `.trellis/spec/`
+
+---
+
+## [ERR-20260827-012] rg-windows-glob
+
+**Logged**: 2026-08-27T17:20:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: config
+
+### Summary
+Passed a Windows wildcard path directly to `rg`; PowerShell did not expand it.
+
+### Error
+```
+rg: src/Sim.Core/*.cs: 文件名、目录名或卷标语法不正确。 (os error 123)
+```
+
+### Context
+- Operation: locate sensor threshold usages while planning the MBri import task.
+
+### Suggested Fix
+Pass the directory and use `-g '*.cs'` for file filtering.
+
+### Metadata
+- Reproducible: yes
+- Related Files: none
+- See Also: ERR-20260827-007
+
+### Resolution
+- **Resolved**: 2026-08-27T17:20:00+08:00
+- **Notes**: Subsequent searches used directory roots with `-g` filters.
+
+---
+
 ## [ERR-20260826-001] dotnet-build
 
 **Logged**: 2026-08-26T22:30:00+08:00
