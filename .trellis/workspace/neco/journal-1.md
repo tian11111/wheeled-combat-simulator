@@ -134,3 +134,41 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Next Steps
 
 - 真机遥测标定(摩擦/碰撞/堵转/登台); 可选: 场地尺寸编辑器(官方固定尺寸不可缩放为当前 MVP 边界); 灰度实测表载入(GrayGridMap 已有槽位)
+
+
+## Session 5: 真机遥测物理标定闭环 (08-27-real-robot-physics-calibration)
+
+**Date**: 2026-08-27
+**Task**: 真机遥测物理标定闭环 (08-27-real-robot-physics-calibration)
+**Branch**: `main`
+
+### Summary
+
+建立 telemetry-v1 遥测→参数拟合→留出验证→场景/保真度晋升的可复现闭环: 遗留 sim_calibrate.js 算法数值等价迁入 Sim.Calibration 纯库, 登台门控从 PhysicsWorld 私有常量提升为显式场景参数 (identity 逐位门禁通过), CLI 新增 calibrate 命令。仓库无真机遥测, 按 PRD 缺省作用域交付工具链+模板+合成验证, fidelity 保持未标定。
+
+### Main Changes
+
+- Sim.Core: MountVMin/MountAngleMax 参数化 (MOUNT_V_MIN/MOUNT_ANGLE_MAX, 默认 0.3/0.26 逐位一致); PhysicsWorld 公开 Gravity/BlockLinearDamping 共享常数
+- Sim.Protocol: telemetry-v1 严格契约 (SI 单位/时间戳/kind 必填字段/fit-holdout 分集), ProtocolVersion.TelemetryFormat
+- Sim.Calibration 新纯库: 四族拟合器(指数衰减/块摩擦三元搜索/恢复系数/堵转阈值分类)+分解层+MountEvaluator(分桶混淆矩阵, 覆盖规则)+ReportWriter(contentSha256 排除生成时间)+ApplyPatch
+- Sim.Cli calibrate 命令: 校验失败零输出; 合成数据永不晋升; --emit-scenario 生成新场景(官方/旧回放不动); --update-fidelity 仅晋升 holdout 达标+source=real 子系统; 报告含双列指标/SHA/晋升原因
+- telemetry/ 实验模板+采集规范 README+data/ gitignore; docs CLI/ARCHITECTURE 标定闭环; fidelity evidence 诚实刷新(status 不变); sim spec 新增标定契约
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ad8502f` | (see git log) |
+| `fb1a2ad` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 167/167 (含 AC2 合成恢复 8/3/0.45/0.33/STALL∈[0.025,0.07)、确定性指纹、无效输入零 patch、合成拒绝晋升、real 晋升到临时副本、应用场景回放逐位一致); CLI replay-check + Godot --parity-check 对旧基线 PASS; 校准场景 Godot 桌面烟测 0 错误; git diff --check 干净
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 拿到真机遥测后按 telemetry/README.md 跑首轮真实拟合+留出报告, 达标子系统 --update-fidelity 晋升; 若 mount 误判超标需另立项改造登台模型(斜穿/铲面上台)
