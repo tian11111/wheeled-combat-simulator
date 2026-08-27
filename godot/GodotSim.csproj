@@ -1,11 +1,10 @@
-<Project Sdk="Godot.NET.Sdk/4.3.0">
+<Project Sdk="Godot.NET.Sdk/4.7.2">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <RootNamespace>Sim.GodotShell</RootNamespace>
     <AssemblyName>GodotSim</AssemblyName>
-    <!-- 脚手架: 首次用 Godot 4 .NET 打开时由编辑器生成/校正此文件。 -->
   </PropertyGroup>
 
   <ItemGroup>

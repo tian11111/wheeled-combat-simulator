@@ -16,7 +16,7 @@
 | 内嵌 CORE（`stepSimExt` 等） | `src/Sim.Core` | 逐行移植，行为对齐 |
 | 全局状态/日志 | `RuntimeState` + `EventBus` | 事件带结构化 kind |
 | `window` 协议桥 | `Sim.Cli/PythonBridge.cs` | JSONL 进程，协议不变 |
-| Three.js 渲染 | `godot/`（脚手架） | 渲染与规则彻底分离 |
+| Three.js 渲染 | `godot/`（桌面壳） | 渲染与规则彻底分离，位置只来自快照 |
 | 浏览器入口 | 已废弃 | 新产品入口是 CLI / Godot 桌面端 |
 
 **注意**：旧仓库只是行为/协议参考资料，不是新产品入口。不要从旧仓库构建或部署；

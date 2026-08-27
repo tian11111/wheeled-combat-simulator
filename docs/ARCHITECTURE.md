@@ -45,11 +45,13 @@ Godot 物理仅用于可视摆放与可选诊断，**不参与判分**。未来�
 
 | 手段 | 命令 | 说明 |
 | --- | --- | --- |
-| 内核回归 | `dotnet test` | 89 个测试：规则、确定性、回放复现、视图适配 |
+| 内核回归 | `dotnet test` | 95 个测试：规则、确定性、回放复现、跨端校验、视图适配 |
 | 无头复现 | `dotnet run --project src/Sim.Cli -- replay-check <file>` | 用记录的动作流逐位重放并比对 |
+| 跨端一致 | `godot --headless --path godot -- --parity-check <file>` | Godot 壳按 CLI `replay-check` 语义比对最终比分/结束原因/末帧/事件指纹（无 Godot 时由 `CrossEndTests` 回归同一代码路径） |
 | 视图适配 | `SnapshotViewTests` | 快照→渲染帧投影/插值不失真 |
 
-Godot↔CLI 的同种子画面对比测试依赖 Godot 4 .NET 安装，见 `godot/README.md`。
+Godot↔CLI 的同种子一致性已闭环：`godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.json`
+返回 PASS（比分 4:49、结束原因、末帧 2400、752 条事件指纹逐位一致）；另见 `godot/README.md` 与 `src/Sim.Tests/CrossEndTests.cs`。
 
 ## 保真度
 
@@ -63,4 +65,7 @@ Godot↔CLI 的同种子画面对比测试依赖 Godot 4 .NET 安装，见 `godo
 - `src/Sim.Protocol/` — 版本化协议 DTO 与 JSON 校验。
 - `src/Sim.Cli/Program.cs` — 无头命令；`PythonBridge.cs` — 外部策略进程适配。
 - `godot/src/SnapshotView.cs` — 快照→渲染帧（无 Godot 依赖，可单测）。
+- `godot/src/MatchSession.cs` — 会话门面：固定步长实况 + 回放重构/缓存/导航（无 Godot 依赖，可单测）。
+- `godot/src/ParityCheck.cs` — 跨端一致性校验（无 Godot 依赖，可单测）。
+- `godot/src/{Main,ArenaVisualizer,HudPanel,MatchCamera}.cs` — 桌面壳入口与渲染/HUD/相机。
 - `scenarios/*.json` — 固定布局回归场景；`replays/` — 回放文件。

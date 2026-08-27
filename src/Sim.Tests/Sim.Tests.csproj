@@ -18,8 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Godot 壳里无 Godot 依赖的视图适配器: 链接进来即可在无 Godot 环境回归。 -->
+    <!-- Godot 壳里无 Godot 依赖的适配器/会话/校验: 链接进来即可在无 Godot 环境回归。 -->
     <Compile Include="..\..\godot\src\SnapshotView.cs" Link="godot\SnapshotView.cs" />
+    <Compile Include="..\..\godot\src\MatchSession.cs" Link="godot\MatchSession.cs" />
+    <Compile Include="..\..\godot\src\ParityCheck.cs" Link="godot\ParityCheck.cs" />
   </ItemGroup>
 
   <ItemGroup>

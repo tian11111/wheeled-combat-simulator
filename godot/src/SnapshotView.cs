@@ -51,6 +51,8 @@ public sealed record HudState
     public string? DoneReason { get; init; }
     public double ScoreUs { get; init; }
     public double ScoreThem { get; init; }
+    public double RestartPenaltyUs { get; init; }
+    public double RestartPenaltyThem { get; init; }
     /// <summary>Most recent event messages, newest last.</summary>
     public IReadOnlyList<string> RecentEvents { get; init; } = [];
 }
@@ -111,6 +113,8 @@ public static class SnapshotView
                 DoneReason = snapshot.DoneReason,
                 ScoreUs = snapshot.Scores.Us,
                 ScoreThem = snapshot.Scores.Them,
+                RestartPenaltyUs = snapshot.RestartPenalties.Us,
+                RestartPenaltyThem = snapshot.RestartPenalties.Them,
                 RecentEvents = events.TakeLast(maxRecentEvents).ToList(),
             },
         };

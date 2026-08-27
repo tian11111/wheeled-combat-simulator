@@ -1,28 +1,42 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://src/Main.cs" id="1_main"]
 [ext_resource type="Script" path="res://src/ArenaVisualizer.cs" id="2_arena"]
+[ext_resource type="Script" path="res://src/MatchCamera.cs" id="3_cam"]
+[ext_resource type="Script" path="res://src/HudPanel.cs" id="4_hud"]
+
+[sub_resource type="Environment" id="env_main"]
+background_mode = 1
+background_color = Color(0.09, 0.11, 0.14, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.72, 0.76, 0.86, 1)
+ambient_light_energy = 1.0
 
 [node name="Main" type="Node"]
 script = ExtResource("1_main")
 
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env_main")
+
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.866, -0.5, 0, 0.5, 0.866, 1.9, 3.4, 6.8)
+current = true
+script = ExtResource("3_cam")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.866, -0.354, 0.354, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 1.9, 4, 1.9)
+transform = Transform3D(0.866, -0.354, 0.354, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 1.9, 5.2, 3.2)
+light_energy = 1.1
+shadow_enabled = true
 
 [node name="ArenaVisualizer" type="Node3D" parent="."]
 script = ExtResource("2_arena")
 
-[node name="UsRobot" type="Node3D" parent="ArenaVisualizer"]
-
-[node name="ThemRobot" type="Node3D" parent="ArenaVisualizer"]
-
 [node name="Hud" type="CanvasLayer" parent="."]
 
-[node name="StatusLabel" type="Label" parent="Hud"]
-offset_left = 12.0
-offset_top = 12.0
-offset_right = 412.0
-offset_bottom = 212.0
+[node name="HudPanel" type="Control" parent="Hud"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_hud")

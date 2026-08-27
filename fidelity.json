@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-26T00:00:00.000Z",
+  "updatedAt": "2026-08-27T00:00:00.000Z",
   "coreVersion": "sim-core-1.0.0",
   "note": "保真度声明: 本模拟器用于规则验证与策略迭代，模拟结果不能直接宣称为真机成绩。未标定子系统不会被包装成真机结论。",
   "subsystems": {
@@ -43,9 +43,9 @@
       "evidence": "6cm 台阶与登台门槛来自规则/工程假设，等待真机登台轨迹验证。"
     },
     "render": {
-      "status": "scaffold",
-      "label": "脚手架",
-      "evidence": "Godot 4 .NET 桌面壳未编译验证(本机未装 Godot)；渲染仅消费快照、不参与判分，物理为诊断用途。"
+      "status": "verified",
+      "label": "已验证",
+      "evidence": "Godot 4.7.2 .NET 桌面壳 headless 构建/加载通过；实况与回放模式在 1280×720、1920×1080 窗口冒烟 + 视口像素分桶截图 QA 通过(godot/docs/*.png)。渲染只消费快照、不参与判分，物理为诊断用途；网格/材质为程序化基本图元, 非最终美术。"
     }
   }
 }

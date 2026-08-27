@@ -9,7 +9,7 @@
 
 ```bash
 dotnet build                                   # 构建
-dotnet test                                    # 89 个回归测试(规则/确定性/回放/视图)
+dotnet test                                    # 95 个回归测试(规则/确定性/回放/跨端/视图)
 
 # 无头比赛(内置 FSM)
 dotnet run --project src/Sim.Cli -- match --seed 42
@@ -23,7 +23,23 @@ dotnet run --project src/Sim.Cli -- replay-record --seed 42 --out replays/seed-4
 dotnet run --project src/Sim.Cli -- replay-check replays/seed-42.json
 ```
 
-3D 桌面端在 `godot/`，需要安装 Godot 4 .NET（当前为脚手架，见 `godot/README.md`）。
+## 桌面端(Godot 4 .NET)
+
+需要安装 [Godot 4.x .NET (Mono)](https://godotengine.org/download)（当前按 4.7.2 验证，
+SDK 为 `Godot.NET.Sdk/4.7.2`）。启动窗口版：
+
+```bash
+godot --path godot                          # 实况: Enter 发令, P 暂停, R/T 重启判罚
+godot --path godot -- --replay-path ../replays/godot-parity-seed42.json   # 打开回放
+```
+
+无头跨端一致性校验（与 Sim.Cli `replay-check` 语义一致，比对最终比分/结束原因/末帧/事件指纹）：
+
+```bash
+godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.json
+```
+
+操作、架构与保真度边界见 `godot/README.md` 与 `docs/ARCHITECTURE.md`。
 
 ## 目录
 
@@ -33,7 +49,7 @@ dotnet run --project src/Sim.Cli -- replay-check replays/seed-42.json
 | `src/Sim.Protocol` | 版本化协议 DTO 与 JSON 校验 |
 | `src/Sim.Cli` | 无头评测/回放 + Python 进程适配器 |
 | `src/Sim.Tests` | xUnit 回归 |
-| `godot/` | Godot 4 .NET 桌面壳（脚手架） |
+| `godot/` | Godot 4 .NET 桌面壳（已编译验证，见 `godot/README.md`） |
 | `controllers/` | 示例外部策略（JSONL stdio） |
 | `scenarios/` | 固定布局回归场景 |
 | `replays/` | 回放文件（不入库） |
