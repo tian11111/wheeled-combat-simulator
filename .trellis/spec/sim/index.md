@@ -78,3 +78,16 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   速度×角度覆盖不足时，必须如实报告"模型不足"，保持未标定。
 - 标定原始遥测（`telemetry/data/`）与报告（`calibration/`）默认不入库，与
   replays 同理（可从数据重导）；审计需要时显式 `git add -f`。
+
+## 传感器证据契约（sensor-calibration-v1）
+
+- MBri 传感器判定模型（灰度/前 ADC/铲子）的证据导入与物理标定 telemetry-v1 **分线**：
+  新 schema、新命令（`sensor-calibration import`），互不扩用。
+- 只消费选择清单点名且表头精确匹配的文件；未选中文件必须列为 ignored、
+  被拒文件必须带原因；禁止按列名猜文件。
+- stored 模型 / 重算 / config.py 快照的差异只进 comparison 表，**永不自动合并**；
+  不一致即压为 `evidence_only`/`rejected`。回放评估器必须是纯函数
+  （无时钟/IO/随机），median 语义对齐 Python `statistics.median`。
+- 灰度 CSV 无坐标 → 报告恒 `coordinateData=false`；禁止伪造成 FieldModel.GrayGridMap。
+- 本产物不进入运行时（FieldModel/SensorSampler/FSM/官方场景/fidelity.json/回放
+  字节不变）；运行时集成另立任务且只能消费人工接受的报告。

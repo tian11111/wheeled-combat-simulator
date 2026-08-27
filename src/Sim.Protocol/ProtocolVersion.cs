@@ -35,4 +35,11 @@ public static class ProtocolVersion
     /// calibration tool. Never part of match/replay traffic.
     /// </summary>
     public const string TelemetryFormat = "telemetry-v1";
+
+    /// <summary>
+    /// Version tag of the offline sensor-evidence contract (sensor-calibration-v1):
+    /// imported MBri gray/front-ADC/shovel judgment models with source hashes and
+    /// raw-log replay gates. Offline artifact only — never enters Scenario/Snapshot/replays.
+    /// </summary>
+    public const string SensorCalibrationFormat = "sensor-calibration-v1";
 }

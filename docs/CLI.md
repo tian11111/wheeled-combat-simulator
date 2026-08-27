@@ -66,6 +66,27 @@ kind 必填字段；**任何校验失败都不会产出报告或 patch**。拟�
 报告带输入 SHA-256 与内容指纹（排除生成时间，重跑逐字节一致）；结果应用为新场景
 文件 + `--update-fidelity` 显式登记，官方场景与旧回放逐位不变。
 
+## sensor-calibration import — MBri 传感器标定证据导入（离线，另一条标定线）
+
+与 `calibrate`（物理遥测 telemetry-v1）不同，本命令导入 **MBri 真车传感器判定模型**
+（灰度四路、前头双路 ADC、铲下双路），产出 `sensor-calibration-v1` 证据报告。
+采集规范与选择规则见 `telemetry/README.md` 的传感器章节；仓库不复制原始数据。
+
+```bash
+dotnet run --project src/Sim.Cli -- sensor-calibration import   --data-dir "D:/project/robocup/MBri/data" --manifest selection.json   --out calibration/sensor-report.json [--config config.py] [--force]
+```
+
+要点：
+- 只消费选择清单点名的文件（表头精确匹配），其余文件**全部列入 ignored**，
+  被拒文件带原因；绝不按列名猜测导入 187 个文件。
+- 对导入模型回放对应原始 CSV：灰度 zone/white 迟滞、前差带 left/forward/right、
+  铲子悬空/收回；输出就绪/无效样本数、决策分布、误判与失败文件、运行时候选标志。
+- stored 模型 / 全量重算 / config.py 快照三者差异全部进 comparison 表，
+  **只报告不合并**；任何不一致把状态压回 `evidence_only`/`rejected`。
+- 灰度数据无坐标 → 报告恒含 `coordinateData=false` 与不能构造 GrayGridMap 的限制。
+- 不触碰 FieldModel/SensorSampler/FSM/官方场景/fidelity.json/回放；纯离线产物。
+- 退出码：0 报告已写（允许 evidence_only）；1 校验/IO 错误（零输出）；2 用法。
+
 ## 退出码
 
 - `0` 成功 / 回放一致

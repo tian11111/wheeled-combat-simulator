@@ -1,0 +1,47 @@
+{
+ "label": "mbri-mini 2026-08 子集",
+ "numericTolerance": 1.0,
+ "rateTolerance": 0.05,
+ "grayModel": "gray_model.csv",
+ "grayRaw": [
+  "中轴.csv"
+ ],
+ "frontAdcModel": "front_adc_model.csv",
+ "frontAdcRaw": [
+  {
+   "file": "左偏20度且离墙居中位置.csv",
+   "expect": "left"
+  },
+  {
+   "file": "右偏20度且离墙居中位置.csv",
+   "expect": "right"
+  },
+  {
+   "file": "正对墙且离墙居中位置.csv",
+   "expect": "forward"
+  },
+  {
+   "file": "正对着墙且距离墙最远.csv",
+   "expect": "forward"
+  }
+ ],
+ "shovelModel": "shovel_model.csv",
+ "shovelRaw": [
+  {
+   "file": "shovel_hang_OutOfStage.csv",
+   "expect": "hang"
+  },
+  {
+   "file": "shovel_hang_OutStage.csv",
+   "expect": "hang"
+  },
+  {
+   "file": "shovel_stage_OnStage.csv",
+   "expect": "stage"
+  },
+  {
+   "file": "shovel_stage_instage.csv",
+   "expect": "stage"
+  }
+ ]
+}

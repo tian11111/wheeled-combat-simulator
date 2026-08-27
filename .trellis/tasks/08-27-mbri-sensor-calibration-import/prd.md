@@ -36,13 +36,23 @@
 
 ## Acceptance Criteria
 
-- [ ] 同一输入目录和选择规则多次运行产生逐位相同的 profile、报告内容指纹和来源哈希。
-- [ ] 无效 CSV 头、缺通道、非数值/非有限值、偶数滤波窗口、阈值逆序和混合批次歧义产生明确错误，且不输出可应用候选。
-- [ ] 报告分别展示灰度、前头 ADC、铲子所用/忽略/拒绝文件及回放指标。
-- [ ] 对当前 MBri 数据运行时，工具能检测已存模型、全量重算结果与生产配置之间的差异，不把它们静默合并。
-- [ ] 输出明确说明灰度数据缺少坐标，不能升级 `fieldGray` 为 measured grid。
-- [ ] `fidelity.json` 保持字节不变；传感器证据不升级摩擦、碰撞、堵转或登台状态。
-- [ ] `dotnet test` 全绿，seed-42 replay-check 仍为 752/752 事件逐位一致。
+- [x] 同一输入目录和选择规则多次运行产生逐位相同的 profile、报告内容指纹和来源哈希。
+- [x] 无效 CSV 头、缺通道、非数值/非有限值、偶数滤波窗口、阈值逆序和混合批次歧义产生明确错误，且不输出可应用候选。
+- [x] 报告分别展示灰度、前头 ADC、铲子所用/忽略/拒绝文件及回放指标。
+- [x] 对当前 MBri 数据运行时，工具能检测已存模型、全量重算结果与生产配置之间的差异，不把它们静默合并。
+- [x] 输出明确说明灰度数据缺少坐标，不能升级 `fieldGray` 为 measured grid。
+- [x] `fidelity.json` 保持字节不变；传感器证据不升级摩擦、碰撞、堵转或登台状态。
+- [x] `dotnet test` 全绿，seed-42 replay-check 仍为 752/752 事件逐位一致。
+
+## Verification Notes (2026-08-27)
+
+- AC1/AC2/AC3/AC6/AC7 by `SensorCalibrationImportTests` (20 tests) over the vendored
+  `fixtures/mbri-mini` real-data subset; AC4/AC5 additionally demonstrated against the
+  live MBri directory (gray near-edge 0.5 vs config 0.35 visible, front band consistent,
+  shovel hang_enter 668.5 vs recomputed 1035.6 → status `rejected`, never merged).
+- Band recomputation uses the MBri model-CSV recipe (percentiles of the rolling-median
+  diff series, center files gated by the stored signal floor) and reproduces
+  diff_low/diff_high exactly on the four aligned raw files.
 
 ## Out Of Scope
 

@@ -37,6 +37,24 @@
 - 若长期分不开(例如真机带铲/带重心转移, 6cm 台阶实际可斜穿),
   说明当前轴对齐门控模型不足, 需要新立项的模型改造(超出本工具职责)。
 
+## 与传感器证据导入的关系（重要区分）
+
+本目录的 `telemetry-v1` 只覆盖**物理**参数（摩擦/碰撞/堵转/登台门控）。
+MBri 真车的**传感器判定模型**（灰度四路、前头双路 ADC、铲下双路）走另一条
+离线证据线：`dotnet run --project src/Sim.Cli -- sensor-calibration import
+--data-dir <MBri/data> --manifest <selection.json> --out calibration/sensor-report.json
+[--config <config.py>]`（详见 `docs/CLI.md`）。要点：
+
+- 只导入选择清单点名且表头精确匹配的 CSV；其余文件列为 ignored，被拒文件带原因。
+- 导入模型对原始日志做确定性回放（中值滤波/zone/差带/迟滞语义等价 MBri），
+  输出就绪与无效行数、决策分布、误判与失败文件。
+- stored 模型、全量重算、config.py 三者差异只报告不自动合并；不一致时
+  状态封顶 `evidence_only`/`rejected`，绝不晋升。
+- 灰度原始数据没有 x/y/th 坐标 → 报告固定 `coordinateData=false`，
+  不能升级为模拟器 `FieldModel.GrayGridMap` 实测场地灰度。
+- 该产物不进入运行时（不改 FieldModel/SensorSampler/FSM/fidelity/回放）；
+  运行时传感器响应 profile 集成是未来独立任务，且只能消费人工明确接受的报告。
+
 ## 跑一次标定
 
 ```powershell

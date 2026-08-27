@@ -22,6 +22,7 @@ public static class Program
                 "replay-record" => RunReplayRecord(ParseOptions(args)),
                 "replay-check" => RunReplayCheck(args),
                 "calibrate" => CalibrateCommand.Run(args),
+                "sensor-calibration" => SensorCalibrationCommand.Run(args),
                 "--help" or "-h" => Help(),
                 _ => Unknown(args[0]),
             };
@@ -331,6 +332,9 @@ public static class Program
                          [--vehicle-id ID] [--base-scenario scenarios/wushu-ring-2026.json]
                          [--emit-scenario scenarios/calibrated.json] [--fidelity fidelity.json]
                          [--update-fidelity] [--force]
+              dotnet run --project src/Sim.Cli -- sensor-calibration import --data-dir <MBri/data>
+                         --manifest selection.json --out calibration/sensor-report.json
+                         [--config config.py] [--force]
 
             说明:
               --controller-* 启动外部策略进程（JSONL stdio 协议, decide(obs) -> {"v":..,"w":..});

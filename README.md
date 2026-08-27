@@ -9,7 +9,7 @@
 
 ```bash
 dotnet build                                   # 构建
-dotnet test                                    # 167 个回归测试(规则/确定性/回放/跨端/视图/场地布局/标定)
+dotnet test                                    # 187 个回归测试(规则/确定性/回放/跨端/视图/场地布局/标定)
 
 # 无头比赛(内置 FSM)
 dotnet run --project src/Sim.Cli -- match --seed 42
@@ -24,6 +24,9 @@ dotnet run --project src/Sim.Cli -- replay-check replays/seed-42.json
 
 # 离线标定真机遥测(telemetry-v1 → 参数报告/新场景; 采集规范见 telemetry/README.md)
 dotnet run --project src/Sim.Cli -- calibrate --input telemetry/data/<export>.json --out calibration/report.json
+
+# MBri 传感器标定证据导入(sensor-calibration-v1; 与物理标定分线, 不影响运行时)
+dotnet run --project src/Sim.Cli -- sensor-calibration import --data-dir <MBri/data> --manifest selection.json --out calibration/sensor-report.json
 ```
 
 ## 桌面端(Godot 4 .NET)
@@ -56,7 +59,7 @@ godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.j
 | `src/Sim.Core` | 确定性比赛内核（规则/物理/传感器/事件/快照），无引擎依赖 |
 | `src/Sim.Protocol` | 版本化协议 DTO 与 JSON 校验（含 telemetry-v1 遥测契约） |
 | `src/Sim.Cli` | 无头评测/回放 + Python 进程适配器 + `calibrate` 离线标定 |
-| `src/Sim.Calibration` | 纯标定库（拟合器/mount 门控评估/报告指纹），无 IO 副作用于内核 |
+| `src/Sim.Calibration` | 纯标定库（物理拟合器/mount 门控评估/传感器回放评估器/报告指纹），无 IO 副作用于内核 |
 | `src/Sim.Tests` | xUnit 回归 |
 | `godot/` | Godot 4 .NET 桌面壳（已编译验证，见 `godot/README.md`） |
 | `controllers/` | 示例外部策略（JSONL stdio） |
