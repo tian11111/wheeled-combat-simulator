@@ -26,9 +26,13 @@ public sealed class FieldModel
         _center = (_el + _er) / 2;
         _half = (_er - _el) / 2;
         _fieldSize = field.FieldSize;
+        Transform = FieldTransform.FromPose(field.Pose);
     }
 
     public FieldParams Field { get; }
+
+    /// <summary>Field-local → simulation-world transform (identity for legacy layouts).</summary>
+    public FieldTransform Transform { get; }
 
     public double El => _el;
 
@@ -38,15 +42,32 @@ public sealed class FieldModel
 
     public double Half => _half;
 
+    /// <summary>The field center in simulation-world coordinates.</summary>
+    public (double X, double Y) CenterWorld => Transform.LocalToWorldPoint(_center, _center);
+
     /// <summary>Loaded gray grid map, or null when the hand-drawn model is active.</summary>
     public GrayGridMap? GrayMap { get; private set; }
 
-    /// <summary>True when the point is on the platform footprint.</summary>
+    /// <summary>True when the simulation-world point is on the platform footprint.</summary>
     public bool OnPlatform(double x, double y)
+    {
+        var (lx, ly) = Transform.WorldToLocalPoint(x, y);
+        return OnPlatformLocal(lx, ly);
+    }
+
+    /// <summary>True when the field-local point is on the platform footprint.</summary>
+    public bool OnPlatformLocal(double x, double y)
         => x >= _el && x <= _er && y >= _el && y <= _er;
 
-    /// <summary>Legacy hand-drawn gray value (0 walkway, ~300 black band, ~1000 center, 650 red zone).</summary>
+    /// <summary>Legacy hand-drawn gray value (0 walkway, ~300 black band, ~1000 center, 650 red zone) at a world point.</summary>
     public double FieldGray(double x, double y)
+    {
+        var (lx, ly) = Transform.WorldToLocalPoint(x, y);
+        return FieldGrayLocal(lx, ly);
+    }
+
+    /// <summary>Hand-drawn/gray-map value at a field-local point (see <see cref="FieldGray"/>).</summary>
+    public double FieldGrayLocal(double x, double y)
     {
         if (x < _el || x > _er || y < _el || y > _er)
         {
@@ -67,17 +88,32 @@ public sealed class FieldModel
         return g;
     }
 
-    /// <summary>Minimum distance from a point to the platform edge lines.</summary>
+    /// <summary>Minimum distance from a world point to the platform edge lines (rotation invariant).</summary>
     public double DistToNearestEdge(double x, double y)
-        => Math.Min(Math.Min(Math.Abs(x - _el), Math.Abs(x - _er)),
-                    Math.Min(Math.Abs(y - _el), Math.Abs(y - _er)));
+    {
+        var (lx, ly) = Transform.WorldToLocalPoint(x, y);
+        return Math.Min(Math.Min(Math.Abs(lx - _el), Math.Abs(lx - _er)),
+                        Math.Min(Math.Abs(ly - _el), Math.Abs(ly - _er)));
+    }
 
-    /// <summary>Clamps a point to the platform footprint (nearest platform point).</summary>
+    /// <summary>Clamps a world point to the platform footprint, returning a world point.</summary>
     public (double X, double Y) NearestPlatPoint(double x, double y)
+    {
+        var (lx, ly) = Transform.WorldToLocalPoint(x, y);
+        var (nlx, nly) = NearestPlatPointLocal(lx, ly);
+        return Transform.LocalToWorldPoint(nlx, nly);
+    }
+
+    /// <summary>Clamps a field-local point to the platform footprint.</summary>
+    public (double X, double Y) NearestPlatPointLocal(double x, double y)
         => (Js.Clamp(x, _el, _er), Js.Clamp(y, _el, _er));
 
-    /// <summary>Platform step height at a point (display/diagnostic).</summary>
-    public double StageHeightAt(double x, double y) => OnPlatform(x, y) ? Field.PlatformHeight : 0;
+    /// <summary>Platform step height at a world point (display/diagnostic).</summary>
+    public double StageHeightAt(double x, double y)
+    {
+        var (lx, ly) = Transform.WorldToLocalPoint(x, y);
+        return OnPlatformLocal(lx, ly) ? Field.PlatformHeight : 0;
+    }
 
     /// <summary>Loads a measured gray grid map; null restores the hand-drawn model.</summary>
     public void SetGrayMap(GrayGridMap? map) => GrayMap = map;

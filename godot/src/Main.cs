@@ -34,11 +34,14 @@ public partial class Main : Node
     private ArenaVisualizer _visualizer = null!;
     private HudPanel _hud = null!;
     private MatchCamera _camera = null!;
+    private LayoutEditor _editor = null!;
     private FileDialog _fileDialog = null!;
+    private Dictionary<string, RobotModelConfig>? _robotModels;
     private double _replayAlphaAccumulator;
     private int _captureFramesLeft = -1;
     private string _capturePath = "";
     private string _captureStats = "";
+    private int _smokeExit;
 
     public override void _Ready()
     {
@@ -53,12 +56,33 @@ public partial class Main : Node
         SetupDefaultFont();
         BuildFileDialog();
 
+        var userArgs = OS.GetCmdlineUserArgs();
+        var spIndex = Array.IndexOf(userArgs, "--scenario-path");
+        if (spIndex >= 0 && spIndex + 1 < userArgs.Length)
+        {
+            ScenarioPath = Path.GetFullPath(userArgs[spIndex + 1]);
+        }
+
         var scenario = BuildScenario();
         _session = new MatchSession(scenario);
+        ApplyScenarioToShell(scenario);
+
+        _editor = new LayoutEditor { Name = "LayoutEditor" };
+        AddChild(_editor);
+        _editor.Bind(_camera, _visualizer);
+        _editor.Applied += ApplyLayoutScenario;
+        _editor.Closed += RestoreShellScenario;
+        _hud.ConfigureEditor(
+            onApply: () => _editor.RequestApply(),
+            onUndo: () => _editor.RequestUndo(),
+            onRedo: () => _editor.RequestRedo(),
+            onRestore: () => _editor.RequestRestoreOfficial(),
+            onOpen: () => _editor.RequestOpen(),
+            onSave: () => _editor.RequestSave(),
+            onClose: () => _editor.Close());
 
         _hud.ConfigureTimeline(tick => _session.ReplaySeekTick(tick));
 
-        var userArgs = OS.GetCmdlineUserArgs();
         var replayArgIndex = Array.IndexOf(userArgs, "--replay-path");
         var autoReplay = replayArgIndex >= 0 && replayArgIndex + 1 < userArgs.Length
             ? userArgs[replayArgIndex + 1]
@@ -88,15 +112,258 @@ public partial class Main : Node
             GD.Print($"[capture] 30 帧后保存视口到 {_capturePath}");
         }
 
+        LoadRobotModelPreferences(userArgs);
+        ApplyRobotModels();
+
+        if (Array.IndexOf(userArgs, "--edit-smoke") >= 0)
+        {
+            _ = RunEditSmokeAsync();
+            return;
+        }
+
         GD.Print($"[shell] core={MatchEngine.CoreVersion} seed={scenario.Seed}"
             + $" tick={scenario.Field.TickSeconds}s duration={scenario.Field.MatchDuration}s"
             + $" mode={_session.Mode}");
+    }
+
+    // ---------- automated layout-editor smoke (--edit-smoke) ----------
+
+    /// <summary>
+    /// Drives the real editor stack without a human: enter edit mode, rotate
+    /// via injected key actions, undo/redo, select+drag zone and field through
+    /// the same Pick/NudgeSelected paths the mouse uses, restore official,
+    /// apply, and verify the rebuilt session carries the edited geometry.
+    /// </summary>
+    private async Task RunEditSmokeAsync()
+    {
+        var failures = new List<string>();
+        void Check(bool ok, string step)
+        {
+            GD.Print($"[edit-smoke] {(ok ? "ok" : "FAIL")} {step}");
+            if (!ok)
+            {
+                failures.Add(step);
+            }
+        }
+        static bool Near(double a, double b) => Math.Abs(a - b) < 1e-9;
+        static double Deg(double d) => d * Math.PI / 180;
+
+        TryToggleEditor(); // 进入编辑模式 (走真实入口条件检查)
+        Check(_editor.Active, "enter edit mode");
+        if (!_editor.Active)
+        {
+            Finish();
+            return;
+        }
+
+        var draft = _editor.Draft!;
+
+        // Rotate through the injected key-action path (5° steps, snap on).
+        await WaitFrames(2);
+        InjectAction("editor_rotate_cw");
+        await WaitFrames(2);
+        Check(Near(draft.State.Pose.Th, Deg(5)), "rotate +5° via key action");
+        InjectAction("editor_rotate_cw");
+        await WaitFrames(2);
+        Check(Near(draft.State.Pose.Th, Deg(10)), "rotate +5° again");
+        InjectAction("editor_rotate_ccw");
+        await WaitFrames(2);
+        Check(Near(draft.State.Pose.Th, Deg(5)), "rotate -5° (ccw key)");
+
+        // Undo/redo walk the step history (states pushed: 0,5,10; ccw pushed 5 → U=[0,5,10]).
+        InjectAction("editor_undo");
+        await WaitFrames(2);
+        Check(Near(draft.State.Pose.Th, Deg(10)), "undo restores previous step");
+        InjectAction("editor_redo");
+        await WaitFrames(2);
+        Check(Near(draft.State.Pose.Th, Deg(5)), "redo re-applies step");
+        InjectAction("editor_undo");
+        await WaitFrames(2);
+        Check(Near(draft.State.Pose.Th, Deg(10)), "undo again steps back");
+        InjectAction("editor_undo");
+        await WaitFrames(2);
+        Check(Near(draft.State.Pose.Th, Deg(5)), "undo walks the stack");
+        InjectAction("editor_undo");
+        await WaitFrames(2);
+        Check(Near(draft.State.Pose.Th, 0), "undo back to identity");
+
+        // Snap toggle is a HUD-visible switch (snap math is unit-tested headlessly).
+        Check(_editor.InspectorLine.Contains("吸附=开"), "inspector shows snap on");
+        InjectAction("editor_snap_toggle");
+        await WaitFrames(2);
+        Check(_editor.InspectorLine.Contains("吸附=关"), "snap toggle switches");
+        InjectAction("editor_snap_toggle");
+        await WaitFrames(2);
+
+        // Drag the whole field through the same pick/nudge path the mouse uses.
+        _editor.SelectAtGround(1.9, 1.9);
+        _editor.NudgeSelectedBy(0.12, 0.07);
+        Check(Near(draft.State.Pose.X, 0.12) && Near(draft.State.Pose.Y, 0.07),
+            "select field + drag moves field pose");
+        _editor.RequestUndo();
+        Check(Near(draft.State.Pose.X, 0) && Near(draft.State.Pose.Y, 0), "undo field drag");
+
+        // Select the yellow zone (world point via the current pose transform) and drag it.
+        var pose = draft.State.Pose;
+        var t = new Sim.Core.FieldTransform(pose.X, pose.Y, pose.Th);
+        var zone = draft.State.StartZones[RoleNames.Us];
+        var (zwx, zwy) = t.LocalToWorldPoint((zone.MinX + zone.MaxX) / 2, (zone.MinY + zone.MaxY) / 2);
+        _editor.SelectAtGround(zwx, zwy);
+        var startBefore = draft.State.Starts[RoleNames.Us];
+        _editor.NudgeSelectedBy(-0.05, 0.02);
+        var zoneNow = draft.State.StartZones[RoleNames.Us];
+        var startNow = draft.State.Starts[RoleNames.Us];
+        Check(Near(zoneNow.MinX, zone.MinX - 0.05) && Near(zoneNow.MaxY, zone.MaxY + 0.02),
+            "select yellow zone + drag moves zone");
+        Check(Near(startNow.X, startBefore.X - 0.05) && Near(startNow.Y, startBefore.Y + 0.02),
+            "dragging zone drags its start pose");
+
+        // Drag a block; the engine's spawn must follow the frozen coordinate.
+        var block = draft.State.Blocks[0];
+        var (bwx, bwy) = t.LocalToWorldPoint(block.X!.Value, block.Y!.Value);
+        _editor.SelectAtGround(bwx, bwy);
+        _editor.NudgeSelectedBy(-0.04, -0.03);
+        var blockNow = draft.State.Blocks[0];
+        Check(Near(blockNow.X!.Value, block.X.Value - 0.04) && Near(blockNow.Y!.Value, block.Y.Value - 0.03),
+            "select block + drag fixes new position");
+
+        // Restore official must undo everything and stay applicable.
+        _editor.RequestRestoreOfficial();
+        Check(_editor.CanApplyNow && Near(draft.State.Pose.X, 0) && Near(draft.State.Pose.Th, 0),
+            "restore official layout");
+
+        // Edit → apply → the rebuilt session engine runs the edited geometry.
+        _editor.SelectAtGround(1.9, 1.9);
+        _editor.NudgeSelectedBy(0.0, 0.3);
+        InjectAction("editor_rotate_cw");
+        await WaitFrames(2);
+        _editor.RequestApply();
+        await WaitFrames(2);
+        Check(!_editor.Active, "apply closes edit mode");
+        var applied = _session.Engine.Scenario.Field.Pose!;
+        Check(Near(applied.X, 0) && Near(applied.Y, 0.3) && Near(applied.Th, Deg(5)),
+            "applied scenario carries edited pose");
+        var (usX, usY) = new Sim.Core.FieldTransform(applied.X, applied.Y, applied.Th)
+            .LocalToWorldPoint(0.95, 0.3);
+        Check(Near(_session.Engine.Us.X, usX) && Near(_session.Engine.Us.Y, usY),
+            "engine spawn follows applied pose");
+
+        // The applied layout must reproduce bit-for-bit through record + verify.
+        var scenario = _session.Scenario;
+        var recorder = new Sim.Core.MatchEngine(scenario);
+        recorder.Arm();
+        var prints = new List<string>();
+        while (!recorder.Done)
+        {
+            var snap = recorder.Tick();
+            prints.AddRange(snap.Events?.Select(e => $"{e.Seq}|{e.Tick}|{e.Type}|{e.Cls}|{e.Msg}") ?? []);
+        }
+        var recorded = new ReplayFile
+        {
+            Scenario = scenario,
+            Header = recorder.BuildReplayHeader(),
+            Ticks = recorder.TickIndex,
+            FinalScores = recorder.Scores,
+            DoneReason = recorder.CommitSnapshot().DoneReason,
+            EventFingerprints = prints,
+        };
+        Check(ParityCheck.Verify(recorded).Pass, "applied layout passes parity-check");
+
+        Check(failures.Count == 0,
+            failures.Count == 0 ? "all checks passed" : $"failures: {string.Join(" | ", failures)}");
+        Finish();
+        return;
+
+        void Finish()
+        {
+            if (_capturePath.Length == 0)
+            {
+                _capturePath = Path.GetFullPath("docs/desktop-editsmoke-720.png");
+            }
+            _captureFramesLeft = 2;
+            _smokeExit = failures.Count == 0 ? 0 : 1;
+        }
+
+        async Task WaitFrames(int n)
+        {
+            for (var i = 0; i < n; i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+        }
+
+        static void InjectAction(string action)
+        {
+            Input.ParseInputEvent(new InputEventAction { Action = action, Pressed = true });
+            Input.ParseInputEvent(new InputEventAction { Action = action, Pressed = false });
+        }
     }
 
     private Scenario BuildScenario()
         => string.IsNullOrEmpty(ScenarioPath)
             ? new Scenario { Seed = Seed, Blocks = OfficialLayout.Blocks }
             : ProtocolJson.Deserialize<Scenario>(System.IO.File.ReadAllText(ScenarioPath));
+
+    /// <summary>场地几何/位姿变化时刷新静态展示与相机取景 (初始加载、回放、编辑 Apply 共用)。</summary>
+    private void ApplyScenarioToShell(Scenario scenario)
+    {
+        _visualizer.Configure(scenario);
+        var model = new FieldModel(scenario.Field);
+        var (cx, cy) = model.CenterWorld;
+        _camera.ConfigureArena(new Vec3(cx, 0, cy), scenario.Field.FieldSize);
+        ApplyRobotModels();
+    }
+
+    private void ApplyRobotModels()
+    {
+        if (_robotModels is null)
+        {
+            return;
+        }
+        foreach (var role in new[] { RoleNames.Us, RoleNames.Them })
+        {
+            var config = _robotModels.TryGetValue(role, out var c) ? c : null;
+            var error = RobotModelLoader.Apply(_visualizer.RobotRoot(role), config);
+            if (error is not null)
+            {
+                GD.PrintErr($"[models] {role}: {error} (已回退 primitive)");
+            }
+            else if (config is { IsEmpty: false })
+            {
+                GD.Print($"[models] {role}: 已应用外观模型 {config.Path}");
+            }
+        }
+    }
+
+    /// <summary>本地外观偏好 (渲染层, 永不进入 Scenario/回放): --robot-models 参数或 res://robot-models.json。</summary>
+    private void LoadRobotModelPreferences(string[] userArgs)
+    {
+        var index = Array.IndexOf(userArgs, "--robot-models");
+        var path = index >= 0 && index + 1 < userArgs.Length ? userArgs[index + 1] : null;
+        if (path is null && Godot.FileAccess.FileExists("res://robot-models.json"))
+        {
+            path = "res://robot-models.json";
+        }
+        if (path is null)
+        {
+            return;
+        }
+        try
+        {
+            var text = path.StartsWith("res://", StringComparison.Ordinal)
+                ? Godot.FileAccess.GetFileAsString(path)
+                : System.IO.File.ReadAllText(path);
+            _robotModels = ProtocolJson.Deserialize<Dictionary<string, RobotModelConfig>>(text);
+            GD.Print($"[models] 已加载外观偏好: {path}");
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr($"[models] 外观偏好读取失败 {path}: {e.Message}");
+        }
+    }
+
+    private RenderFrame Project(Snapshot snapshot)
+        => SnapshotView.From(snapshot, _session.Engine.Scenario.Field.PlatformHeight);
 
     private static void SetupDefaultFont()
     {
@@ -134,15 +401,21 @@ public partial class Main : Node
         }
         HandleCommands();
 
-        if (_session.Mode == SessionMode.Live)
+        if (_editor.Active)
+        {
+            // 编辑模式: 只展示草稿预览帧, 不推进任何仿真时钟。
+            Present(_editor.PreviewFrame
+                ?? SnapshotView.From(_session.Engine.CommitSnapshot(), _session.Engine.Scenario.Field.PlatformHeight));
+        }
+        else if (_session.Mode == SessionMode.Live)
         {
             if (_session.StepLive(delta, out var snapshot))
             {
-                Present(snapshot is not null ? SnapshotView.From(snapshot) : EmptyFrame());
+                Present(snapshot is not null ? Project(snapshot) : EmptyFrame());
             }
             else
             {
-                Present(_session.LatestSnapshot is { } snap ? SnapshotView.From(snap) : EmptyFrame());
+                Present(_session.LatestSnapshot is { } snap ? Project(snap) : EmptyFrame());
             }
         }
         else
@@ -196,7 +469,7 @@ public partial class Main : Node
             _captureStats = DumpPixelStats(img);
             GD.Print($"[capture] saved {_capturePath} {img.GetWidth()}x{img.GetHeight()}");
             GD.Print($"[capture] stats: {_captureStats}");
-            GetTree().Quit(0);
+            GetTree().Quit(_smokeExit);
         }
         catch (Exception e)
         {
@@ -211,7 +484,7 @@ public partial class Main : Node
         var buckets = new Dictionary<string, int>
         {
             ["us"] = 0, ["them"] = 0, ["buff"] = 0, ["debuff"] = 0,
-            ["platform"] = 0, ["floor"] = 0,
+            ["platform"] = 0, ["floor"] = 0, ["model"] = 0,
         };
         var w = img.GetWidth();
         var h = img.GetHeight();
@@ -220,7 +493,11 @@ public partial class Main : Node
             for (var x = 0; x < w; x++)
             {
                 var c = img.GetPixel(x, y);
-                if (Close(c, UsColor) || Close(c, ThemColor))
+                if (c.R > 0.6f && c.B > 0.6f && c.G < 0.45f)
+                {
+                    buckets["model"]++; // 品红测试模型 (robot-cube.gltf)
+                }
+                else if (Close(c, UsColor) || Close(c, ThemColor))
                 {
                     buckets[Close(c, UsColor) ? "us" : "them"]++;
                 }
@@ -263,6 +540,8 @@ public partial class Main : Node
             _session.ReplayCache.Count,
             _session.ReplayPlaying,
             _camera.Mode);
+        _hud.UpdateEditor(_editor.Active, _editor.SelectedLabel, _editor.InspectorLine,
+            _editor.StatusLine, _editor.CanApplyNow);
     }
 
     private static RenderFrame EmptyFrame() => new()
@@ -273,9 +552,18 @@ public partial class Main : Node
 
     private void HandleCommands()
     {
+        if (Input.IsActionJustPressed("editor_toggle"))
+        {
+            TryToggleEditor();
+            return;
+        }
         if (Input.IsActionJustPressed("camera_cycle"))
         {
             _camera.CycleMode();
+        }
+        if (_editor.Active)
+        {
+            return; // 编辑模式屏蔽比赛/回放控制, 防止边跑边改
         }
 
         if (_session.Mode == SessionMode.Replay)
@@ -284,6 +572,43 @@ public partial class Main : Node
             return;
         }
         HandleLiveCommands();
+    }
+
+    private void TryToggleEditor()
+    {
+        if (_editor.Active)
+        {
+            _editor.Close();
+            GD.Print("[editor] 退出布局编辑 (未应用的改动不生效)");
+            return;
+        }
+        if (_session.Mode == SessionMode.Replay)
+        {
+            GD.Print("[editor] 回放模式不能编辑布局: 按 F5 回到实况");
+            return;
+        }
+        var engine = _session.Engine;
+        if (engine.TickIndex > 0 || engine.Phase != MatchControlPhase.Prep)
+        {
+            GD.Print("[editor] 比赛已进行中: 按 F5 重置为同 seed 新比赛后再编辑布局");
+            return;
+        }
+        _editor.Enter(_session.ScenarioWithResolvedBlocks());
+        GD.Print("[editor] 进入布局编辑: 点击选择, 拖动移动, [ ] 旋转, S 吸附, Ctrl+Z/Y 撤销/重做, Enter 应用, E 退出");
+    }
+
+    private void ApplyLayoutScenario(Scenario scenario)
+    {
+        _session = new MatchSession(scenario);
+        ApplyScenarioToShell(scenario);
+        _editor.Close();
+        GD.Print($"[editor] 布局已应用: pose=({scenario.Field.Pose?.X ?? 0:0.00},{scenario.Field.Pose?.Y ?? 0:0.00},{scenario.Field.Pose?.Th ?? 0:0.00}rad)"
+            + $" 能量块已冻结为固定坐标 (seed={scenario.Seed})");
+    }
+
+    private void RestoreShellScenario()
+    {
+        ApplyScenarioToShell(_session.Engine.Scenario);
     }
 
     private void HandleLiveCommands()
@@ -369,6 +694,8 @@ public partial class Main : Node
         {
             var file = ProtocolJson.Deserialize<ReplayFile>(System.IO.File.ReadAllText(path));
             _session.LoadReplay(file);
+            // 回放文件内嵌完整场景: 展示几何跟随它, 保证与录制端同一场地。
+            ApplyScenarioToShell(file.Scenario);
             _replayAlphaAccumulator = 0;
             GD.Print($"[replay] 已加载 {path}: {file.Ticks} ticks, {file.EventFingerprints.Count} 事件"
                 + $" (得分 {file.FinalScores.Us:0.#}:{file.FinalScores.Them:0.#})");

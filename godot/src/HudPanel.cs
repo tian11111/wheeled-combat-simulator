@@ -17,6 +17,11 @@ public partial class HudPanel : Control
     private Label? _replayTick;
     private HSlider? _timeline;
     private Button? _playButton;
+    private PanelContainer? _editorBar;
+    private Label? _editorInfo;
+    private Label? _editorStatus;
+    private Button? _editorApply;
+    private bool _editorActive;
 
     public override void _Ready()
     {
@@ -39,6 +44,116 @@ public partial class HudPanel : Control
         AddChild(_help);
 
         BuildReplayBar();
+        BuildEditorBar();
+    }
+
+    /// <summary>顶栏: 布局编辑模式的选择/数值检视 + 操作按钮 (Main 在编辑器激活时刷新)。</summary>
+    private void BuildEditorBar()
+    {
+        _editorBar = new PanelContainer();
+        var bar = (Control)_editorBar;
+        bar.AnchorLeft = 0.5f;
+        bar.AnchorRight = 0.5f;
+        bar.GrowHorizontal = GrowDirection.Both;
+        bar.OffsetLeft = -330;
+        bar.OffsetRight = 330;
+        bar.OffsetTop = 12;
+        bar.OffsetBottom = 150;
+        AddChild(_editorBar);
+
+        var vbox = new VBoxContainer();
+        vbox.AddThemeConstantOverride("separation", 4);
+        _editorBar.AddChild(vbox);
+
+        _editorInfo = new Label { CustomMinimumSize = new Vector2(0, 22) };
+        _editorInfo.AddThemeFontSizeOverride("font_size", 14);
+        vbox.AddChild(_editorInfo);
+
+        _editorStatus = new Label { CustomMinimumSize = new Vector2(0, 20) };
+        _editorStatus.AddThemeFontSizeOverride("font_size", 13);
+        _editorStatus.AddThemeColorOverride("font_color", new Color(1f, 0.8f, 0.45f));
+        vbox.AddChild(_editorStatus);
+
+        var hbox = new HBoxContainer();
+        hbox.AddThemeConstantOverride("separation", 6);
+        vbox.AddChild(hbox);
+        _editorApply = AddEditorButton(hbox, "应用布局 (Enter)");
+        AddEditorButton(hbox, "撤销 Ctrl+Z");
+        AddEditorButton(hbox, "重做 Ctrl+Y");
+        AddEditorButton(hbox, "恢复官方");
+        AddEditorButton(hbox, "打开场景");
+        AddEditorButton(hbox, "另存为");
+        AddEditorButton(hbox, "退出编辑 (E)");
+        _editorBar.Visible = false;
+    }
+
+    private static Button AddEditorButton(HBoxContainer parent, string text)
+    {
+        var button = new Button
+        {
+            Text = text,
+            CustomMinimumSize = new Vector2(72, 30),
+            FocusMode = FocusModeEnum.None,
+        };
+        parent.AddChild(button);
+        return button;
+    }
+
+    /// <summary>Wires editor-bar buttons to shell callbacks (called once by Main after Bind).</summary>
+    public void ConfigureEditor(Action onApply, Action onUndo, Action onRedo, Action onRestore,
+        Action onOpen, Action onSave, Action onClose)
+    {
+        var buttons = new List<Button>();
+        CollectButtons(_editorBar!, buttons);
+        // 顺序与 BuildEditorBar 添加顺序一致: 应用/撤销/重做/恢复/打开/另存/退出。
+        var handlers = new Action[] { onApply, onUndo, onRedo, onRestore, onOpen, onSave, onClose };
+        for (var i = 0; i < buttons.Count && i < handlers.Length; i++)
+        {
+            var handler = handlers[i];
+            buttons[i].Pressed += () => handler();
+        }
+    }
+
+    private static void CollectButtons(Node parent, List<Button> result)
+    {
+        foreach (var child in parent.GetChildren())
+        {
+            if (child is Button button)
+            {
+                result.Add(button);
+            }
+            else
+            {
+                CollectButtons(child, result);
+            }
+        }
+    }
+
+    /// <summary>Refreshes editor-bar content; hidden when not editing.</summary>
+    public void UpdateEditor(bool active, string selected, string inspector, string status, bool canApply)
+    {
+        _editorActive = active;
+        if (_editorBar is null)
+        {
+            return;
+        }
+        _editorBar.Visible = active;
+        if (!active)
+        {
+            return;
+        }
+        if (_editorInfo is not null)
+        {
+            _editorInfo.Text = $"选中: {selected} · {inspector}";
+        }
+        if (_editorStatus is not null)
+        {
+            _editorStatus.Text = string.IsNullOrEmpty(status) ? "拖动选择对象 · [ ] 旋转场地 · ←→↑↓ 微调" : status;
+        }
+        if (_editorApply is not null)
+        {
+            _editorApply.Disabled = !canApply;
+        }
     }
 
     private void BuildReplayBar()
@@ -142,10 +257,14 @@ public partial class HudPanel : Control
 
         _help!.Text =
             $"镜头 {CameraName(camera)}  (C 切换)"
-            + "\nEnter 发令 · P 暂停/继续"
-            + "\nR 我方重启 · T 对手重启 (+4)"
-            + "\nF5 重置同 seed · L 打开回放"
-            + (mode == SessionMode.Replay
+            + (_editorActive
+                ? "\n编辑模式: 拖动选择/移动对象"
+                : mode == SessionMode.Replay
+                    ? ""
+                    : "\nEnter 发令 · P 暂停/继续")
+            + (_editorActive ? "" : "\nR 我方重启 · T 对手重启 (+4)")
+            + (_editorActive ? "\nE 退出编辑" : "\nF5 重置同 seed · L 打开回放")
+            + (mode == SessionMode.Replay && !_editorActive
                 ? "\n空格 播放/暂停 · ←→ 单步"
                 : "");
 

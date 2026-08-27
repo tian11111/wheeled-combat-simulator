@@ -1,26 +1,25 @@
 // 纯展示层: 把 SnapshotView 投影出的 RenderFrame 摆到场景里。所有网格由基本
 // 图元程序化生成; Godot 物理只做静态摆放, 不参与判分 (design: 非权威)。
-// 场地几何只用于视觉: 平台 [0.7,3.1]^2 高 0.06, 外围走道 3.8×3.8, 与
-// FieldParams 官方默认一致 (视觉常量与内核参数同源, 已在注释中标注)。
+//
+// 场地几何完全来自 Scenario (ArenaVisualizer.Configure): 外场/擂台/走道/围栏/
+// 出发区/能量块尺寸均读取 FieldParams, 不存在第二份官方常量。场地的整体平移与
+// 旋转 (field.pose) 通过 ArenaRoot 节点变换呈现; 机器人和能量块使用仿真世界
+// 坐标, 挂在 ArenaVisualizer 根下, 不受 ArenaRoot 变换影响。
+// 台面灰度纹理由 FieldModel.FieldGray (与灰度传感器同源的手绘模型) 生成,
+// 中央红区+白"武"为纯视觉元素, 不改变任何判定。
 
 using Godot;
+using Sim.Core;
+using Sim.Protocol;
 
 namespace Sim.GodotShell;
 
 public partial class ArenaVisualizer : Node3D
 {
-    private const float ArenaSize = 3.8f;          // FieldParams.FieldSize
-    private const float PlatformMin = 0.7f;        // FieldParams.Platform.MinX/MinY
-    private const float PlatformMax = 3.1f;        // FieldParams.Platform.MaxX/MaxY
-    private const float PlatformTop = 0.06f;       // FieldParams.PlatformHeight
-    private const float BlockSize = 0.15f;         // 能量块 15 cm
-    private const float RobotRadius = 0.09f;       // VehicleProfile.CollisionRadius 默认
-    private const float RobotHeight = 0.05f;
+    private const float WallThickness = 0.04f;
 
     private static readonly Color FloorColor = new(0.16f, 0.18f, 0.22f);
-    private static readonly Color WalkwayColor = new(0.34f, 0.36f, 0.41f);
-    private static readonly Color PlatformColor = new(0.88f, 0.90f, 0.93f);
-    private static readonly Color BandColor = new(0.16f, 0.17f, 0.19f);
+    private static readonly Color PlatformSideColor = new(0.55f, 0.56f, 0.60f);
     private static readonly Color RedZoneColor = new(0.62f, 0.22f, 0.20f);
     private static readonly Color UsColor = new(0.28f, 0.48f, 0.95f);
     private static readonly Color ThemColor = new(0.92f, 0.30f, 0.28f);
@@ -29,108 +28,239 @@ public partial class ArenaVisualizer : Node3D
     private static readonly Color OutColor = new(0.45f, 0.45f, 0.48f);
     private static readonly Color RingOn = new(0.35f, 0.92f, 0.45f);
     private static readonly Color RingOff = new(0.42f, 0.44f, 0.50f);
+    private static readonly Color StartZoneUs = new(0.95f, 0.85f, 0.15f);   // 纯黄出发区
+    private static readonly Color StartZoneThem = new(0.15f, 0.35f, 0.95f); // 纯蓝出发区
 
-    private MeshInstance3D? _platform;
-    private MeshInstance3D? _redZone;
-    private readonly List<MeshInstance3D> _walls = [];
+    private Node3D? _arenaRoot;
     private readonly List<MeshInstance3D> _blockNodes = [];
+    private readonly List<MeshInstance3D> _blockMaterials = [];
     private Node3D? _usRoot;
     private Node3D? _themRoot;
     private MeshInstance3D? _usRing;
     private MeshInstance3D? _themRing;
-    private readonly List<MeshInstance3D> _blockMaterials = [];
+    private float _blockSize = 0.15f;
 
-    private void BuildArena()
+    private Scenario? _scenario;
+
+    /// <summary>The scenario the arena was last configured from (null before the first Configure).</summary>
+    public Scenario? CurrentScenario => _scenario;
+
+    /// <summary>Robot visual root node for a role (null before Configure).</summary>
+    public Node3D? RobotRoot(string role) => role == RoleNames.Us ? _usRoot : _themRoot;
+
+    public override void _Ready()
     {
-        // 走道地面 (arena 全幅 3.8×3.8)。
-        var floor = MakeBox(FloorColor, new Vector3(ArenaSize, 0.02f, ArenaSize), new Vector3(1.9f, -0.012f, 1.9f));
-        AddChild(floor);
+        // 机器人在 Configure 时按场景碰撞半径构建; 未配置时保持空场景。
+        _arenaRoot = new Node3D { Name = "ArenaRoot" };
+        AddChild(_arenaRoot);
+    }
 
-        // 擂台 (6 cm 高, 2.4×2.4)。
-        _platform = MakeBox(PlatformColor, new Vector3(PlatformMax - PlatformMin, PlatformTop, PlatformMax - PlatformMin),
-            new Vector3(ArenaSize / 2, PlatformTop / 2, ArenaSize / 2));
-        AddChild(_platform);
+    /// <summary>Rebuilds the static arena geometry (and robot visuals on first call) from a scenario.</summary>
+    public void Configure(Scenario scenario)
+    {
+        ArgumentNullException.ThrowIfNull(scenario);
+        _scenario = scenario;
+        RebuildArena(scenario);
 
-        // 擂台顶面黑带: 沿平台边缘的四条细框, 沿用 FieldGray 的"黑边≈300"视觉。
-        var top = PlatformTop + 0.001f;
-        const float bandThickness = 0.06f;
-        foreach (var (cx, cz, sx, sz) in new[]
+        if (_usRoot is null)
         {
-            (1.9f, PlatformMin + bandThickness / 2, PlatformMax - PlatformMin, bandThickness),  // 南
-            (1.9f, PlatformMax - bandThickness / 2, PlatformMax - PlatformMin, bandThickness),  // 北
-            (PlatformMin + bandThickness / 2, 1.9f, bandThickness, PlatformMax - PlatformMin),  // 西
-            (PlatformMax - bandThickness / 2, 1.9f, bandThickness, PlatformMax - PlatformMin),  // 东
-        })
-        {
-            AddChild(MakeBox(BandColor, new Vector3(sx, 0.004f, sz), new Vector3(cx, top, cz)));
-        }
+            var usRadius = RobotRadiusFor(scenario, RoleNames.Us);
+            var themRadius = RobotRadiusFor(scenario, RoleNames.Them);
+            _usRoot = BuildRobot(UsColor, usRadius);
+            _usRoot.Name = "UsRobot";
+            AddChild(_usRoot);
+            _usRing = (MeshInstance3D)_usRoot.GetChild(3);
 
-        // 中央红区 (FieldGray 中心 0.6×0.6 "武" 区域)。
-        _redZone = MakeBox(RedZoneColor, new Vector3(0.6f, 0.004f, 0.6f), new Vector3(1.9f, top, 1.9f));
-        AddChild(_redZone);
-
-        // 场地四边护栏 (视觉接地, 0.12 m 高)。
-        foreach (var (cx, cz, sx, sz) in new[]
-        {
-            (1.9f, -0.02f, ArenaSize, 0.04f),
-            (1.9f, ArenaSize + 0.02f, ArenaSize, 0.04f),
-            (-0.02f, 1.9f, 0.04f, ArenaSize),
-            (ArenaSize + 0.02f, 1.9f, 0.04f, ArenaSize),
-        })
-        {
-            var wall = MakeBox(BandColor, new Vector3(sx, 0.12f, sz), new Vector3(cx, 0.06f, cz));
-            AddChild(wall);
-            _walls.Add(wall);
+            _themRoot = BuildRobot(ThemColor, themRadius);
+            _themRoot.Name = "ThemRobot";
+            AddChild(_themRoot);
+            _themRing = (MeshInstance3D)_themRoot.GetChild(3);
         }
     }
 
-    private Node3D BuildRobot(Color bodyColor)
+    private static float RobotRadiusFor(Scenario scenario, string role)
+        => scenario.Vehicles.TryGetValue(role, out var v) && v is not null && v.CollisionRadius > 0
+            ? (float)v.CollisionRadius
+            : 0.09f;
+
+    // ---------- arena construction ----------
+
+    private void RebuildArena(Scenario scenario)
     {
+        var root = _arenaRoot!;
+        foreach (var child in root.GetChildren())
+        {
+            child.QueueFree();
+        }
+
+        var field = scenario.Field;
+        _blockSize = (float)field.BlockSize;
+
+        // 场地位姿: field-local → 仿真世界 (与 FieldModel 同一变换)。
+        var pose = field.Pose;
+        root.Position = new Vector3((float)(pose?.X ?? 0), 0, (float)(pose?.Y ?? 0));
+        root.Rotation = new Vector3(0, -(float)(pose?.Th ?? 0), 0);
+
+        BuildFloor(root, field);
+        BuildPlatform(root, field);
+        BuildStartZones(root, field);
+        BuildFence(root, field);
+    }
+
+    private void BuildFloor(Node3D root, FieldParams field)
+    {
+        var size = (float)field.FieldSize;
+        // 黑色哑光走道地面 (整幅外场, 擂台盖在上面)。
+        root.AddChild(MakeBox(FloorColor,
+            new Vector3(size, 0.02f, size), new Vector3(size / 2, -0.012f, size / 2)));
+    }
+
+    private void BuildPlatform(Node3D root, FieldParams field)
+    {
+        var model = new FieldModel(field);
+        var el = (float)field.Platform.MinX;
+        var span = (float)(field.Platform.MaxX - field.Platform.MinX);
+        var center = el + span / 2;
+        var top = (float)field.PlatformHeight;
+
+        // 擂台主体 (6 cm 高, 官方 2.4×2.4)。
+        root.AddChild(MakeBox(PlatformSideColor,
+            new Vector3(span, top, span), new Vector3(center, top / 2, center)));
+
+        // 顶面灰度纹理: 与内核 FieldGray 手绘模型同源 (角黑→心白, 中央 0.6×0.6 红区)。
+        var surface = new MeshInstance3D
+        {
+            Mesh = new PlaneMesh { Size = new Vector2(span, span) },
+            MaterialOverride = MakeTexturedMaterial(MakeFieldGrayTexture(model, field)),
+        };
+        surface.Position = new Vector3(center, top + 0.001f, center);
+        // PlaneMesh 默认朝 +Y 且 UV 与局部 X/Z 对应; sim 的 y 轴向上 → 翻转 V。
+        root.AddChild(surface);
+
+        // 中央白"武" (纯视觉, 与灰度传感器无关)。
+        var wu = new Label3D
+        {
+            Text = "武",
+            FontSize = 128,
+            Modulate = new Color(0.96f, 0.96f, 0.96f),
+            OutlineSize = 6,
+            Position = new Vector3(center, top + 0.004f, center),
+            Rotation = new Vector3(-Mathf.Pi / 2, 0, 0),
+        };
+        root.AddChild(wu);
+    }
+
+    private void BuildStartZones(Node3D root, FieldParams field)
+    {
+        foreach (var (role, color) in new[]
+        {
+            (RoleNames.Us, StartZoneUs), (RoleNames.Them, StartZoneThem),
+        })
+        {
+            if (!field.StartZones.TryGetValue(role, out var zone) || zone is null)
+            {
+                continue;
+            }
+            var sx = (float)(zone.MaxX - zone.MinX);
+            var sz = (float)(zone.MaxY - zone.MinY);
+            root.AddChild(MakeBox(color, new Vector3(sx, 0.005f, sz),
+                new Vector3((float)((zone.MinX + zone.MaxX) / 2), 0.003f, (float)((zone.MinY + zone.MaxY) / 2))));
+        }
+    }
+
+    private void BuildFence(Node3D root, FieldParams field)
+    {
+        var size = (float)field.FieldSize;
+        var height = (float)field.FenceHeight;
+        var t = WallThickness;
+        foreach (var (cx, cz, sx, sz) in new[]
+        {
+            (size / 2, -t / 2, size + t * 2, t),
+            (size / 2, size + t / 2, size + t * 2, t),
+            (-t / 2, size / 2, t, size + t * 2),
+            (size + t / 2, size / 2, t, size + t * 2),
+        })
+        {
+            root.AddChild(MakeBox(FloorColor.Darkened(0.05f),
+                new Vector3(sx, height, sz), new Vector3(cx, height / 2, cz)));
+        }
+    }
+
+    /// <summary>
+    /// Generates the platform top-surface texture by sampling the same
+    /// hand-drawn gray model the sensors use: gray ramp + red center square.
+    /// </summary>
+    private static ImageTexture MakeFieldGrayTexture(FieldModel model, FieldParams field)
+    {
+        const int resolution = 128;
+        var min = field.Platform.MinX;
+        var max = field.Platform.MaxX;
+        var span = max - min;
+        var image = Image.CreateEmpty(resolution, resolution, false, Image.Format.Rgb8);
+        for (var py = 0; py < resolution; py++)
+        {
+            // Image V 轴向下; 场 y 向上 → 用 (height-1-py) 采样保持北在上。
+            var y = max - (py + 0.5) / resolution * span;
+            for (var px = 0; px < resolution; px++)
+            {
+                var x = min + (px + 0.5) / resolution * span;
+                var gray = model.FieldGrayLocal(x, y);
+                Color color;
+                if (Math.Abs(x - model.Center) < 0.30 && Math.Abs(y - model.Center) < 0.30)
+                {
+                    color = RedZoneColor; // 中央红区 (白"武"由 Label3D 叠加)
+                }
+                else
+                {
+                    var v = (float)Math.Clamp(gray / 1000.0, 0.0, 1.0);
+                    color = new Color(v, v, v);
+                }
+                image.SetPixel(px, py, color);
+            }
+        }
+        return ImageTexture.CreateFromImage(image);
+    }
+
+    // ---------- dynamic entities ----------
+
+    private Node3D BuildRobot(Color bodyColor, float radius)
+    {
+        const float robotHeight = 0.05f;
         var root = new Node3D();
         var body = MakeMesh(new CylinderMesh
         {
-            TopRadius = RobotRadius,
-            BottomRadius = RobotRadius,
-            Height = RobotHeight,
+            TopRadius = radius,
+            BottomRadius = radius,
+            Height = robotHeight,
         }, bodyColor);
-        body.Position = new Vector3(0, RobotHeight / 2, 0);
+        body.Name = "Body"; // RobotModelLoader 导入成功后隐藏它 (登台环保留)
+        body.Position = new Vector3(0, robotHeight / 2, 0);
         root.AddChild(body);
 
         // 车头指示: 与机身同色的短箭头, 沿 +Z (Godot 前向)。
-        var nose = MakeBox(bodyColor.Lightened(0.25f), new Vector3(0.05f, 0.018f, 0.12f), Vector3.Zero);
-        nose.Position = new Vector3(0, RobotHeight - 0.008f, RobotRadius + 0.02f);
+        var nose = MakeBox(bodyColor.Lightened(0.25f),
+            new Vector3(0.05f, 0.018f, 0.12f), Vector3.Zero);
+        nose.Name = "Nose";
+        nose.Position = new Vector3(0, robotHeight - 0.008f, radius + 0.02f);
         root.AddChild(nose);
 
         // 推铲示意: 机身前缘加宽低框。
-        var shovel = MakeBox(bodyColor.Darkened(0.15f), new Vector3(0.16f, 0.02f, 0.03f), Vector3.Zero);
-        shovel.Position = new Vector3(0, RobotHeight - 0.02f, RobotRadius + 0.025f);
+        var shovel = MakeBox(bodyColor.Darkened(0.15f),
+            new Vector3(radius * 1.78f, 0.02f, 0.03f), Vector3.Zero);
+        shovel.Name = "Shovel";
+        shovel.Position = new Vector3(0, robotHeight - 0.02f, radius + 0.025f);
         root.AddChild(shovel);
 
         // 登台指示环 (绿=在台上, 灰=不在)。
         var ring = MakeMesh(new CylinderMesh
         {
-            TopRadius = RobotRadius + 0.045f,
-            BottomRadius = RobotRadius + 0.045f,
+            TopRadius = radius + 0.045f,
+            BottomRadius = radius + 0.045f,
             Height = 0.004f,
         }, RingOff);
         ring.Position = new Vector3(0, 0.002f, 0);
         root.AddChild(ring);
         return root;
-    }
-
-    public override void _Ready()
-    {
-        BuildArena();
-
-        _usRoot = BuildRobot(UsColor);
-        _usRoot.Name = "UsRobot";
-        AddChild(_usRoot);
-        _usRing = (MeshInstance3D)_usRoot.GetChild(2);
-
-        _themRoot = BuildRobot(ThemColor);
-        _themRoot.Name = "ThemRobot";
-        AddChild(_themRoot);
-        _themRing = (MeshInstance3D)_themRoot.GetChild(2);
     }
 
     public void ShowFrame(RenderFrame frame)
@@ -142,10 +272,10 @@ public partial class ArenaVisualizer : Node3D
         {
             var block = frame.Blocks[i];
             var node = _blockNodes[i];
-            // 快照给出的 Up 是块底 (台上 0.06 / 台下 0), 方块中心抬高半个边长。
+            // 快照给出的 Up 是块底 (台上 = PlatformHeight / 台下 0), 中心抬高半个边长。
             node.Position = new Vector3(
                 (float)block.Position.X,
-                (float)block.Position.Up + BlockSize / 2,
+                (float)block.Position.Up + _blockSize / 2,
                 (float)block.Position.Z);
             node.Visible = true;
             _blockMaterials[i].MaterialOverride = MakeMaterial(block.Out ? OutColor
@@ -172,7 +302,7 @@ public partial class ArenaVisualizer : Node3D
     {
         while (_blockNodes.Count < count)
         {
-            var mesh = MakeMesh(new BoxMesh { Size = new Vector3(BlockSize, BlockSize, BlockSize) }, OutColor);
+            var mesh = MakeMesh(new BoxMesh { Size = new Vector3(_blockSize, _blockSize, _blockSize) }, OutColor);
             AddChild(mesh);
             _blockNodes.Add(mesh);
             _blockMaterials.Add(mesh);
@@ -202,6 +332,18 @@ public partial class ArenaVisualizer : Node3D
             AlbedoColor = color,
             Roughness = 0.85f,
             Metallic = 0.0f,
+        };
+        return material;
+    }
+
+    private static StandardMaterial3D MakeTexturedMaterial(Texture2D texture)
+    {
+        var material = new StandardMaterial3D
+        {
+            AlbedoTexture = texture,
+            Roughness = 0.85f,
+            Metallic = 0.0f,
+            VertexColorUseAsAlbedo = false,
         };
         return material;
     }

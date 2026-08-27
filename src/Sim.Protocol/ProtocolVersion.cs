@@ -21,4 +21,11 @@ public static class ProtocolVersion
 
     /// <summary>Version tag of the replay file format (ReplayHeader).</summary>
     public const string ReplayFormat = "replay-v1";
+
+    /// <summary>
+    /// Version tag of the arena layout extension (Scenario.layoutVersion and
+    /// the optional field pose in Scenario.field.pose). Scenario files without
+    /// any layoutVersion tag are legacy identity layouts and stay valid.
+    /// </summary>
+    public const string ArenaLayoutV1 = "arena-layout-v1";
 }

@@ -23,3 +23,6 @@ __pycache__/
 
 # Godot editor cache (generated on first open)
 godot/.godot/
+
+# Godot reimport metadata for evidence screenshots (regenerated on editor open)
+godot/docs/*.png.import

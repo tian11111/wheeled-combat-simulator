@@ -71,8 +71,15 @@ public sealed record RenderFrame
 /// <summary>Pure mapping + interpolation helpers over snapshots.</summary>
 public static class SnapshotView
 {
+    /// <summary>Official 2026 platform step height (m); the shell should pass
+    /// <c>Scenario.Field.PlatformHeight</c> instead of relying on this default.</summary>
+    public const double DefaultPlatformHeight = 0.06;
+
     /// <summary>Projects a snapshot into a render frame.</summary>
-    public static RenderFrame From(Snapshot snapshot, int maxRecentEvents = 6)
+    public static RenderFrame From(
+        Snapshot snapshot,
+        double platformHeight = DefaultPlatformHeight,
+        int maxRecentEvents = 6)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
@@ -84,11 +91,11 @@ public static class SnapshotView
         {
             foreach (var buff in objects.Buffs)
             {
-                blocks.Add(ToBlockVisual("buff", buff));
+                blocks.Add(ToBlockVisual("buff", buff, platformHeight));
             }
             if (objects.Debuff is { } debuff)
             {
-                blocks.Add(ToBlockVisual("debuff", debuff));
+                blocks.Add(ToBlockVisual("debuff", debuff, platformHeight));
             }
         }
 
@@ -174,11 +181,11 @@ public static class SnapshotView
         };
     }
 
-    private static BlockVisual ToBlockVisual(string kind, EnergyBlockView block) => new()
+    private static BlockVisual ToBlockVisual(string kind, EnergyBlockView block, double platformHeight) => new()
     {
         Kind = kind,
         // Blocks sit on the ground / platform surface; height is purely visual.
-        Position = new Vec3(block.X, block.OnPlatform ? 0.06 : 0.0, block.Y),
+        Position = new Vec3(block.X, block.OnPlatform ? platformHeight : 0.0, block.Y),
         OnPlatform = block.OnPlatform,
         Out = block.Out == true,
     };

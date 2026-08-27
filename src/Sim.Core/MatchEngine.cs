@@ -105,26 +105,35 @@ public sealed class MatchEngine
         _sensors.SampleSensorsFor(_them);
     }
 
+    /// <summary>
+    /// Spawns a robot. Scenario start poses are field-local (see
+    /// <see cref="FieldModel.Transform"/>); runtime state is world-space.
+    /// </summary>
     private RobotRuntime CreateRobot(string role, string name, Pose2 start, VehicleProfile vehicle)
-        => new()
+    {
+        var t = _field.Transform;
+        var (x, y) = t.LocalToWorldPoint(start.X, start.Y);
+        return new()
         {
             Role = role,
             Name = name,
-            X = start.X,
-            Y = start.Y,
-            Th = start.Th,
+            X = x,
+            Y = y,
+            Th = t.LocalToWorldHeading(start.Th),
             Vehicle = vehicle,
             R = vehicle.CollisionRadius,
-            ZG = _field.StageHeightAt(start.X, start.Y),
-            StallAnchorX = start.X,
-            StallAnchorY = start.Y,
+            ZG = _field.StageHeightAt(x, y),
+            StallAnchorX = x,
+            StallAnchorY = y,
         };
+    }
 
     /// <summary>
-    /// Block layout: fixed scenario coordinates freeze the layout; null
-    /// coordinates fall back to the legacy defaults and then the seeded
-    /// <c>respawnBlock</c> placement (20 attempts, rejecting positions within
-    /// 0.8 m of either robot or inside the central 0.6 m zone).
+    /// Block layout: fixed scenario coordinates are field-local and freeze
+    /// the layout; null coordinates fall back to the legacy defaults and then
+    /// the seeded <c>respawnBlock</c> placement (20 attempts in field-local
+    /// coordinates, rejecting positions within 0.8 m of either robot or inside
+    /// the central 0.6 m zone). Runtime positions are world-space.
     /// </summary>
     private List<BlockRuntime> CreateBlocks(Scenario scenario, RobotRuntime us, RobotRuntime them)
     {
@@ -152,6 +161,8 @@ public sealed class MatchEngine
             }
             else
             {
+                // spec coordinates are field-local; map into the world once.
+                (block.X, block.Y) = _field.Transform.LocalToWorldPoint(block.X, block.Y);
                 block.WasOn = _field.OnPlatform(block.X, block.Y);
             }
             blocks.Add(block);
@@ -161,18 +172,21 @@ public sealed class MatchEngine
 
     private void RespawnBlock(BlockRuntime block, RobotRuntime us, RobotRuntime them)
     {
+        // Deterministic placement happens in field-local coordinates so the
+        // seeded draw order never depends on the field pose.
+        var (ux, uy) = _field.Transform.WorldToLocalPoint(us.X, us.Y);
+        var (tx, ty) = _field.Transform.WorldToLocalPoint(them.X, them.Y);
         var el = _field.El;
         var span = 2 * _field.Half - 0.7;
         for (var i = 0; i < 20; i++)
         {
             var x = el + 0.35 + _rng.Next() * span;
             var y = el + 0.35 + _rng.Next() * span;
-            var distUs = Js.Hypot(us.X - x, us.Y - y);
-            var distThem = Js.Hypot(them.X - x, them.Y - y);
+            var distUs = Js.Hypot(ux - x, uy - y);
+            var distThem = Js.Hypot(tx - x, ty - y);
             if (Math.Min(distUs, distThem) > 0.8 && !(x > 1.6 && x < 2.2 && y > 1.6 && y < 2.2))
             {
-                block.X = x;
-                block.Y = y;
+                (block.X, block.Y) = _field.Transform.LocalToWorldPoint(x, y);
                 break;
             }
         }
@@ -535,12 +549,14 @@ public sealed class MatchEngine
         if (usDrop)
         {
             _us.DropPending = true;
-            _us.Fsm.Rec.FallDir = Math.Atan2(_us.Y - _field.Center, _us.X - _field.Center);
+            var (lux, luy) = _field.Transform.WorldToLocalPoint(_us.X, _us.Y);
+            _us.Fsm.Rec.FallDir = Math.Atan2(luy - _field.Center, lux - _field.Center);
         }
         if (themDrop)
         {
             _them.DropPending = true;
-            _them.Fsm.Rec.FallDir = Math.Atan2(_them.Y - _field.Center, _them.X - _field.Center);
+            var (ltx, lty) = _field.Transform.WorldToLocalPoint(_them.X, _them.Y);
+            _them.Fsm.Rec.FallDir = Math.Atan2(lty - _field.Center, ltx - _field.Center);
         }
         if (usDrop && themDrop)
         {

@@ -32,6 +32,14 @@
    内核保持一致——静止在台上 10s 的外部策略同样被判 +1（测试 `Inactivity_ManualStationaryOnStage_*` 固定此语义）。
 6. **obs 中 `onPlatform` 语义**：观测/快照中的 onPlatform 取 `PhysicsWorld.OnStage`（含骑线悬挂判定的整车足迹判定），
    与遗留裁判用 `wasOn` 判定同一函数；能量块的 onPlatform 仍是中心点 `FieldModel.OnPlatform`（与遗留一致）。
+7. **场地可位姿化（arena-layout-v1，遗留无此概念）**：协议新增可选 `layoutVersion` 与 `field.pose`
+   （场局部→仿真世界的平移+绕竖轴旋转）。遗留只有固定身份布局；缺省（无 pose）时
+   `FieldTransform` 身份直通，所有旧场景/回放逐位一致。几何求解统一在场局部进行，
+   台壁/围栏仍是轴对齐方形假设，仅整体位姿可变；旋转布局下掉台方位词（东南西北）
+   与 `FallDir` 按**场局部**罗盘解释（场地自身的南/北），保证事件消息随场地旋转不变形。
+8. **布局编辑的"固定坐标"效应**：编辑器进入时把种子随机放置的能量块固化为场景
+   `blocks[].x/y`（`ScenarioWithResolvedBlocks`），此后同 seed 复现同一布局；这与遗留
+   每局重掷块位不同，是有意差异（编辑语义要求块位置可寻址、可保存）。
 
 ## 3. 数值与随机数
 

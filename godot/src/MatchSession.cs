@@ -34,6 +34,25 @@ public sealed class MatchSession
 
     public MatchEngine Engine { get; private set; }
 
+    public Scenario Scenario => Engine.Scenario;
+
+    /// <summary>
+    /// Same scenario with every block frozen at its current field-local
+    /// position (seeded placements resolved). The layout editor drafts on this
+    /// so its preview matches what the engine actually spawned.
+    /// </summary>
+    public Scenario ScenarioWithResolvedBlocks()
+    {
+        var blocks = Engine.Blocks
+            .Select(b =>
+            {
+                var (lx, ly) = Engine.Field.Transform.WorldToLocalPoint(b.X, b.Y);
+                return new BlockSpec { Kind = b.Kind, X = lx, Y = ly, Radius = b.R };
+            })
+            .ToList();
+        return Scenario with { Blocks = blocks };
+    }
+
     public SessionMode Mode { get; private set; } = SessionMode.Live;
 
     public Snapshot? LatestSnapshot { get; private set; }
@@ -183,13 +202,17 @@ public sealed class MatchSession
                 Them = new RobotVisual { Role = RoleNames.Them },
             };
         }
+        var platformHeight = Engine.Scenario.Field.PlatformHeight;
         var current = ReplayCache[ReplayIndex];
         if (ReplayIndex >= ReplayCache.Count - 1 || alpha >= 0.999)
         {
-            return SnapshotView.From(current);
+            return SnapshotView.From(current, platformHeight);
         }
         var next = ReplayCache[ReplayIndex + 1];
-        return SnapshotView.Lerp(SnapshotView.From(current), SnapshotView.From(next), alpha);
+        return SnapshotView.Lerp(
+            SnapshotView.From(current, platformHeight),
+            SnapshotView.From(next, platformHeight),
+            alpha);
     }
 
     private static void ApplyCommands(MatchEngine engine, List<string> commands)

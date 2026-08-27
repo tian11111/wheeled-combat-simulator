@@ -45,27 +45,42 @@ Godot 物理仅用于可视摆放与可选诊断，**不参与判分**。未来�
 
 | 手段 | 命令 | 说明 |
 | --- | --- | --- |
-| 内核回归 | `dotnet test` | 95 个测试：规则、确定性、回放复现、跨端校验、视图适配 |
+| 内核回归 | `dotnet test` | 130 个测试：规则、确定性、回放复现、跨端校验、视图适配、场地布局 |
 | 无头复现 | `dotnet run --project src/Sim.Cli -- replay-check <file>` | 用记录的动作流逐位重放并比对 |
 | 跨端一致 | `godot --headless --path godot -- --parity-check <file>` | Godot 壳按 CLI `replay-check` 语义比对最终比分/结束原因/末帧/事件指纹（无 Godot 时由 `CrossEndTests` 回归同一代码路径） |
 | 视图适配 | `SnapshotViewTests` | 快照→渲染帧投影/插值不失真 |
+| 布局一致 | `ArenaLayoutFlowTests` + 身份/旋转变换回归 | 编辑保存的 `arena-layout-v1` 场景在 CLI/Godot 驱动同一几何；identity 位姿逐位复现旧基线 |
 
 Godot↔CLI 的同种子一致性已闭环：`godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.json`
-返回 PASS（比分 4:49、结束原因、末帧 2400、752 条事件指纹逐位一致）；另见 `godot/README.md` 与 `src/Sim.Tests/CrossEndTests.cs`。
+返回 PASS（比分 4:49、结束原因、末帧 2400、752 条事件指纹逐位一致）；旋转/平移后的场地回放
+（`replays/rotated-seed42.json`，340 事件 2400 ticks）两端同样逐位一致 PASS。另见 `godot/README.md` 与 `src/Sim.Tests/CrossEndTests.cs`。
+
+## 场地与位姿（arena-layout-v1）
+
+场地几何单一来源是 `Scenario`：平台/出发区/能量块坐标一律以**场局部米制**表达，
+`field.pose`（可选 `Pose2`）把场局部映射到仿真世界。`Sim.Core.FieldTransform` 是唯一
+变换实现——`FieldModel` 公开接口按世界坐标入参，物理/传感器/快照在其内部转换；
+台壁与围栏求解保持场局部轴对齐后再映回世界。协议演进是纯增量：
+`layoutVersion` 缺省即传统身份布局，身份位姿与全部旧场景/回放**逐位一致**（回归门禁，非容差比较）。
+桌面端 `LayoutDraft/LayoutEditor` 基于同一场景数据编辑布局，保存的 JSON 文件可被
+CLI 与 Godot 直接加载复现；机器人 `.glb/.gltf` 外观模型仅存在于渲染层与本地偏好文件，
+不进入 `Scenario`/`Snapshot`/回放指纹。
 
 ## 保真度
 
-见根目录 [`fidelity.json`](../fidelity.json)。规则已验证；场地灰度为手绘、视觉为随机桩、
+见根目录 [`fidelity.json`](../fidelity.json)。规则与场地布局已验证；场地灰度为手绘、视觉为随机桩、
 摩擦/碰撞/堵转/登台未标定。**模拟结果不能直接宣称为真机成绩。**
 
 ## 关键文件
 
 - `src/Sim.Core/MatchEngine.cs` — 比赛内核（发令/暂停/重启判罚/单步/快照/回放头）。
+- `src/Sim.Core/FieldTransform.cs` — 场局部↔仿真世界唯一变换（纯函数，身份路径逐位直通）。
 - `src/Sim.Core/{Physics,Sensors,Fsm,RuntimeState,DeterministicRandom,Js}.cs` — 物理/传感器/状态机/随机数。
-- `src/Sim.Protocol/` — 版本化协议 DTO 与 JSON 校验。
+- `src/Sim.Protocol/` — 版本化协议 DTO 与 JSON 校验（含 `arena-layout-v1` 布局字段）。
 - `src/Sim.Cli/Program.cs` — 无头命令；`PythonBridge.cs` — 外部策略进程适配。
 - `godot/src/SnapshotView.cs` — 快照→渲染帧（无 Godot 依赖，可单测）。
 - `godot/src/MatchSession.cs` — 会话门面：固定步长实况 + 回放重构/缓存/导航（无 Godot 依赖，可单测）。
 - `godot/src/ParityCheck.cs` — 跨端一致性校验（无 Godot 依赖，可单测）。
-- `godot/src/{Main,ArenaVisualizer,HudPanel,MatchCamera}.cs` — 桌面壳入口与渲染/HUD/相机。
-- `scenarios/*.json` — 固定布局回归场景；`replays/` — 回放文件。
+- `godot/src/LayoutDraft.cs` — 布局编辑模型：快照式撤销/重做 + 拖拽分组 + 校验 + 原子保存（无 Godot 依赖，可单测）。
+- `godot/src/{LayoutEditor,ArenaVisualizer,HudPanel,MatchCamera,RobotModelLoader}.cs` — 桌面壳入口、编辑交互与渲染/HUD/相机/模型导入。
+- `scenarios/*.json` — 固定布局回归场景；`replays/` — 回放文件；`test-data/` — 渲染层测试资产（glTF）。

@@ -175,11 +175,15 @@ public sealed class SensorSampler
 
     private double? FenceDist(double ox, double oy, double ang, double range)
     {
+        // The fence square is axis-aligned in field-local coordinates.
+        var t = _field.Transform;
+        var (x, y) = t.WorldToLocalPoint(ox, oy);
+        var lang = t.WorldToLocalHeading(ang);
         var hi = _field.Field.FieldSize - 0.05;
         for (var s = 0.05; s <= range; s += 0.05)
         {
-            var px = ox + Math.Cos(ang) * s;
-            var py = oy + Math.Sin(ang) * s;
+            var px = x + Math.Cos(lang) * s;
+            var py = y + Math.Sin(lang) * s;
             if (px < 0.05 || px > hi || py < 0.05 || py > hi)
             {
                 return s;

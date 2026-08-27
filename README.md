@@ -9,7 +9,7 @@
 
 ```bash
 dotnet build                                   # 构建
-dotnet test                                    # 95 个回归测试(规则/确定性/回放/跨端/视图)
+dotnet test                                    # 130 个回归测试(规则/确定性/回放/跨端/视图/场地布局)
 
 # 无头比赛(内置 FSM)
 dotnet run --project src/Sim.Cli -- match --seed 42
@@ -31,7 +31,12 @@ SDK 为 `Godot.NET.Sdk/4.7.2`）。启动窗口版：
 ```bash
 godot --path godot                          # 实况: Enter 发令, P 暂停, R/T 重启判罚
 godot --path godot -- --replay-path ../replays/godot-parity-seed42.json   # 打开回放
+godot --path godot -- --scenario-path scenarios/wushu-ring-2026.json      # 加载指定布局场景
 ```
+
+桌面端支持 **布局编辑模式**(E 进入): 选择场地/出发区/能量块, 拖动+旋转+网格吸附,
+Ctrl+Z/Y 撤销重做, 保存/重载 `arena-layout-v1` JSON 场景并应用到仿真; 机器人可导入
+`.glb/.gltf` 外观模型(仅渲染层)。详见 `godot/README.md`。
 
 无头跨端一致性校验（与 Sim.Cli `replay-check` 语义一致，比对最终比分/结束原因/末帧/事件指纹）：
 
@@ -66,5 +71,5 @@ godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.j
 
 ## 保真度边界
 
-规则已验证；场地灰度为手绘、视觉为随机桩、摩擦/碰撞/堵转/登台未标定。
+规则与场地布局(图纸尺寸/位姿一致性)已验证；场地灰度为手绘、视觉为随机桩、摩擦/碰撞/堵转/登台未标定。
 见 [`fidelity.json`](fidelity.json)。**模拟结果不能直接宣称为真机成绩。**

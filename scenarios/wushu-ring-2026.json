@@ -1,5 +1,6 @@
 {
   "protocolVersion": "v1",
+  "layoutVersion": "arena-layout-v1",
   "id": "wushu-ring-2026",
   "name": "2026 武术擂台轮式对抗 — 官方布局回归场景",
   "seed": 42,
@@ -8,6 +9,7 @@
     "aisleWidth": 0.7,
     "fenceHeight": 0.2,
     "platformHeight": 0.06,
+    "pose": { "x": 0.0, "y": 0.0, "th": 0.0 },
     "platform": { "minX": 0.7, "minY": 0.7, "maxX": 3.1, "maxY": 3.1 },
     "blockSize": 0.15,
     "blockRadius": 0.075,

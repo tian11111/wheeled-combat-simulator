@@ -12,7 +12,12 @@
     "fieldGray": {
       "status": "hand_drawn",
       "label": "手绘",
-      "evidence": "FieldModel.GetFieldGrayInfo 为程序化场地灰度函数(手绘模型)，尚未载入实测灰度表。"
+      "evidence": "FieldModel.GetFieldGrayInfo 为程序化场地灰度函数(手绘模型)，尚未载入实测灰度表。渲染顶面纹理由同一 FieldGray 模型生成，与传感器同源但非美术资产。"
+    },
+    "layout": {
+      "status": "verified",
+      "label": "已验证",
+      "evidence": "场地几何与 2026 规则图纸逐项自动断言(外场 3.8m、擂台 2.4m/6cm、走道 0.7m、围栏 0.2m、黄蓝出发区 0.5x0.4m 距台沿 0.2m、能量块 0.15m: OfficialScenario_DimensionsMatchRuleDrawing)。arena-layout-v1 协议纯增量, 缺省即身份布局, 旧场景/旧回放逐位一致(FieldTransform identity 直通)。场地可平移/旋转: 几何求解统一走 Sim.Core.FieldTransform, 旋转场地 CLI↔Godot 回放(rotated-seed42: 340 事件/2400 ticks/比分 16:8)逐位一致; 桌面编辑器保存的布局文件驱动两端同几何(ScenarioWithResolvedBlocks/ArenaLayoutFlowTests)。局限: 擂台仍为轴对齐方形假设, 尺寸不可缩放(官方固定值), 不代表真机场地的实测测量。"
     },
     "vision": {
       "status": "random_stub",
@@ -45,7 +50,7 @@
     "render": {
       "status": "verified",
       "label": "已验证",
-      "evidence": "Godot 4.7.2 .NET 桌面壳 headless 构建/加载通过；实况与回放模式在 1280×720、1920×1080 窗口冒烟 + 视口像素分桶截图 QA 通过(godot/docs/*.png)。渲染只消费快照、不参与判分，物理为诊断用途；网格/材质为程序化基本图元, 非最终美术。"
+      "evidence": "Godot 4.7.2 .NET 桌面壳 headless 构建/加载通过；实况、回放、布局编辑、glTF 模型导入与坏模型回退均在 1280×720、1920×1080 窗口冒烟 + 视口像素分桶截图 QA 通过(godot/docs/*.png)。渲染只消费快照、不参与判分，物理为诊断用途；网格/材质为程序化基本图元(台面灰度纹理由 FieldGray 同源生成), 非最终美术; glTF 模型仅外观, 权威参数仍来自 VehicleProfile。"
     }
   }
 }

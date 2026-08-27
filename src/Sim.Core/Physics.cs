@@ -76,12 +76,12 @@ public sealed class PhysicsWorld
 
     public bool FullOn(RobotRuntime r) => FootprintOnPlatform(r);
 
-    /// <summary>Footprint support extent along a world direction (stage wall contact).</summary>
-    private static double FootprintSupport(RobotRuntime r, double nx, double ny)
+    /// <summary>Footprint support extent along a direction (stage wall contact), given the pose heading.</summary>
+    private static double FootprintSupport(RobotRuntime r, double th, double nx, double ny)
     {
         var v = r.Vehicle;
-        var c = Math.Cos(r.Th);
-        var s = Math.Sin(r.Th);
+        var c = Math.Cos(th);
+        var s = Math.Sin(th);
         var along = c * nx + s * ny;
         var lateral = -s * nx + c * ny;
         var longitudinal = along >= 0 ? v.FrontExtent : v.RearExtent;
@@ -93,13 +93,21 @@ public sealed class PhysicsWorld
     /// <summary>
     /// 台壁阻挡: 台下→台上需要"垂直对准台沿 + 法向速度足够"才放行; 斜撞滑行、
     /// 斜穿台角、低速顶台均被阻挡; 台上→台下自由掉落。
+    /// The solver runs in field-local coordinates (axis-aligned platform) and
+    /// maps the corrected pose/velocity back to world; the identity layout is
+    /// a bit-for-bit pass-through.
     /// </summary>
     private void StageWall(RobotRuntime r, double px, double py)
     {
-        if (_field.OnPlatform(px, py))
+        var t = _field.Transform;
+        var (lpx, lpy) = t.WorldToLocalPoint(px, py);
+        if (_field.OnPlatformLocal(lpx, lpy))
         {
             return; // 台上→台下允许自由掉落
         }
+        var (lx, ly) = t.WorldToLocalPoint(r.X, r.Y);
+        var lth = t.WorldToLocalHeading(r.Th);
+        var (lvx, lvy) = t.WorldToLocalVector(r.Vx, r.Vy);
         var el = _field.El;
         var er = _field.Er;
         var walls = new (double Nx, double Ny, bool AxisX, double Boundary)[]
@@ -110,20 +118,20 @@ public sealed class PhysicsWorld
             (-1, 0, true, er),   // 东边, 向西入台
         };
         // 登台判定使用已经积分后的实际速度, 而不是尚未执行的控制指令。
-        var desiredVx = r.Vx;
-        var desiredVy = r.Vy;
+        var desiredVx = lvx;
+        var desiredVy = lvy;
         var cmdV = r.CmdV;
         var contacts = new List<(int Wall, double Support, double In1, double In0, double Vn, double Vt)>();
         for (var i = 0; i < walls.Length; i++)
         {
             var wall = walls[i];
-            var coord0 = wall.AxisX ? px : py;
-            var coord1 = wall.AxisX ? r.X : r.Y;
+            var coord0 = wall.AxisX ? lpx : lpy;
+            var coord1 = wall.AxisX ? lx : ly;
             var nAxis = wall.AxisX ? wall.Nx : wall.Ny;
             var in0 = (coord0 - wall.Boundary) * nAxis;
             var in1 = (coord1 - wall.Boundary) * nAxis;
-            var tangentSupport = FootprintSupport(r, -wall.Ny, wall.Nx);
-            var support = FootprintSupport(r, wall.Nx, wall.Ny);
+            var tangentSupport = FootprintSupport(r, lth, -wall.Ny, wall.Nx);
+            var support = FootprintSupport(r, lth, wall.Nx, wall.Ny);
             var safeIn = -(support + 0.002);
             var entering = in0 < safeIn && in1 >= safeIn;
             if (in0 >= 0)
@@ -135,15 +143,15 @@ public sealed class PhysicsWorld
                 continue; // 尚未接触台沿
             }
             var crossT = entering && Math.Abs(in1 - in0) > 1e-12 ? (safeIn - in0) / (in1 - in0) : 1;
-            var contactX = px + (r.X - px) * Js.Clamp(crossT, 0, 1);
-            var contactY = py + (r.Y - py) * Js.Clamp(crossT, 0, 1);
+            var contactX = lpx + (lx - lpx) * Js.Clamp(crossT, 0, 1);
+            var contactY = lpy + (ly - lpy) * Js.Clamp(crossT, 0, 1);
             var tangentCoord = wall.AxisX ? contactY : contactX;
             if (tangentCoord < el - tangentSupport || tangentCoord > er + tangentSupport)
             {
                 continue;
             }
             var vn = desiredVx * wall.Nx + desiredVy * wall.Ny;
-            var cmdN = cmdV * Math.Cos(r.Th) * wall.Nx + cmdV * Math.Sin(r.Th) * wall.Ny;
+            var cmdN = cmdV * Math.Cos(lth) * wall.Nx + cmdV * Math.Sin(lth) * wall.Ny;
             if (vn > 0.05 && vn < MountVMin && cmdN > MountVMin)
             {
                 vn = cmdN;
@@ -176,19 +184,21 @@ public sealed class PhysicsWorld
             var safe = wall.Boundary - nAxis * (c.Support + 0.002);
             if (wall.AxisX)
             {
-                r.X = safe;
+                lx = safe;
             }
             else
             {
-                r.Y = safe;
+                ly = safe;
             }
-            var avn = r.Vx * wall.Nx + r.Vy * wall.Ny;
+            var avn = lvx * wall.Nx + lvy * wall.Ny;
             if (avn > 0)
             {
-                r.Vx -= wall.Nx * avn;
-                r.Vy -= wall.Ny * avn;
+                lvx -= wall.Nx * avn;
+                lvy -= wall.Ny * avn;
             }
         }
+        (r.X, r.Y) = t.LocalToWorldPoint(lx, ly);
+        (r.Vx, r.Vy) = t.LocalToWorldVector(lvx, lvy);
     }
 
     // ---------- swept contacts ----------
@@ -435,40 +445,46 @@ public sealed class PhysicsWorld
 
     private void KeepBlockInsideFence(BlockRuntime o)
     {
+        // Same local-coordinate fence square as the robot clamp; blocks bounce.
+        var t = _field.Transform;
+        var (x, y) = t.WorldToLocalPoint(o.X, o.Y);
+        var (vx, vy) = t.WorldToLocalVector(o.Vx, o.Vy);
         var b = FenceMargin;
         var hi = _field.Field.FieldSize - b;
-        if (o.X < b)
+        if (x < b)
         {
-            o.X = b;
-            if (o.Vx < 0)
+            x = b;
+            if (vx < 0)
             {
-                o.Vx *= -0.10;
+                vx *= -0.10;
             }
         }
-        else if (o.X > hi)
+        else if (x > hi)
         {
-            o.X = hi;
-            if (o.Vx > 0)
+            x = hi;
+            if (vx > 0)
             {
-                o.Vx *= -0.10;
+                vx *= -0.10;
             }
         }
-        if (o.Y < b)
+        if (y < b)
         {
-            o.Y = b;
-            if (o.Vy < 0)
+            y = b;
+            if (vy < 0)
             {
-                o.Vy *= -0.10;
+                vy *= -0.10;
             }
         }
-        else if (o.Y > hi)
+        else if (y > hi)
         {
-            o.Y = hi;
-            if (o.Vy > 0)
+            y = hi;
+            if (vy > 0)
             {
-                o.Vy *= -0.10;
+                vy *= -0.10;
             }
         }
+        (o.X, o.Y) = t.LocalToWorldPoint(x, y);
+        (o.Vx, o.Vy) = t.LocalToWorldVector(vx, vy);
     }
 
     // ---------- robot-block contacts ----------
@@ -862,40 +878,54 @@ public sealed class PhysicsWorld
         r.X += r.Vx * dt;
         r.Y += r.Vy * dt;
         StageWall(r, px, py);
+        ClampRobotInsideFence(r);
+    }
+
+    /// <summary>
+    /// 围栏夹取: 场地是场局部 [margin, FieldSize-margin] 的正方形;
+    /// 旋转布局下在局部坐标内夹取并清零向内速度, 再变换回世界坐标。
+    /// </summary>
+    private void ClampRobotInsideFence(RobotRuntime r)
+    {
+        var t = _field.Transform;
+        var (x, y) = t.WorldToLocalPoint(r.X, r.Y);
+        var (vx, vy) = t.WorldToLocalVector(r.Vx, r.Vy);
         var b = FenceMargin;
         var hi = _field.Field.FieldSize - b;
-        if (r.X < b)
+        if (x < b)
         {
-            r.X = b;
-            if (r.Vx < 0)
+            x = b;
+            if (vx < 0)
             {
-                r.Vx = 0;
+                vx = 0;
             }
         }
-        else if (r.X > hi)
+        else if (x > hi)
         {
-            r.X = hi;
-            if (r.Vx > 0)
+            x = hi;
+            if (vx > 0)
             {
-                r.Vx = 0;
+                vx = 0;
             }
         }
-        if (r.Y < b)
+        if (y < b)
         {
-            r.Y = b;
-            if (r.Vy < 0)
+            y = b;
+            if (vy < 0)
             {
-                r.Vy = 0;
+                vy = 0;
             }
         }
-        else if (r.Y > hi)
+        else if (y > hi)
         {
-            r.Y = hi;
-            if (r.Vy > 0)
+            y = hi;
+            if (vy > 0)
             {
-                r.Vy = 0;
+                vy = 0;
             }
         }
+        (r.X, r.Y) = t.LocalToWorldPoint(x, y);
+        (r.Vx, r.Vy) = t.LocalToWorldVector(vx, vy);
     }
 
     private void IntegrateBlocks(double dt, Dictionary<RobotRuntime, (double X, double Y)> previousPos)

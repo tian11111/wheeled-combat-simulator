@@ -42,3 +42,23 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
 
 对外声明保真度必须引用根 `fidelity.json`；未标定子系统（摩擦/碰撞/堵转/登台）
 不得在文档或输出中暗示等同真机。
+
+## 场地布局契约（arena-layout-v1）
+
+- 一切场地几何（平台/走道/围栏/出发区/出生点/块位）以**场局部米制**存储；
+  场局部→仿真世界的映射只有 `Sim.Core.FieldTransform` 一个实现。
+  物理/传感器/渲染/相机一律经由它（或其宿主 `FieldModel` 的世界坐标入口），
+  禁止在任何消费方手写旋转公式。
+- **身份位姿逐位直通是兼容性门禁**：`IsIdentity` 短路返回原值（IEEE 精确），
+  改任何几何相关代码后必须跑 `dotnet test` + `replay-check replays/...` 确认旧基线逐位一致。
+- 新增几何能力先问：这是"场局部可表达"的吗？台壁/围栏求解保持场局部轴对齐，
+  世界坐标修正只在边界处经 `FieldTransform` 进出。
+- 编辑器/草稿只产 `Scenario` 数据并重建会话；任何编辑路径都不得触碰运行中的
+  `MatchEngine`（比赛/回放进行中编辑必须被禁用）。
+- 渲染层（含 `.glb/.gltf` 外观模型、本地偏好文件、台面灰度纹理）永不进入
+  `Scenario`/`Snapshot`/回放指纹。
+- 运行时 `GltfDocument` 导入**不会**像编辑器导入器那样自动合成法线——缺 NORMAL 属性
+  的网格在 Forward+ 下渲染全黑；必须经 `SurfaceTool.GenerateNormals` 兜底
+  （见 `godot/src/RobotModelLoader.cs::EnsureNormals`）。
+- 视觉 QA 以 `--capture` 视口像素分桶为机器可判定证据；桌面截图存 `godot/docs/`
+  （其 `.import` 元数据不入库），调试用临时图不入库。

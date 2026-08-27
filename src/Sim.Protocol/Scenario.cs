@@ -67,6 +67,14 @@ public sealed record FieldParams
     /// <summary>Fixed simulation tick length in seconds: 0.05.</summary>
     public double TickSeconds { get; init; } = 0.05;
 
+    /// <summary>
+    /// Field-local to simulation-world pose (m, m, rad): the arena layout
+    /// editor's placement of the field inside the world. Null (or exactly
+    /// (0,0,0)) is the identity layout every pre-editor scenario and replay
+    /// file uses; geometry stays in field-local coordinates everywhere else.
+    /// </summary>
+    public Pose2? Pose { get; init; }
+
     /// <summary>Start zones per role. Yellow (us): x in [0.7, 1.2], y in [0.1, 0.5]; blue (them): x in [2.6, 3.1], y in [3.3, 3.7].</summary>
     public Dictionary<string, Region> StartZones { get; init; } = new()
     {
@@ -121,6 +129,16 @@ public sealed record FieldParams
         {
             yield return "field: tickSeconds must be a positive finite number.";
         }
+        if (Pose is { } fieldPose
+            && (!double.IsFinite(fieldPose.X) || !double.IsFinite(fieldPose.Y) || !double.IsFinite(fieldPose.Th)))
+        {
+            yield return "field: pose x/y/th must be finite numbers.";
+        }
+        if (Platform is { } platform
+            && (platform.MinX < 0 || platform.MinY < 0 || platform.MaxX > FieldSize || platform.MaxY > FieldSize))
+        {
+            yield return "field: platform region must stay inside the inner field.";
+        }
 
         foreach (var key in new[] { RoleNames.Us, RoleNames.Them })
         {
@@ -132,9 +150,21 @@ public sealed record FieldParams
             {
                 yield return $"field: start zone '{key}' must satisfy min < max on both axes.";
             }
+            else if (zone.MinX < 0 || zone.MinY < 0 || zone.MaxX > FieldSize || zone.MaxY > FieldSize)
+            {
+                yield return $"field: start zone '{key}' must stay inside the inner field.";
+            }
             if (!Starts.TryGetValue(key, out var pose) || pose is null)
             {
                 yield return $"field: starts must contain '{key}'.";
+            }
+            else if (!double.IsFinite(pose.X) || !double.IsFinite(pose.Y) || !double.IsFinite(pose.Th))
+            {
+                yield return $"field: start pose '{key}' x/y/th must be finite numbers.";
+            }
+            else if (pose.X < 0 || pose.Y < 0 || pose.X > FieldSize || pose.Y > FieldSize)
+            {
+                yield return $"field: start pose '{key}' must be inside the inner field.";
             }
         }
     }
@@ -205,6 +235,15 @@ public sealed record Scenario : IProtocolMessage
     /// <summary>Ruleset identifier, e.g. "wushu-ring-2026".</summary>
     public string Id { get; init; } = "wushu-ring-2026";
 
+    /// <summary>
+    /// Arena layout schema tag ("arena-layout-v1", see
+    /// <see cref="ProtocolVersion.ArenaLayoutV1"/>). Null means the legacy
+    /// identity layout (no <see cref="FieldParams.Pose"/>) and is always
+    /// accepted; unknown future tags fail validation. New files written by
+    /// the layout editor stamp the current tag.
+    /// </summary>
+    public string? LayoutVersion { get; init; }
+
     /// <summary>Optional display name.</summary>
     public string? Name { get; init; }
 
@@ -242,6 +281,10 @@ public sealed record Scenario : IProtocolMessage
         if (string.IsNullOrWhiteSpace(Id))
         {
             yield return "scenario: id (ruleset id) must not be empty.";
+        }
+        if (LayoutVersion is not null && LayoutVersion != ProtocolVersion.ArenaLayoutV1)
+        {
+            yield return $"scenario: unsupported layoutVersion '{LayoutVersion}'.";
         }
         if (Seed < 0)
         {
@@ -298,6 +341,11 @@ public sealed record Scenario : IProtocolMessage
                 foreach (var error in block.Validate())
                 {
                     yield return $"scenario: {error}";
+                }
+                if (Field is not null && block.X is { } bx && block.Y is { } by
+                    && (bx < 0 || by < 0 || bx > Field.FieldSize || by > Field.FieldSize))
+                {
+                    yield return $"scenario: block ({block.Kind}) must be placed inside the inner field.";
                 }
             }
         }

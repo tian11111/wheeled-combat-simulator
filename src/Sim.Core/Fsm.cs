@@ -262,28 +262,34 @@ public sealed class FsmController
         return "西";
     }
 
-    /// <summary>登台对准方向: 垂直指向最近台壁段; 台角走廊/台上 → null。</summary>
+    /// <summary>
+    /// 登台对准方向: 垂直指向最近台壁段; 台角走廊/台上 → null。
+    /// Computed in field-local coordinates (axis-aligned platform) and
+    /// returned as a world heading.
+    /// </summary>
     private double? MountAlignAngle(RobotRuntime r)
     {
-        var inX = r.X >= _field.El && r.X <= _field.Er;
-        var inY = r.Y >= _field.El && r.Y <= _field.Er;
-        if (inX && r.Y < _field.El)
+        var (x, y) = _field.Transform.WorldToLocalPoint(r.X, r.Y);
+        var inX = x >= _field.El && x <= _field.Er;
+        var inY = y >= _field.El && y <= _field.Er;
+        double? local = null;
+        if (inX && y < _field.El)
         {
-            return Math.PI / 2;   // 南边: 车尾朝 +y
+            local = Math.PI / 2;   // 南边: 车尾朝 +y
         }
-        if (inX && r.Y > _field.Er)
+        else if (inX && y > _field.Er)
         {
-            return -Math.PI / 2;  // 北边: 车尾朝 -y
+            local = -Math.PI / 2;  // 北边: 车尾朝 -y
         }
-        if (inY && r.X < _field.El)
+        else if (inY && x < _field.El)
         {
-            return 0;             // 西边: 车尾朝 +x
+            local = 0;             // 西边: 车尾朝 +x
         }
-        if (inY && r.X > _field.Er)
+        else if (inY && x > _field.Er)
         {
-            return Math.PI;       // 东边: 车尾朝 -x
+            local = Math.PI;       // 东边: 车尾朝 -x
         }
-        return null;
+        return local is null ? null : _field.Transform.LocalToWorldHeading(local.Value);
     }
 
     private double MountSpeed() => _params.MountSpeed / 1000 * 0.75;
@@ -311,9 +317,10 @@ public sealed class FsmController
         if (r.DropPending || (r.WasOn && !_physics.OnStage(r)))
         {
             r.DropPending = false;
-            var direction = DirName(Math.Atan2(r.Y - _field.Center, r.X - _field.Center));
+            var (lcx, lcy) = _field.Transform.WorldToLocalPoint(r.X, r.Y);
+            var direction = DirName(Math.Atan2(lcy - _field.Center, lcx - _field.Center));
             Log(r, $"[fsm] 掉台! (方向 {direction}) → RECOVER", "warn", EventKind.Drop,
-                new { direction, fallDir = Math.Atan2(r.Y - _field.Center, r.X - _field.Center) });
+                new { direction, fallDir = Math.Atan2(lcy - _field.Center, lcx - _field.Center) });
             EnterRecoverFor(r, "spin");
         }
     }
@@ -476,7 +483,7 @@ public sealed class FsmController
                 {
                     // 2026-08-14: 正冲也垂直对准台壁段(斜冲会被挡)。
                     var mAng = MountAlignAngle(r);
-                    var tgt = mAng is null ? AngleTo(r, (_field.Center, _field.Center)) : mAng.Value;
+                    var tgt = mAng is null ? AngleTo(r, _field.CenterWorld) : mAng.Value;
                     if (RotateTo(r, tgt, 1.7, 0.12))
                     {
                         m.FwdAltAligned = true;
@@ -511,7 +518,7 @@ public sealed class FsmController
         {
             case "backup":
                 SetAct(r, "危机恢复: 屁股朝擂台倒车回台");
-                RotateTo(r, AngleTo(r, (_field.Center, _field.Center)) + Math.PI, 1.6, 0.15);
+                RotateTo(r, AngleTo(r, _field.CenterWorld) + Math.PI, 1.6, 0.15);
                 r.V = -0.6;
                 if (r.Sens.GetValueOrDefault("f") > 0.25 && !_physics.HangOn(r))
                 {
@@ -534,7 +541,7 @@ public sealed class FsmController
 
             case "spin":
                 SetAct(r, "掉台恢复: 屁股朝擂台");
-                if (RotateTo(r, AngleTo(r, (_field.Center, _field.Center)) + Math.PI, 1.7, 0.21))
+                if (RotateTo(r, AngleTo(r, _field.CenterWorld) + Math.PI, 1.7, 0.21))
                 {
                     rc.Phase = "mount";
                     rc.T = 0;
@@ -557,9 +564,13 @@ public sealed class FsmController
             case "edgeback":
             {
                 SetAct(r, "贴边回中");
+                // FallDir is a field-local direction; build the target in local
+                // space, clamp to the platform, then map to world.
                 var tx = _field.Center + Math.Cos(rc.FallDir) * _field.Half * 0.9;
                 var ty = _field.Center + Math.Sin(rc.FallDir) * _field.Half * 0.9;
-                var tgt = _field.NearestPlatPoint(tx, ty);
+                var (tlx, tly) = _field.NearestPlatPointLocal(tx, ty);
+                var (lx, ly) = _field.Transform.LocalToWorldPoint(tlx, tly);
+                var tgt = (X: lx, Y: ly);
                 DriveToward(r, tgt, 0.7, 1.2);
                 var dist = Js.Hypot(tgt.Item1 - r.X, tgt.Item2 - r.Y);
                 if (dist < 0.2 || rc.T > 2.5)

@@ -1,0 +1,33 @@
+{
+  "id": "arena-layout-editor",
+  "name": "arena-layout-editor",
+  "title": "按图纸校准场地与桌面布局编辑器",
+  "description": "按 2026 规则图纸校准场地，支持保存并驱动仿真的布局编辑，以及 glTF 机器人外观导入。",
+  "status": "in_progress",
+  "dev_type": "feature",
+  "scope": "cross-layer",
+  "package": null,
+  "priority": "P2",
+  "creator": "neco",
+  "assignee": "neco",
+  "createdAt": "2026-08-27",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "src/Sim.Protocol/Scenario.cs",
+    "src/Sim.Core/FieldModel.cs",
+    "src/Sim.Core/Physics.cs",
+    "godot/src/ArenaVisualizer.cs",
+    "godot/src/Main.cs",
+    "godot/src/MatchSession.cs"
+  ],
+  "notes": "Planning complete pending final user approval. Keep task status planning until another AI runs the activation gate.",
+  "meta": {}
+}
