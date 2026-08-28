@@ -92,7 +92,7 @@ CLI 与 Godot 直接加载复现；机器人 `.glb/.gltf` 外观模型仅存在�
 
 ## 关键文件
 
-- `src/Sim.Core/MatchEngine.cs` — 比赛内核（发令/暂停/重启判罚/单步/快照/回放头）。
+- `src/Sim.Core/MatchEngine.cs` — 比赛内核（发令/暂停/判罚与真实重启/单步/快照/回放头）。
 - `src/Sim.Core/FieldTransform.cs` — 场局部↔仿真世界唯一变换（纯函数，身份路径逐位直通）。
 - `src/Sim.Core/{Physics,Sensors,Fsm,RuntimeState,DeterministicRandom,Js}.cs` — 物理/传感器/状态机/随机数。
 - `src/Sim.Protocol/` — 版本化协议 DTO 与 JSON 校验（含 `arena-layout-v1` 布局字段与 `telemetry-v1` 遥测契约）。
