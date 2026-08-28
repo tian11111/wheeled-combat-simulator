@@ -248,3 +248,28 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 9: Godot 相机交互、灰度与真实重启收尾
+
+**Date**: 2026-08-28
+**Task**: Godot 相机交互、灰度与真实重启收尾
+**Branch**: `main`
+
+### Summary
+
+完成 08-28-godot-camera-gray-restart：Sim.Core 新增 RestartRobot 真实重启契约（Running/Paused 门控、经 FieldTransform 回位、清瞬态、对手恰好 +4、EventKind.Restart + restart_robot:<role> 追加命令，旧 restart 命令逐位兼容），三处解码（CLI/ParityCheck/MatchSession）同语义；修复 MatchCamera Top 俯视、抓取平移、滚轮缩放与编辑器所有权钩子；ArenaVisualizer/FieldGrayTextureMap 灰度轴契约与 Unshaded 材质消除假对角灰带；Main.cs R/T 路由、F5 场景重建与 --camera-smoke 24 项断言。215/215 测试、双 parity、edit/camera smoke、真实渲染捕获全绿；新增 spec/sim/restart-contract.md 并沉淀镜头/灰度/smoke 约定。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `781a969` | (see git log) |
+| `4a0ef71` | (see git log) |
+| `4e7cb79` | (see git log) |
+| `fde6644` | (see git log) |
+| `7506b82` | (see git log) |
+
+### Status
+
+[OK] **Completed**

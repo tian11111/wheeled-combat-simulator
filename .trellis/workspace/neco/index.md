@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 8
+- **Total Sessions**: 9
 - **Last Active**: 2026-08-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~250 | Active |
+| `journal-1.md` | ~275 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 9 | 2026-08-28 | Godot 相机交互、灰度与真实重启收尾 | `781a969`, `4a0ef71`, `4e7cb79`, `fde6644`, `7506b82` | `main` |
 | 8 | 2026-08-28 | Godot 桌面端 UI 优化 | `6273ac3`, `4c41d91`, `57c1375` | `main` |
 | 7 | 2026-08-27 | MBri 传感器标定证据导入 (08-27-mbri-sensor-calibration-import) | - | `main` |
 | 6 | 2026-08-27 | 收尾 00-bootstrap-guidelines: spec 填充提交与归档 | - | `main` |
