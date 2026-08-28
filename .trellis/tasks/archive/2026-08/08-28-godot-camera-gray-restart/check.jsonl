@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "Determinism/parity gates: dotnet test, replay-check, parity-check; identity pose bitwise passthrough gate"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Headless/parity and visual checks: edit-smoke and --capture evidence requirements"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Build, test, and determinism gates for final validation"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer consistency checks for restart command decoding and event emission"}

@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "Determinism contract, append-only protocol evolution, FieldTransform single source, rendering-must-not-replicate-rules, and gray texture/render notes governing RestartRobot and gray display work"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Godot shell boundaries: input routing, camera, adapters; Sim.Core must stay engine/IO-free"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Scene/node and adapter boundaries for MatchCamera/LayoutEditor/Main input ownership wiring"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Match session and immutable render state rules for F5 ResetToLive resync and scenario reset"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "CLI/protocol error behavior for the new restart_robot command and invalid-phase rejection"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Restart flows Godot -> Core -> replay/parity across layers; keep command decoding and event flow consistent"}
