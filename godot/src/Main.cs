@@ -3,12 +3,14 @@
 // SnapshotView 投影, 不复刻任何规则。
 //
 // 操作 (另见 HUD 右上角帮助):
-//   Enter 发令 · P 暂停/继续 · R 我方重启 · T 对手重启 (+4)
-//   F5 重置同 seed 比赛 · C 切换镜头 · L 打开回放文件
+//   Enter 发令 · P 暂停/继续 · R 我方重启 · T 对手重启 (真实重启, 对手 +4)
+//   F5 重置同 seed 比赛 (回放模式回到实况并同步场景/相机) · C 切换镜头 · L 打开回放文件
+//   镜头: 非编辑模式左键拖动平移 (概览/俯视, 抓取语义), 滚轮缩放 (限幅)
 //   回放模式: 空格 播放/暂停 · ←/→ 单步 · Home/End 到首/末帧 · 拖动时间轴跳转
 //
 // 无头模式: `godot --headless --path godot -- --parity-check <replay.json>`
 // 使用与 Sim.Cli replay-check 相同的语义比对最终比分/结束原因/末帧/事件指纹。
+// `--edit-smoke` / `--camera-smoke` 为无人值守交互冒烟 (见下文)。
 
 using Godot;
 using Sim.Core;
@@ -108,8 +110,16 @@ public partial class Main : Node
         if (captureIndex >= 0 && captureIndex + 1 < userArgs.Length)
         {
             _capturePath = Path.GetFullPath(userArgs[captureIndex + 1]);
-            _captureFramesLeft = 30;
-            GD.Print($"[capture] 30 帧后保存视口到 {_capturePath}");
+            if (Array.IndexOf(userArgs, "--edit-smoke") >= 0 || Array.IndexOf(userArgs, "--camera-smoke") >= 0)
+            {
+                // 冒烟模式自己控制截图时机 (结束后统一倒计时); 提前倒计时会把冒烟中途杀掉。
+                GD.Print($"[capture] 冒烟结束后保存视口到 {_capturePath}");
+            }
+            else
+            {
+                _captureFramesLeft = 30;
+                GD.Print($"[capture] 30 帧后保存视口到 {_capturePath}");
+            }
         }
 
         LoadRobotModelPreferences(userArgs);
@@ -121,9 +131,281 @@ public partial class Main : Node
             return;
         }
 
+        if (Array.IndexOf(userArgs, "--camera-smoke") >= 0)
+        {
+            _ = RunCameraSmokeAsync();
+            return;
+        }
+
         GD.Print($"[shell] core={MatchEngine.CoreVersion} seed={scenario.Seed}"
             + $" tick={scenario.Field.TickSeconds}s duration={scenario.Field.MatchDuration}s"
             + $" mode={_session.Mode}");
+    }
+
+    // ---------- automated camera smoke (--camera-smoke) ----------
+
+    /// <summary>
+    /// Deterministic camera input evidence through the real input pipeline:
+    /// Overview framing, wheel zoom (×1.1 steps + clamp), Top orientation
+    /// (-90° pitch, full-field coverage), ground-plane grab-drag pan in
+    /// Top/Overview, Follow zoom, and the editor-ownership hook (the camera
+    /// must ignore the pointer while the layout editor is active). No texture
+    /// reads, so it is safe headless. Exits 0 when all checks pass.
+    /// </summary>
+    private async Task RunCameraSmokeAsync()
+    {
+        var failures = new List<string>();
+        void Check(bool ok, string step)
+        {
+            if (!ok)
+            {
+                step += $" [focus=({_camera.FocusPoint.X:0.000},{_camera.FocusPoint.Z:0.000})"
+                    + $" mode={_camera.Mode} dist={_camera.OverviewDistance:0.00} topH={_camera.TopHeight:0.00}"
+                    + $" phase={_session.Engine.Phase} tick={_session.Engine.TickIndex}]";
+            }
+            GD.Print($"[camera-smoke] {(ok ? "ok" : "FAIL")} {step}");
+            if (!ok)
+            {
+                failures.Add(step);
+            }
+        }
+        static bool Near(double a, double b) => Math.Abs(a - b) < 1e-3;
+
+        var fieldSize = _session.Scenario.Field.FieldSize;
+        var model = new Sim.Core.FieldModel(_session.Scenario.Field);
+        var (cx, cyy) = model.CenterWorld;
+        var center = new Vector3((float)cx, 0f, (float)cyy);
+
+        static Vector3? GroundPointAt(Camera3D cam, Vector2 pos)
+        {
+            var from = cam.ProjectRayOrigin(pos);
+            var dir = cam.ProjectRayNormal(pos);
+            if (Mathf.Abs(dir.Y) < 1e-6f)
+            {
+                return null;
+            }
+            var t = -from.Y / dir.Y;
+            return t <= 0f ? null : from + dir * t;
+        }
+        var viewportSize = GetViewport().GetVisibleRect().Size;
+        var screenCenter = viewportSize / 2f;
+
+        // Overview: 焦点在场地中心, 机位 = 焦点 + (0,1.95,1.6) 归一化 × 距离。
+        Check(_camera.Mode == CameraMode.Overview, "starts in Overview");
+        await WaitFrames(3);
+        Check(Near(_camera.FocusPoint.X, center.X) && Near(_camera.FocusPoint.Z, center.Z),
+            "overview focus = arena center");
+        var expectedPos = center + new Vector3(0, 1.95f, 1.6f).Normalized() * _camera.OverviewDistance;
+        Check(_camera.Position.DistanceTo(expectedPos) < 0.05f,
+            "overview position = focus + framing direction * distance");
+
+        // 滚轮缩放: ×1.1 步进 + 限幅 (放大钳在基准, 缩小钳在上限)。
+        var baseDistance = _camera.OverviewDistance;
+        InjectWheel(+1);
+        await WaitFrames(2);
+        Check(Near(_camera.OverviewDistance, baseDistance * 1.1), "wheel down zooms out ×1.1");
+        InjectWheel(-1);
+        await WaitFrames(2);
+        Check(Near(_camera.OverviewDistance, baseDistance), "wheel up zooms in back to base");
+        for (var i = 0; i < 40; i++)
+        {
+            InjectWheel(+1);
+        }
+        await WaitFrames(2);
+        var clamped = _camera.OverviewDistance;
+        for (var i = 0; i < 5; i++)
+        {
+            InjectWheel(+1);
+        }
+        await WaitFrames(2);
+        Check(Near(_camera.OverviewDistance, clamped), "overview zoom clamps at max distance");
+        for (var i = 0; i < 60; i++)
+        {
+            InjectWheel(-1);
+        }
+        await WaitFrames(2);
+        Check(Near(_camera.OverviewDistance, baseDistance * 0.3f), "overview zoom clamps at min distance");
+
+        // Follow: 缩放只改跟拍距离; 焦点仍由渲染帧驱动。
+        await InjectActionUntil("camera_cycle", () => _camera.Mode == CameraMode.Follow);
+        Check(_camera.Mode == CameraMode.Follow, "cycles to Follow");
+        var followZoom = _camera.FollowZoom;
+        InjectWheel(+1);
+        await WaitFrames(2);
+        Check(Near(_camera.FollowZoom, followZoom * 1.1), "follow wheel zooms the follow offset");
+        InjectWheel(-1);
+        await WaitFrames(2);
+        Check(Near(_camera.FollowZoom, followZoom), "follow zoom back to 1×");
+
+        // Top: 绕 X 轴 -90° 正俯视, 高度覆盖完整场地, 焦点在场地中心。
+        await InjectActionUntil("camera_cycle", () => _camera.Mode == CameraMode.Top);
+        Check(_camera.Mode == CameraMode.Top, "cycles to Top");
+        Check(Near(_camera.RotationDegrees.X, -90f), "top pitches -90° (straight down)");
+        var halfTan = Math.Tan(_camera.Fov * Math.PI / 360.0);
+        Check(_camera.TopHeight * halfTan >= fieldSize * 0.7071 - 0.01,
+            $"top covers full field (height {_camera.TopHeight:0.00} m)");
+        Check(Near(_camera.FocusPoint.X, center.X) && Near(_camera.FocusPoint.Z, center.Z),
+            "top focus = arena center");
+
+        // Top 拖动: 抓取语义 — 焦点按地面射线位移的反方向平移。拖动用小像素步长:
+        // 无头 dummy 视口只有 64×64, 大位移会撞上焦点限幅, 破坏等值断言。
+        const int dragPx = 8;
+        await WaitSettled();
+        var topS1 = screenCenter;
+        var topS2 = screenCenter + new Vector2(dragPx, 0);
+        var tg1 = GroundPointAt(_camera, topS1);
+        var tg2 = GroundPointAt(_camera, topS2);
+        Check(tg1 is not null && tg2 is not null, "top rays hit the ground plane");
+        if (tg1 is { } g1 && tg2 is { } g2)
+        {
+            InjectDrag(topS1, topS2);
+            await WaitFrames(2);
+            Check(Near(_camera.FocusPoint.X, center.X - (g2.X - g1.X))
+                && Near(_camera.FocusPoint.Z, center.Z - (g2.Z - g1.Z)),
+                "top drag pans focus opposite the ground delta (grab semantics)");
+            // 拖回原位。
+            InjectDrag(topS2, topS1);
+            await WaitFrames(2);
+            Check(Near(_camera.FocusPoint.X, center.X) && Near(_camera.FocusPoint.Z, center.Z),
+                "top drag back restores the center focus");
+        }
+
+        // 俯视缩放限幅。
+        for (var i = 0; i < 40; i++)
+        {
+            InjectWheel(+1);
+        }
+        await WaitFrames(2);
+        var topClamped = _camera.TopHeight;
+        for (var i = 0; i < 5; i++)
+        {
+            InjectWheel(+1);
+        }
+        await WaitFrames(2);
+        Check(Near(_camera.TopHeight, topClamped), "top height clamps at max");
+
+        // Overview 拖动: 同样的抓取语义 (世界跟随光标)。等待阻尼收敛后再取地面射线,
+        // 保证预期值与事件冲洗时的机位一致。
+        await InjectActionUntil("camera_cycle", () => _camera.Mode == CameraMode.Overview);
+        await WaitSettled();
+        Check(_camera.Mode == CameraMode.Overview, "cycles back to Overview");
+        var ovS1 = screenCenter;
+        var ovS2 = screenCenter + new Vector2(0, dragPx);
+        var og1 = GroundPointAt(_camera, ovS1);
+        var og2 = GroundPointAt(_camera, ovS2);
+        if (og1 is { } og1v && og2 is { } og2v)
+        {
+            InjectDrag(ovS1, ovS2);
+            await WaitFrames(2);
+            var focusNow = _camera.FocusPoint;
+            Check(Near(focusNow.X, center.X - (og2v.X - og1v.X))
+                && Near(focusNow.Z, center.Z - (og2v.Z - og1v.Z)),
+                "overview drag pans focus with grab semantics");
+        }
+
+        // 编辑器拥有鼠标时相机让位: 拖动不再移动相机焦点。先等机位收敛, 再 F5 复位
+        // (实况新比赛, TickIndex=0 才允许进入编辑模式 — 复位后同步进入, 不留 tick 窗口),
+        // 然后注入拖动验证相机不消费指针。
+        await WaitSettled();
+        _session.ResetToLive();
+        ApplyScenarioToShell(_session.Engine.Scenario);
+        TryToggleEditor();
+        Check(_editor.Active, "editor active (owns the pointer)");
+        var focusBeforeEditorDrag = _camera.FocusPoint;
+        InjectDrag(screenCenter, screenCenter + new Vector2(dragPx, dragPx / 2));
+        await WaitFrames(2);
+        Check(Near(_camera.FocusPoint.X, focusBeforeEditorDrag.X)
+            && Near(_camera.FocusPoint.Z, focusBeforeEditorDrag.Z),
+            "camera ignores pointer while layout editor is active");
+        await InjectActionUntil("editor_toggle", () => !_editor.Active);
+        Check(!_editor.Active, "editor closed");
+
+        Check(failures.Count == 0,
+            failures.Count == 0 ? "all checks passed" : $"failures: {string.Join(" | ", failures)}");
+        GD.Print($"[camera-smoke] end state: mode={_camera.Mode} dist={_camera.OverviewDistance:0.00} topH={_camera.TopHeight:0.00} pos={_camera.Position}");
+        if (_capturePath.Length == 0)
+        {
+            _capturePath = Path.GetFullPath("docs/desktop-camerasmoke-720.png");
+        }
+        // 30 帧而非 2 帧: 编辑器段落里做过 ResetToLive, 等 ResetToLive 后首个 tick
+        // 提交, HUD 显示真实实况状态而不是复位瞬间的空帧。
+        _captureFramesLeft = 30;
+        _smokeExit = failures.Count == 0 ? 0 : 1;
+
+        async Task WaitFrames(int n)
+        {
+            for (var i = 0; i < n; i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+        }
+
+        // 阻尼收敛等待: 概览/跟随机位按 lerp 滑向目标, 地面射线断言必须等机位稳定,
+        // 否则预期值取自旧机位 (无头 64×64 视口下尤其敏感)。
+        async Task WaitSettled(int maxFrames = 240)
+        {
+            for (var i = 0; i < maxFrames; i++)
+            {
+                var prev = _camera.Position;
+                await WaitFrames(1);
+                if (_camera.Position.DistanceTo(prev) < 1e-4f)
+                {
+                    return;
+                }
+            }
+        }
+
+        // 注入动作并等待效果落地: 输入缓冲的冲洗时机在无头下有 1-2 帧抖动,
+        // 固定等 2 帧会偶发竞态; 以可观察状态到位为准 (上限 60 帧)。
+        async Task InjectActionUntil(string action, Func<bool> applied, int maxFrames = 60)
+        {
+            Input.ParseInputEvent(new InputEventAction { Action = action, Pressed = true });
+            await WaitFrames(1);
+            Input.ParseInputEvent(new InputEventAction { Action = action, Pressed = false });
+            for (var i = 0; !applied() && i < maxFrames; i++)
+            {
+                await WaitFrames(1);
+            }
+        }
+
+        static void InjectWheel(int steps)
+        {
+            // steps > 0 = 滚轮下滚 (拉远), steps < 0 = 上滚 (拉近)。
+            var button = steps > 0 ? MouseButton.WheelDown : MouseButton.WheelUp;
+            for (var i = 0; i < Math.Abs(steps); i++)
+            {
+                Input.ParseInputEvent(new InputEventMouseButton
+                {
+                    ButtonIndex = button,
+                    Pressed = true,
+                    Position = Vector2.Zero,
+                    GlobalPosition = Vector2.Zero,
+                });
+            }
+        }
+
+        static void InjectDrag(Vector2 from, Vector2 to)
+        {
+            Input.ParseInputEvent(new InputEventMouseButton
+            {
+                ButtonIndex = MouseButton.Left,
+                Pressed = true,
+                Position = from,
+                GlobalPosition = from,
+            });
+            Input.ParseInputEvent(new InputEventMouseMotion
+            {
+                Position = to,
+                GlobalPosition = to,
+            });
+            Input.ParseInputEvent(new InputEventMouseButton
+            {
+                ButtonIndex = MouseButton.Left,
+                Pressed = false,
+                Position = to,
+                GlobalPosition = to,
+            });
+        }
     }
 
     // ---------- automated layout-editor smoke (--edit-smoke) ----------
@@ -280,7 +562,9 @@ public partial class Main : Node
             {
                 _capturePath = Path.GetFullPath("docs/desktop-editsmoke-720.png");
             }
-            _captureFramesLeft = 2;
+            // 30 帧而非 2 帧: Apply 刚重建了 MatchSession, 等 ResetToLive 后首个
+            // tick 提交, HUD 显示真实实况状态而不是应用瞬间的空帧。
+            _captureFramesLeft = 30;
             _smokeExit = failures.Count == 0 ? 0 : 1;
         }
 
@@ -453,6 +737,14 @@ public partial class Main : Node
         {
             return;
         }
+        // 无头 dummy 渲染器没有真实视口纹理: 冒烟结果照常上报, 截图跳过,
+        // 退出码不受影响 (真实渲染证据由 --rendering-method gl_compatibility 运行产出)。
+        if (DisplayServer.GetName() == "headless")
+        {
+            GD.Print($"[capture] headless dummy renderer: 截图跳过 ({_capturePath}), smoke 退出码 {_smokeExit}");
+            GetTree().Quit(_smokeExit);
+            return;
+        }
         try
         {
             var img = GetViewport().GetTexture().GetImage();
@@ -533,6 +825,8 @@ public partial class Main : Node
 
     private void Present(RenderFrame frame)
     {
+        // 布局编辑器拥有鼠标时 (选择/拖动), 相机指针处理必须让位。
+        _camera.PointerInputEnabled = !_editor.Active;
         _visualizer.ShowFrame(frame);
         _camera.SetFocus(frame);
         _hud.UpdateFrame(frame, _session.Mode,
@@ -634,21 +928,47 @@ public partial class Main : Node
         }
         if (Input.IsActionJustPressed("restart_us"))
         {
-            engine.RestartPenalty(RoleNames.Us, "restart");
+            TryRestartRobot(RoleNames.Us);
         }
         if (Input.IsActionJustPressed("restart_them"))
         {
-            engine.RestartPenalty(RoleNames.Them, "restart");
+            TryRestartRobot(RoleNames.Them);
         }
         if (Input.IsActionJustPressed("reset_match"))
         {
             _session.ResetToLive();
+            // 场景/可视化根/相机按重置后的引擎场景重建 (回放 F5 后同源)。
+            ApplyScenarioToShell(_session.Engine.Scenario);
             GD.Print("[shell] 已重置为同 seed 新比赛");
         }
         if (Input.IsActionJustPressed("open_replay"))
         {
             _fileDialog.Popup();
         }
+    }
+
+    /// <summary>
+    /// Referee R/T: real restart of one robot (back to start pose, transients
+    /// cleaned, opponent +4). Only legal while the match is live; the engine
+    /// owns the rule, the shell only routes the command and reports the result.
+    /// </summary>
+    private void TryRestartRobot(string role)
+    {
+        var engine = _session.Engine;
+        if (engine.Phase is not (MatchControlPhase.Running or MatchControlPhase.Paused))
+        {
+            GD.Print("[referee] 真实重启仅在比赛进行中 (RUNNING/PAUSED) 可用: 先发令再使用");
+            return;
+        }
+        if (engine.RestartRobot(role))
+        {
+            GD.Print($"[referee] 已重启 {(role == RoleNames.Us ? "我方" : "对手")}: 回到出发点, 对方 +4");
+        }
+        else
+        {
+            GD.Print("[referee] 重启被拒绝 (当前阶段不允许)");
+        }
+        // HUD/画面随下一帧提交的快照刷新; 场景保持不变。
     }
 
     private void HandleReplayCommands()
@@ -684,6 +1004,9 @@ public partial class Main : Node
         if (Input.IsActionJustPressed("reset_match"))
         {
             _session.ResetToLive();
+            // 回放 → 实况: 可视化根与相机按新引擎的场景 (回放内嵌场景) 重建,
+            // 保证模拟状态、展示几何与镜头三者同步。
+            ApplyScenarioToShell(_session.Engine.Scenario);
             GD.Print("[shell] 已重置回实况模式");
         }
     }
