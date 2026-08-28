@@ -1,0 +1,4 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/sim/index.md", "reason": "Godot 渲染边界、确定性回放和 UI 不得复制规则真值"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "检查 RenderFrame 到 HUD 的跨层数据流"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "避免重复定义 UI 样式和状态映射"}
