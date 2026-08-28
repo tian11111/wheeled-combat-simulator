@@ -43,5 +43,31 @@
    "file": "shovel_stage_instage.csv",
    "expect": "stage"
   }
+ ],
+ "captureGroups": [
+  {
+   "model": "gray",
+   "batchId": "mbri-mini-gray",
+   "captureDate": "2026-08-01",
+   "vehicleId": "unknown",
+   "semantics": "gray_adc_zone_v1",
+   "files": ["gray_model.csv", "中轴.csv"]
+  },
+  {
+   "model": "frontAdc",
+   "batchId": "mbri-mini-front-adc",
+   "captureDate": "2026-08-01",
+   "vehicleId": "unknown",
+   "semantics": "stored_abs_diff_band_v1",
+   "files": ["front_adc_model.csv", "左偏20度且离墙居中位置.csv", "右偏20度且离墙居中位置.csv", "正对墙且离墙居中位置.csv", "正对着墙且距离墙最远.csv"]
+  },
+  {
+   "model": "shovel",
+   "batchId": "mbri-mini-shovel",
+   "captureDate": "2026-08-01",
+   "vehicleId": "unknown",
+   "semantics": "shovel_filtered_minmax_hysteresis_v1",
+   "files": ["shovel_model.csv", "shovel_hang_OutOfStage.csv", "shovel_hang_OutStage.csv", "shovel_stage_OnStage.csv", "shovel_stage_instage.csv"]
+  }
  ]
 }

@@ -1,0 +1,31 @@
+{
+  "id": "simulator-closeout",
+  "name": "simulator-closeout",
+  "title": "仿真器交付收尾",
+  "description": "收敛 MBri 传感器漂移、真机保真度门禁、Godot 窗口渲染冒烟和 GitHub 同步四项交付缺口。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "neco",
+  "assignee": "neco",
+  "createdAt": "2026-08-28",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-28-sensor-calibration-drift-resolution",
+    "08-28-real-telemetry-fidelity-promotion",
+    "08-28-godot-render-smoke-closeout",
+    "08-28-github-sync-closeout"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

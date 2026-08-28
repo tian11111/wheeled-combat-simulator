@@ -63,7 +63,8 @@ public static class SensorCalibrationCommand
         {
             throw new SensorEvidenceException($"数据目录不存在: {dataDir}");
         }
-        var manifest = ProtocolJson.Deserialize<SensorImportManifest>(File.ReadAllText(manifestPath));
+        var manifestBytes = File.ReadAllBytes(manifestPath);
+        var manifest = ProtocolJson.Deserialize<SensorImportManifest>(System.Text.Encoding.UTF8.GetString(manifestBytes));
         var manifestErrors = manifest.Validate().ToList();
         if (manifestErrors.Count > 0)
         {
@@ -76,15 +77,7 @@ public static class SensorCalibrationCommand
             .Cast<string>()
             .OrderBy(n => n, StringComparer.Ordinal)
             .ToList();
-        var selected = manifest.GrayRaw
-            .Concat([manifest.GrayModel ?? ""])
-            .Concat(manifest.FrontAdcRaw.Select(r => r.File))
-            .Concat([manifest.FrontAdcModel ?? ""])
-            .Concat(manifest.ShovelRaw.Select(r => r.File))
-            .Concat([manifest.ShovelModel ?? ""])
-            .Where(n => n.Length > 0)
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
+        var selected = manifest.SelectedFiles().ToList();
 
         // Pre-flight: every selected file must exist and fit size limits BEFORE output.
         foreach (var name in selected)
@@ -116,6 +109,10 @@ public static class SensorCalibrationCommand
 
         var report = SensorEvidenceBuilder.Build(
             manifest, groups, allCsv, config);
+        report = report with
+        {
+            ManifestSha256 = Convert.ToHexString(SHA256.HashData(manifestBytes)).ToLowerInvariant(),
+        };
         report = SensorEvidence.Fingerprint(
             report, DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
 

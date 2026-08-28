@@ -4,6 +4,38 @@ Command failures and integration errors.
 
 ---
 
+## [ERR-20260828-001] apply_patch
+
+**Logged**: 2026-08-28T10:18:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: docs
+
+### Summary
+多文件补丁的结束标记格式错误，补丁未应用。
+
+### Error
+```
+apply_patch verification failed: invalid patch: The last line of the patch must be '*** End Patch'
+```
+
+### Context
+- 操作：同时新增 GitHub 同步证据并更新 PRD。
+- 结果：没有半成品写入；拆成单文件补丁后成功。
+
+### Suggested Fix
+复杂文档变更拆成单文件、小补丁，并确认最后一行严格为 `*** End Patch`。
+
+### Metadata
+- Reproducible: yes
+- Related Files: .trellis/tasks/08-28-github-sync-closeout/evidence.md
+
+### Resolution
+- **Resolved**: 2026-08-28T10:18:00+08:00
+- **Notes**: 单文件补丁成功应用。
+
+---
+
 ## [ERR-20260827-002] codex-read-thread
 
 **Logged**: 2026-08-27T10:00:00+08:00

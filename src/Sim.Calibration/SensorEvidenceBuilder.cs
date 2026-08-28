@@ -31,6 +31,22 @@ public sealed record SensorImportManifest
     public List<SensorRawSelection> ShovelRaw { get; init; } = [];
     public string? ShovelModel { get; init; }
 
+    /// <summary>Explicit batch/date/semantic membership for every selected file.</summary>
+    public List<SensorCaptureGroup> CaptureGroups { get; init; } = [];
+
+    public IReadOnlyList<string> SelectedFiles()
+        => GrayRaw
+            .Concat(GrayModel is null ? [] : [GrayModel])
+            .Concat(GraySummary is null ? [] : [GraySummary])
+            .Concat(FrontAdcRaw.Select(r => r.File))
+            .Concat(FrontAdcModel is null ? [] : [FrontAdcModel])
+            .Concat(ShovelRaw.Select(r => r.File))
+            .Concat(ShovelModel is null ? [] : [ShovelModel])
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToList();
+
     public IEnumerable<string> Validate()
     {
         if (string.IsNullOrWhiteSpace(Label))
@@ -60,6 +76,17 @@ public sealed record SensorImportManifest
         if (ShovelRaw.Count == 0)
         {
             yield return "manifest: shovel raw list must be non-empty.";
+        }
+        if (CaptureGroups.Count == 0)
+        {
+            yield return "manifest: captureGroups must explicitly identify batch/date/vehicle/semantics for selected files.";
+        }
+        foreach (var group in CaptureGroups)
+        {
+            foreach (var error in group.Validate())
+            {
+                yield return error;
+            }
         }
         foreach (var raw in FrontAdcRaw)
         {
@@ -95,6 +122,7 @@ public sealed record SensorConfigSnapshot(
 public static class SensorEvidenceBuilder
 {
     private static readonly string[] GrayRawHeaders = ["t", "front", "rear", "left", "right"];
+    private static readonly string[] GraySummaryHeaders = ["group", "samples", "zone_p001", "zone_p50", "zone_p999", "near_edge_rate", "white_hit_rate"];
     private static readonly string[] AdcRawHeaders = ["t", "left", "right", "diff", "valid"];
     private static readonly string[] ShovelRawHeaders = ["t", "left", "right", "valid"];
     private static readonly string[] ModelHeaders = ["parameter", "value", "source", "note"];
@@ -110,6 +138,7 @@ public static class SensorEvidenceBuilder
         {
             throw new SensorEvidenceException(string.Join(" ", errors));
         }
+        ValidateCaptureGroups(manifest);
         var files = new List<SensorCalibrationFile>();
         var rejected = new List<SensorCalibrationRejection>();
         var used = new HashSet<string>(StringComparer.Ordinal);
@@ -123,6 +152,10 @@ public static class SensorEvidenceBuilder
         // ---- gray ----
         var grayTable = RequireTable(loaded, manifest.GrayModel!, "gray_model", files, used, rejected);
         var gray = ReadGrayModel(grayTable);
+        if (manifest.GraySummary is { } graySummary)
+        {
+            _ = LoadRaw(loaded, graySummary, GraySummaryHeaders, "gray_summary", files, used, rejected);
+        }
         var grayRawTables = new List<(string File, CsvTable Table, SensorReplay.GrayRow[] Rows)>();
         foreach (var grayRawFile in manifest.GrayRaw)
         {
@@ -185,6 +218,7 @@ public static class SensorEvidenceBuilder
             .Where(name => !used.Contains(name) && !name.Equals("config.py", StringComparison.Ordinal))
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToList();
+        files = files.Select(file => AddProvenance(file, manifest)).ToList();
 
         // ---- recomputation + drift comparison ----
         var comparison = new List<CalibrationDelta>();
@@ -193,7 +227,11 @@ public static class SensorEvidenceBuilder
         if (config?.GrayNearEdgeEnter is { } cfgEnter)
         {
             var stored = gray.Channels[0].NearEdgeEnter;
-            comparison.Add(Delta("gray", "near_edge_enter", stored, null, cfgEnter, manifest.ZoneTolerance));
+            comparison.Add(Audit(Delta("gray", "near_edge_enter", stored, null, cfgEnter, manifest.ZoneTolerance),
+                manifest, "gray", manifest.GrayRaw.Concat([manifest.GrayModel!]).Concat(manifest.GraySummary is null ? [] : [manifest.GraySummary]),
+                grayReplay?.Ready, "gray_adc_zone_v1", "data_quality_insufficient",
+                "缺少组标签且原始 CSV 无坐标，无法证明 stored/config 属于同一采集批次。",
+                SensorCalibrationStatus.EvidenceOnly));
             if (Math.Abs(stored - cfgEnter) > manifest.ZoneTolerance)
             {
                 grayReasons.Add($"near_edge_enter stored {stored} vs config {cfgEnter} 不一致");
@@ -202,6 +240,14 @@ public static class SensorEvidenceBuilder
         else
         {
             grayReasons.Add("未提供 config 快照; gray 重算因缺少组标签不可行 (stored 值未独立验证)。");
+        }
+        var graySourceFiles = manifest.GrayRaw
+            .Concat([manifest.GrayModel!])
+            .Concat(manifest.GraySummary is null ? [] : [manifest.GraySummary])
+            .ToList();
+        if (GroupCount(manifest, "gray", graySourceFiles) > 1)
+        {
+            grayReasons.Add("gray 选择清单包含多个 capture batch; 未把不同批次压成单一重算值。");
         }
 
         var frontReasons = new List<string>();
@@ -230,7 +276,11 @@ public static class SensorEvidenceBuilder
         if (leftP95 is not null && centerP05 is not null)
         {
             var recomputedLow = (leftP95.Value + centerP05.Value) / 2;
-            comparison.Add(Delta("frontAdc", "diff_low", front.DiffLow, recomputedLow, null, manifest.NumericTolerance));
+            comparison.Add(Audit(Delta("frontAdc", "diff_low", front.DiffLow, recomputedLow, null, manifest.NumericTolerance),
+                manifest, "frontAdc", manifest.FrontAdcRaw.Select(r => r.File).Concat([manifest.FrontAdcModel!]),
+                frontReplays.Sum(f => f.R.ReadyRows), "stored_abs_diff_band_v1", "model_recompute_error",
+                "重算使用当前选择批次的滚动中值分位数，无法解释 stored 值与该批次的差异。",
+                SensorCalibrationStatus.EvidenceOnly));
             if (Math.Abs(front.DiffLow - recomputedLow) > manifest.NumericTolerance)
             {
                 frontReasons.Add($"diff_low stored {Math.Round(front.DiffLow, 3)} vs 重算 {Math.Round(recomputedLow, 3)} 超出容差");
@@ -239,7 +289,11 @@ public static class SensorEvidenceBuilder
         if (centerP95 is not null && rightP05 is not null)
         {
             var recomputedHigh = (centerP95.Value + rightP05.Value) / 2;
-            comparison.Add(Delta("frontAdc", "diff_high", front.DiffHigh, recomputedHigh, null, manifest.NumericTolerance));
+            comparison.Add(Audit(Delta("frontAdc", "diff_high", front.DiffHigh, recomputedHigh, null, manifest.NumericTolerance),
+                manifest, "frontAdc", manifest.FrontAdcRaw.Select(r => r.File).Concat([manifest.FrontAdcModel!]),
+                frontReplays.Sum(f => f.R.ReadyRows), "stored_abs_diff_band_v1", "model_recompute_error",
+                "重算使用当前选择批次的滚动中值分位数。",
+                SensorCalibrationStatus.EvidenceOnly));
             if (Math.Abs(front.DiffHigh - recomputedHigh) > manifest.NumericTolerance)
             {
                 frontReasons.Add($"diff_high stored {Math.Round(front.DiffHigh, 3)} vs 重算 {Math.Round(recomputedHigh, 3)} 超出容差");
@@ -247,10 +301,18 @@ public static class SensorEvidenceBuilder
         }
         if (config is { FrontRatioThreshold: { } ratioCfg })
         {
-            comparison.Add(Delta("frontAdc", "ratio_threshold", null, front.RatioThreshold, ratioCfg, manifest.NumericTolerance));
+            comparison.Add(Audit(Delta("frontAdc", "ratio_threshold", null, front.RatioThreshold, ratioCfg, manifest.NumericTolerance),
+                manifest, "frontAdc", [manifest.FrontAdcModel!], null, "production_ratio_direction_v1", "semantic_difference",
+                "config ratio 与 stored 绝对差带不是同一判定语义；仅作并列证据。",
+                SensorCalibrationStatus.EvidenceOnly));
         }
 
         var shovelReasons = new List<string>();
+        var shovelSourceFiles = manifest.ShovelRaw.Select(r => r.File).Concat([manifest.ShovelModel!]).ToList();
+        if (GroupCount(manifest, "shovel", shovelSourceFiles) > 1)
+        {
+            shovelReasons.Add("shovel 选择清单包含多个 capture batch; 跨批次结果仅保留为证据。");
+        }
         double? stageMinP99 = null, hangMinP01 = null, stageMaxP99 = null, hangMaxP01 = null;
         foreach (var (file, expect, r) in shovelReplays)
         {
@@ -268,7 +330,13 @@ public static class SensorEvidenceBuilder
         if (stageMinP99 is not null && hangMinP01 is not null)
         {
             var enter = (stageMinP99.Value + hangMinP01.Value) / 2;
-            comparison.Add(Delta("shovel", "hang_enter", shovel.HangEnter, enter, config?.ShovelHangEnter, 1.0));
+            comparison.Add(Audit(Delta("shovel", "hang_enter", shovel.HangEnter, enter, config?.ShovelHangEnter, 1.0),
+                manifest, "shovel", manifest.ShovelRaw.Select(r => r.File).Concat([manifest.ShovelModel!]),
+                shovelReplays.Sum(s => s.R.ReadyRows), "shovel_filtered_minmax_hysteresis_v1",
+                GroupCount(manifest, "shovel", manifest.ShovelRaw.Select(r => r.File).Concat([manifest.ShovelModel!])) > 1
+                    ? "batch_mixing" : "data_quality_insufficient",
+                "选择文件来自多个显式批次，且存在 stage 回放失败；不能生成 runtime candidate。",
+                SensorCalibrationStatus.Rejected));
             if (Math.Abs(shovel.HangEnter - enter) > manifest.NumericTolerance)
             {
                 shovelReasons.Add($"hang_enter stored {shovel.HangEnter} vs 重算 {Math.Round(enter, 1)} 超出容差");
@@ -277,7 +345,13 @@ public static class SensorEvidenceBuilder
         if (stageMaxP99 is not null && hangMaxP01 is not null)
         {
             var clear = (stageMaxP99.Value + hangMaxP01.Value) / 2;
-            comparison.Add(Delta("shovel", "hang_clear", shovel.HangClear, clear, config?.ShovelHangClear, 1.0));
+            comparison.Add(Audit(Delta("shovel", "hang_clear", shovel.HangClear, clear, config?.ShovelHangClear, 1.0),
+                manifest, "shovel", manifest.ShovelRaw.Select(r => r.File).Concat([manifest.ShovelModel!]),
+                shovelReplays.Sum(s => s.R.ReadyRows), "shovel_filtered_minmax_hysteresis_v1",
+                GroupCount(manifest, "shovel", manifest.ShovelRaw.Select(r => r.File).Concat([manifest.ShovelModel!])) > 1
+                    ? "batch_mixing" : "data_quality_insufficient",
+                "选择文件来自多个显式批次，铲子 stage 回放门禁未通过。",
+                SensorCalibrationStatus.Rejected));
             if (Math.Abs(shovel.HangClear - clear) > manifest.NumericTolerance)
             {
                 shovelReasons.Add($"hang_clear stored {shovel.HangClear} vs 重算 {Math.Round(clear, 1)} 超出容差");
@@ -300,14 +374,32 @@ public static class SensorEvidenceBuilder
                 ["near_edge"] = grayReplay.Value.NearEdge,
                 ["white_hit"] = grayReplay.Value.WhiteHits,
             },
-            new(), grayReplay.Value.Invalid <= Math.Max(1, grayReplay.Value.Total / 100));
+            new(), grayReplay.Value.Invalid <= Math.Max(1, grayReplay.Value.Total / 100),
+            grayReplay.Value.FileResults);
+        var frontFileResults = frontReplays.Select(fr => ReplayFile(
+            fr.File, fr.Expect, fr.R.TotalRows, fr.R.InvalidRows, fr.R.ReadyRows,
+            fr.R.Mismatches, fr.R.LabeledRows, fr.R.DirectionCounts,
+            fr.R.ReadyRows > 0 && (double)fr.R.Mismatches / Math.Max(1, fr.R.LabeledRows) <= manifest.RateTolerance,
+            fr.R.ReadyRows == 0 ? "没有完成一个滤波窗口" : null)).ToList();
         var frontMetrics = frontReplays.Count == 0 ? null : Metrics(
             frontReplays.Sum(f => f.R.TotalRows), frontReplays.Sum(f => f.R.InvalidRows),
             frontReplays.Sum(f => f.R.ReadyRows),
             frontReplays.Min(f => f.R.FirstT), frontReplays.Max(f => f.R.LastT),
             frontReplays.SelectMany(f => f.R.DirectionCounts)
                 .GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.Sum(kv => kv.Value)),
-            frontFailFiles, frontFailFiles.Count == 0);
+            frontFailFiles, frontFailFiles.Count == 0, frontFileResults,
+            frontReplays.Sum(f => f.R.Mismatches), frontReplays.Sum(f => f.R.LabeledRows));
+        var shovelFileResults = shovelReplays.Select(sr => ReplayFile(
+            sr.File, sr.Expect, sr.R.TotalRows, sr.R.InvalidRows, sr.R.ReadyRows,
+            0, 0,
+            new Dictionary<string, int>
+            {
+                ["hang"] = sr.R.HangAsserts,
+                ["hang_transitions"] = sr.R.HangTransitions,
+                ["clear_transitions"] = sr.R.ClearTransitions,
+            },
+            Passes(sr),
+            Passes(sr) ? null : sr.R.ReadyRows == 0 ? "没有完成一个滤波窗口" : sr.Expect == "hang" ? "悬空断言比例低于 0.3" : "stage 文件出现悬空断言")).ToList();
         var shovelMetrics = shovelReplays.Count == 0 ? null : Metrics(
             shovelReplays.Sum(s => s.R.TotalRows), shovelReplays.Sum(s => s.R.InvalidRows),
             shovelReplays.Sum(s => s.R.ReadyRows),
@@ -319,7 +411,7 @@ public static class SensorEvidenceBuilder
                 ["clear_transitions"] = shovelReplays.Sum(s => s.R.ClearTransitions),
             },
             shovelReplays.Where(s => !Passes(s)).Select(s => s.File).ToList(),
-            shovelOk && shovelReplays.All(s => s.R.ReadyRows > 0));
+            shovelOk && shovelReplays.All(s => s.R.ReadyRows > 0), shovelFileResults);
 
         static bool Passes((string File, string Expect, SensorReplay.ShovelReplayResult R) s)
             => s.R.ReadyRows > 0 && (s.Expect == "hang"
@@ -368,6 +460,8 @@ public static class SensorEvidenceBuilder
             Files = files.OrderBy(f => f.Path, StringComparer.Ordinal).ToList(),
             IgnoredFiles = ignored,
             RejectedFiles = rejected,
+            CaptureGroups = manifest.CaptureGroups.OrderBy(g => g.Model, StringComparer.Ordinal)
+                .ThenBy(g => g.BatchId, StringComparer.Ordinal).ToList(),
             Gray = gray,
             FrontAdc = front,
             Shovel = shovel,
@@ -398,7 +492,8 @@ public static class SensorEvidenceBuilder
 
     private static ReplayMetrics Metrics(
         int total, int invalid, int ready, double? firstT, double? lastT,
-        Dictionary<string, int> decisions, List<string> failed, bool passed)
+        Dictionary<string, int> decisions, List<string> failed, bool passed,
+        List<ReplayFileMetrics>? fileResults = null, int labeledMismatch = 0, int labeledTotal = 0)
         => new()
         {
             Samples = ready,
@@ -407,7 +502,27 @@ public static class SensorEvidenceBuilder
             LastT = lastT,
             DecisionCounts = decisions,
             FailedFiles = failed,
+            LabeledMismatch = labeledMismatch,
+            LabeledTotal = labeledTotal,
             Passed = passed,
+            FileResults = fileResults ?? [],
+        };
+
+    private static ReplayFileMetrics ReplayFile(
+        string file, string? expected, int total, int invalid, int samples,
+        int mismatch, int labeled, Dictionary<string, int> decisions, bool passed, string? reason)
+        => new()
+        {
+            File = file,
+            Expected = expected,
+            TotalRows = total,
+            InvalidRows = invalid,
+            Samples = samples,
+            LabeledMismatch = mismatch,
+            LabeledTotal = labeled,
+            DecisionCounts = decisions,
+            Passed = passed,
+            Reason = reason,
         };
 
     private static CalibrationDelta Delta(string model, string field, double? stored, double? recomputed, double? config, double tol)
@@ -424,6 +539,83 @@ public static class SensorEvidenceBuilder
             MaxDelta = Math.Round(spread, 3),
             Consistent = spread <= Math.Max(tol, 1e-9),
         };
+    }
+
+    private static CalibrationDelta Audit(
+        CalibrationDelta delta, SensorImportManifest manifest, string model,
+        IEnumerable<string> sourceFiles, int? sampleCount, string semantics,
+        string causeCategory, string uncertainty, string decision)
+    {
+        var sources = sourceFiles.Where(f => !string.IsNullOrWhiteSpace(f))
+            .Distinct(StringComparer.Ordinal).OrderBy(f => f, StringComparer.Ordinal).ToList();
+        var groups = manifest.CaptureGroups
+            .Where(g => g.Model == model && g.Files.Any(sources.Contains))
+            .OrderBy(g => g.BatchId, StringComparer.Ordinal)
+            .ToList();
+        return delta with
+        {
+            SourceFiles = sources,
+            BatchIds = groups.Select(g => g.BatchId).Distinct(StringComparer.Ordinal).ToList(),
+            CaptureDates = groups.Select(g => g.CaptureDate).Distinct(StringComparer.Ordinal).OrderBy(d => d, StringComparer.Ordinal).ToList(),
+            SampleCount = sampleCount,
+            Semantics = semantics,
+            CauseCategory = causeCategory,
+            Uncertainty = uncertainty,
+            Decision = decision,
+            Reason = uncertainty,
+        };
+    }
+
+    private static int GroupCount(SensorImportManifest manifest, string model, IEnumerable<string> sourceFiles)
+    {
+        var sources = sourceFiles.ToHashSet(StringComparer.Ordinal);
+        return manifest.CaptureGroups.Count(g => g.Model == model && g.Files.Any(sources.Contains));
+    }
+
+    private static SensorCalibrationFile AddProvenance(SensorCalibrationFile file, SensorImportManifest manifest)
+    {
+        var group = manifest.CaptureGroups.Single(g => g.Files.Contains(file.Path, StringComparer.Ordinal));
+        return file with
+        {
+            CaptureLabel = manifest.Label,
+            Model = group.Model,
+            BatchId = group.BatchId,
+            CaptureDate = group.CaptureDate,
+            Semantics = group.Semantics,
+        };
+    }
+
+    private static void ValidateCaptureGroups(SensorImportManifest manifest)
+    {
+        var selected = manifest.SelectedFiles();
+        var selectedSet = selected.ToHashSet(StringComparer.Ordinal);
+        var assigned = new Dictionary<string, string>(StringComparer.Ordinal);
+        var errors = new List<string>();
+        foreach (var group in manifest.CaptureGroups)
+        {
+            foreach (var file in group.Files)
+            {
+                if (!selectedSet.Contains(file))
+                {
+                    errors.Add($"manifest: capture group '{group.BatchId}' names unselected file '{file}'.");
+                }
+                else if (!assigned.TryAdd(file, group.BatchId))
+                {
+                    errors.Add($"manifest: selected file '{file}' appears in capture groups '{assigned[file]}' and '{group.BatchId}'.");
+                }
+            }
+        }
+        foreach (var file in selected)
+        {
+            if (!assigned.ContainsKey(file))
+            {
+                errors.Add($"manifest: selected file '{file}' has no explicit capture group.");
+            }
+        }
+        if (errors.Count > 0)
+        {
+            throw new SensorEvidenceException(string.Join(" ", errors));
+        }
     }
 
     private static CsvTable RequireTable(
@@ -632,7 +824,7 @@ public static class SensorEvidenceBuilder
         return raw is "1" || raw.Equals("true", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static (int Total, int Invalid, int Ready, double? First, double? Last, int NearEdge, int WhiteHits)? CombineGray(
+    private static (int Total, int Invalid, int Ready, double? First, double? Last, int NearEdge, int WhiteHits, List<ReplayFileMetrics> FileResults)? CombineGray(
         List<(string File, CsvTable Table, SensorReplay.GrayRow[] Rows)> rawTables, GrayModelData model)
     {
         var totals = 0;
@@ -640,8 +832,9 @@ public static class SensorEvidenceBuilder
         var ready = 0;
         var near = 0;
         var white = 0;
+        var fileResults = new List<ReplayFileMetrics>();
         double? first = null, last = null;
-        foreach (var (_, _, rows) in rawTables)
+        foreach (var (file, _, rows) in rawTables)
         {
             var r = SensorReplay.ReplayGray(model, rows);
             totals += r.TotalRows;
@@ -651,8 +844,17 @@ public static class SensorEvidenceBuilder
             white += r.WhiteHitRows;
             first ??= r.FirstT;
             last = r.LastT ?? last;
+            fileResults.Add(ReplayFile(
+                file, null, r.TotalRows, r.InvalidRows, r.ReadyRows, 0, 0,
+                new Dictionary<string, int>
+                {
+                    ["near_edge"] = r.NearEdgeAsserts,
+                    ["white_hit"] = r.WhiteHitRows,
+                },
+                r.ReadyRows > 0 && r.InvalidRows <= Math.Max(1, r.TotalRows / 100),
+                r.ReadyRows == 0 ? "没有完成一个滤波窗口" : r.InvalidRows > Math.Max(1, r.TotalRows / 100) ? "无效行超过 1%" : null));
         }
-        return (totals, invalid, ready, first, last, near, white);
+        return (totals, invalid, ready, first, last, near, white, fileResults);
     }
 }
 

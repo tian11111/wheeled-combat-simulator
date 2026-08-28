@@ -37,6 +37,16 @@ public sealed record SensorCalibrationFile
     /// <summary>Vehicle/session label recorded in the selection manifest.</summary>
     public string? CaptureLabel { get; init; }
 
+    /// <summary>Explicit provenance group from the selection manifest.</summary>
+    public string? Model { get; init; }
+
+    public string? BatchId { get; init; }
+
+    public string? CaptureDate { get; init; }
+
+    /// <summary>Signal semantics used by this source, never inferred from a value.</summary>
+    public string? Semantics { get; init; }
+
     public IEnumerable<string> Validate()
     {
         if (string.IsNullOrWhiteSpace(Path))
@@ -58,6 +68,51 @@ public sealed record SensorCalibrationFile
         if (Bytes < 0)
         {
             yield return $"source file '{Path}': bytes must be >= 0.";
+        }
+    }
+}
+
+/// <summary>
+/// Explicit source grouping from the import manifest. A group may contain a
+/// model file and its raw files, but files must belong to exactly one group.
+/// This is deliberately manifest-owned: filesystem timestamps and filenames
+/// are not treated as batch identity.
+/// </summary>
+public sealed record SensorCaptureGroup
+{
+    public string Model { get; init; } = "";
+    public string BatchId { get; init; } = "";
+    public string CaptureDate { get; init; } = "";
+    public string VehicleId { get; init; } = "";
+    public string Semantics { get; init; } = "";
+    public List<string> Files { get; init; } = [];
+
+    public IEnumerable<string> Validate()
+    {
+        if (Model is not ("gray" or "frontAdc" or "shovel"))
+        {
+            yield return $"capture group: unknown model '{Model}'.";
+        }
+        if (string.IsNullOrWhiteSpace(BatchId))
+        {
+            yield return $"capture group '{Model}': batchId is required.";
+        }
+        if (!DateOnly.TryParseExact(CaptureDate, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out _))
+        {
+            yield return $"capture group '{BatchId}': captureDate must be yyyy-MM-dd.";
+        }
+        if (string.IsNullOrWhiteSpace(VehicleId))
+        {
+            yield return $"capture group '{BatchId}': vehicleId is required; use 'unknown' when unavailable.";
+        }
+        if (string.IsNullOrWhiteSpace(Semantics))
+        {
+            yield return $"capture group '{BatchId}': semantics is required.";
+        }
+        if (Files.Count == 0)
+        {
+            yield return $"capture group '{BatchId}': files must be non-empty.";
         }
     }
 }
@@ -200,6 +255,23 @@ public sealed record ReplayMetrics
 
     /// <summary>Whether this replay meets the declared gate for runtime candidacy.</summary>
     public bool Passed { get; init; }
+
+    /// <summary>Per-file replay evidence retained for auditability.</summary>
+    public List<ReplayFileMetrics> FileResults { get; init; } = [];
+}
+
+public sealed record ReplayFileMetrics
+{
+    public string File { get; init; } = "";
+    public string? Expected { get; init; }
+    public int TotalRows { get; init; }
+    public int InvalidRows { get; init; }
+    public int Samples { get; init; }
+    public int LabeledMismatch { get; init; }
+    public int LabeledTotal { get; init; }
+    public Dictionary<string, int> DecisionCounts { get; init; } = new();
+    public bool Passed { get; init; }
+    public string? Reason { get; init; }
 }
 
 /// <summary>One model block: typed parameters + provenance + replay + status.</summary>
@@ -249,6 +321,26 @@ public sealed record CalibrationDelta
     public double? Config { get; init; }
     public double? MaxDelta { get; init; }
     public bool Consistent { get; init; }
+
+    /// <summary>Source files and explicit batch provenance for this finding.</summary>
+    public List<string> SourceFiles { get; init; } = [];
+
+    public List<string> BatchIds { get; init; } = [];
+
+    public List<string> CaptureDates { get; init; } = [];
+
+    public int? SampleCount { get; init; }
+
+    public string? Semantics { get; init; }
+
+    /// <summary>Primary audited cause: model_recompute_error, batch_mixing, semantic_difference, or data_quality_insufficient.</summary>
+    public string? CauseCategory { get; init; }
+
+    public string? Uncertainty { get; init; }
+
+    public string? Decision { get; init; }
+
+    public string? Reason { get; init; }
 }
 
 /// <summary>Gray-only flag: coordinates were absent so a GrayGridMap cannot be built (R1/AC5).</summary>
@@ -304,6 +396,9 @@ public sealed record SensorCalibrationReport : IProtocolMessage
 
     public string ToolVersion { get; init; } = "";
 
+    /// <summary>SHA-256 of the exact selection manifest bytes, when imported by CLI.</summary>
+    public string? ManifestSha256 { get; init; }
+
     /// <summary>Manifest vehicle/session label.</summary>
     public string Label { get; init; } = "";
 
@@ -312,6 +407,8 @@ public sealed record SensorCalibrationReport : IProtocolMessage
     public List<string> IgnoredFiles { get; init; } = [];
 
     public List<SensorCalibrationRejection> RejectedFiles { get; init; } = [];
+
+    public List<SensorCaptureGroup> CaptureGroups { get; init; } = [];
 
     public GrayModelData? Gray { get; init; }
 
@@ -346,6 +443,10 @@ public sealed record SensorCalibrationReport : IProtocolMessage
         {
             yield return "sensor-calibration: toolVersion must be recorded.";
         }
+        if (ManifestSha256 is { } manifestHash && (manifestHash.Length != 64 || !manifestHash.All(Uri.IsHexDigit)))
+        {
+            yield return "sensor-calibration: manifestSha256 must be 64 hex chars when present.";
+        }
         if (Files is null || Files.Count == 0)
         {
             yield return "sensor-calibration: files must list every consumed input.";
@@ -375,6 +476,18 @@ public sealed record SensorCalibrationReport : IProtocolMessage
             if (rejection is null || string.IsNullOrWhiteSpace(rejection.Path) || string.IsNullOrWhiteSpace(rejection.Reason))
             {
                 yield return "sensor-calibration: rejected files need path and reason.";
+            }
+        }
+        foreach (var group in CaptureGroups ?? [])
+        {
+            if (group is null)
+            {
+                yield return "sensor-calibration: capture groups must not contain null entries.";
+                continue;
+            }
+            foreach (var error in group.Validate())
+            {
+                yield return error;
             }
         }
         foreach (var error in Gray?.Validate() ?? [])

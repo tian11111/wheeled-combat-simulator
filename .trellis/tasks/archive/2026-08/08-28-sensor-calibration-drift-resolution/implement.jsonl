@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "src/Sim.Calibration/SensorEvidenceBuilder.cs", "reason": "按批次和来源生成逐文件回放及漂移审计"}
+{"file": "src/Sim.Protocol/SensorCalibration.cs", "reason": "增加 manifest provenance、漂移原因和回放证据协议字段"}
+{"file": "src/Sim.Cli/SensorCalibrationCommand.cs", "reason": "记录 selection manifest SHA-256"}
+{"file": "src/Sim.Tests/SensorCalibrationImportTests.cs", "reason": "覆盖 capture group 和逐文件失败回放"}

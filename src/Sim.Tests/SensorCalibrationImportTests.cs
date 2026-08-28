@@ -157,6 +157,28 @@ public class SensorCalibrationImportTests
     }
 
     [Fact]
+    public void MiniImport_RecordsManifestGroupsAndPerFileReplayEvidence()
+    {
+        var report = LoadReport(RunImport());
+        Assert.Equal(3, report.CaptureGroups.Count);
+        Assert.NotNull(report.ManifestSha256);
+        Assert.Equal(64, report.ManifestSha256!.Length);
+        Assert.All(report.Files, file =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(file.Model));
+            Assert.False(string.IsNullOrWhiteSpace(file.BatchId));
+            Assert.False(string.IsNullOrWhiteSpace(file.CaptureDate));
+            Assert.False(string.IsNullOrWhiteSpace(file.Semantics));
+        });
+        Assert.Single(report.Blocks.Single(b => b.Model == "gray").Replay!.FileResults);
+        Assert.Equal(4, report.Blocks.Single(b => b.Model == "frontAdc").Replay!.FileResults.Count);
+        var shovel = report.Blocks.Single(b => b.Model == "shovel").Replay!;
+        Assert.Equal(4, shovel.FileResults.Count);
+        Assert.Contains(shovel.FileResults, file => file.File == "shovel_stage_instage.csv"
+            && !file.Passed && file.Reason!.Contains("悬空"));
+    }
+
+    [Fact]
     public void MiniImport_TransparencyAndConfigSnapshot()
     {
         var report = LoadReport(RunImport(extraFile: "unselected_random.csv"));
@@ -253,6 +275,19 @@ public class SensorCalibrationImportTests
             var manifest = ProtocolJson.Deserialize<SensorImportManifest>(File.ReadAllText(path));
             var bad = manifest with { Label = "" };
             File.WriteAllText(path, ProtocolJson.Serialize(bad));
+        });
+        Assert.Equal(1, run.Exit);
+        Assert.False(File.Exists(run.OutPath));
+    }
+
+    [Fact]
+    public void MissingCaptureGroup_NoReportExit1()
+    {
+        var run = RunImport(mutate: dir =>
+        {
+            var path = Path.Combine(dir, "selection.manifest.json");
+            var manifest = ProtocolJson.Deserialize<SensorImportManifest>(File.ReadAllText(path));
+            File.WriteAllText(path, ProtocolJson.Serialize(manifest with { CaptureGroups = [] }));
         });
         Assert.Equal(1, run.Exit);
         Assert.False(File.Exists(run.OutPath));
