@@ -318,6 +318,104 @@ public sealed class MatchEngine
         return pts;
     }
 
+    /// <summary>
+    /// Real restart (referee R/T): the target robot returns to its scenario
+    /// start pose with motion, sensor and FSM transients cleaned; the opponent
+    /// is awarded exactly 4 points and the restarted role's penalty total
+    /// increments once. The match clock, the other robot and the blocks are
+    /// preserved, and the restarted robot re-enters MOUNT_RING (armed) so it
+    /// resumes the mount/recovery flow without extending the clock — a robot
+    /// that already finished is revivable while the match is still active.
+    /// Only legal while the match is live (<see cref="MatchControlPhase.Running"/>
+    /// or <see cref="MatchControlPhase.Paused"/>); Prep/Ready/Finished reject
+    /// with no score, event or replay changes. Records the additive command
+    /// <c>restart_robot:&lt;role&gt;</c>; the legacy penalty-only
+    /// <see cref="RestartPenalty"/> path is untouched.
+    /// Returns false when the current phase rejects the restart.
+    /// </summary>
+    public bool RestartRobot(string role)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+        if (!RoleNames.IsKnownRole(role))
+        {
+            throw new ArgumentException($"Unknown role '{role}'.", nameof(role));
+        }
+        if (_phase is not (MatchControlPhase.Running or MatchControlPhase.Paused))
+        {
+            return false;
+        }
+        var r = role == RoleNames.Us ? _us : _them;
+        ResetRobotToStart(r);
+        const double points = 4;
+        if (r.IsUs)
+        {
+            _penaltyUs += points;
+        }
+        else
+        {
+            _penaltyThem += points;
+        }
+        OppGain(r, points);
+        _events.Emit(EventKind.Restart, r,
+            $"[referee] 真实重启 {r.Name}: 回到出发点并清理瞬态, 对方 +{Js.Num(points)} ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})",
+            "score",
+            new { role = r.Role, points, scorer = r.IsUs ? RoleNames.Them : RoleNames.Us });
+        RecordCommand($"restart_robot:{r.Role}");
+        return true;
+    }
+
+    /// <summary>
+    /// Resets one robot's mutable runtime state to its scenario start pose
+    /// (mapped through <see cref="FieldModel.Transform"/>) and replaces the
+    /// FSM runtime with clean sub-state objects. Match elapsed time
+    /// (<c>Fsm.SimT</c>) is kept and the FSM clock is set to the current match
+    /// timer, so the match ends exactly when it would have anyway.
+    /// </summary>
+    private void ResetRobotToStart(RobotRuntime r)
+    {
+        var start = _scenario.Field.Starts[r.Role];
+        var t = _field.Transform;
+        var (x, y) = t.LocalToWorldPoint(start.X, start.Y);
+        r.X = x;
+        r.Y = y;
+        r.Th = t.LocalToWorldHeading(start.Th);
+        r.V = 0;
+        r.W = 0;
+        r.Vx = 0;
+        r.Vy = 0;
+        r.Omega = 0;
+        r.SpinOmega = 0;
+        r.ZG = _field.StageHeightAt(x, y);
+        r.Pitch = 0;
+        r.Roll = 0;
+        r.IsStalled = false;
+        r.StallT = 0;
+        r.StallAnchorX = x;
+        r.StallAnchorY = y;
+        r.WedgedFront = false;
+        r.FrontLoad = 1;
+        r.CmdQueue = new Queue<(double V, double W)>();
+        r.CmdV = 0;
+        r.CmdW = 0;
+        r.IrHyst = new Dictionary<string, HysteresisState>();
+        r.Probe = new Dictionary<string, SensorProbe>();
+        r.Sens = new Dictionary<string, double>();
+        r.RawSens = new Dictionary<string, double>();
+        r.DropPending = false;
+        r.WasOn = _field.OnPlatform(x, y);
+        r.Fsm = new FsmRuntime
+        {
+            SimT = r.Fsm.SimT,      // 比赛已进行时间不回退 (事件时间戳保持单调)
+            Timer = _matchTimer,    // 剩余比赛时间: 不延长比赛时钟
+            Armed = true,
+            State = FsmState.MountRing,
+            Mount = new MountState(),
+        };
+        // resetAll tail: refresh sensors once so paused/pre-commit views show
+        // real data at the new pose (pure recomputation, no rng draws).
+        _sensors.SampleSensorsFor(r);
+    }
+
     private void OnBothDone(RobotRuntime robot, string reason)
     {
         if (_us.Fsm.State == FsmState.Finished && _them.Fsm.State == FsmState.Finished)

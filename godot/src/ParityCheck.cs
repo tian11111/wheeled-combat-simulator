@@ -55,14 +55,7 @@ public static class ParityCheck
         {
             if (commandsByTick.TryGetValue(tick, out var commands))
             {
-                foreach (var command in commands)
-                {
-                    var parts = command.Split(':', 3);
-                    if (parts.Length == 3 && parts[0] == "restart")
-                    {
-                        engine.RestartPenalty(parts[1], parts[2]);
-                    }
-                }
+                ApplyCommands(engine, commands);
             }
             actionsByTick.TryGetValue(tick, out var actions);
             var snapshot = engine.Tick(
@@ -96,6 +89,32 @@ public static class ParityCheck
             EventCount = fingerprints.Count,
             FirstDivergence = firstDiff,
         };
+    }
+
+    /// <summary>
+    /// Applies recorded core commands with exactly the same semantics as
+    /// Sim.Cli replay-check: legacy <c>restart:&lt;role&gt;:&lt;kind&gt;</c>
+    /// stays penalty-only, additive <c>restart_robot:&lt;role&gt;</c> performs
+    /// the real restart, and unknown commands are ignored so a future command
+    /// kind never breaks old replay verification.
+    /// </summary>
+    private static void ApplyCommands(MatchEngine engine, List<string> commands)
+    {
+        foreach (var command in commands)
+        {
+            var parts = command.Split(':', 3);
+            if (parts.Length == 3 && parts[0] == "restart")
+            {
+                engine.RestartPenalty(parts[1], parts[2]);
+            }
+            else if (parts.Length == 2 && parts[0] == "restart_robot"
+                && RoleNames.IsKnownRole(parts[1]))
+            {
+                engine.RestartRobot(parts[1]);
+            }
+            // Unknown recorded commands are ignored exactly like Sim.Cli, so a
+            // future command kind never breaks old replay verification.
+        }
     }
 
     private static string? eventDivergence(List<string> actual, List<string> expected)

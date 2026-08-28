@@ -294,6 +294,17 @@ public static class Program
             {
                 engine.RestartPenalty(parts[1], parts[2]);
             }
+            else if (parts.Length == 2 && parts[0] == "restart_robot")
+            {
+                if (RoleNames.IsKnownRole(parts[1]))
+                {
+                    engine.RestartRobot(parts[1]);
+                }
+                else
+                {
+                    Console.Error.WriteLine($"warning: unknown recorded command '{command}' ignored");
+                }
+            }
             else
             {
                 Console.Error.WriteLine($"warning: unknown recorded command '{command}' ignored");

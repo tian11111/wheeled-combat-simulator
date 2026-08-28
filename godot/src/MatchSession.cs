@@ -22,7 +22,11 @@ public enum SessionMode
 /// </summary>
 public sealed class MatchSession
 {
-    private readonly Scenario _scenario;
+    // Live scenario the session resets to. Loading a replay re-points it at the
+    // replay's own scenario so F5 (ResetToLive) rebuilds the same match the
+    // replay ended with — the reset scenario always represents the current
+    // live match.
+    private Scenario _scenario;
     private readonly Queue<Snapshot> _pending = new();
     private double _accumulator;
 
@@ -152,6 +156,7 @@ public sealed class MatchSession
         }
 
         Engine = engine;
+        _scenario = file.Scenario; // F5 (ResetToLive) 从回放场景重建, 与录制端同一场地
         Mode = SessionMode.Replay;
         LatestSnapshot = null;
         ReplayCache = cache;
@@ -223,6 +228,11 @@ public sealed class MatchSession
             if (parts.Length == 3 && parts[0] == "restart")
             {
                 engine.RestartPenalty(parts[1], parts[2]);
+            }
+            else if (parts.Length == 2 && parts[0] == "restart_robot"
+                && RoleNames.IsKnownRole(parts[1]))
+            {
+                engine.RestartRobot(parts[1]);
             }
             // Unknown recorded commands are ignored exactly like Sim.Cli, so a
             // future command kind never breaks old replay playback.
