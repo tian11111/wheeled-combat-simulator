@@ -32,10 +32,10 @@
 
 ## Cross-Task Acceptance Criteria
 
-- [ ] 四个子任务均有独立 PRD、设计和执行清单，并按顺序通过各自验收。
-- [ ] `dotnet test`、seed-42 `replay-check` 和相关 Godot parity 不回退。
-- [ ] 漂移报告、保真度登记、视觉截图和 GitHub 远端状态相互一致且可追溯。
-- [ ] 最终工作区干净，远端包含本次应同步的提交。
+- [x] 四个子任务均有独立 PRD、设计和执行清单，并按顺序通过各自验收。
+- [x] `dotnet test`、seed-42 `replay-check` 和相关 Godot parity 不回退。
+- [x] 漂移报告、保真度登记、视觉截图和 GitHub 远端状态相互一致且可追溯。
+- [x] 最终工作区干净，远端包含本次应同步的提交（任务记录提交后再次复核）。
 
 ## Key Decisions
 

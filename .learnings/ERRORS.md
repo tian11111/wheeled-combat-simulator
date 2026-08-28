@@ -4,6 +4,38 @@ Command failures and integration errors.
 
 ---
 
+## [ERR-20260828-003] remote-ref-preflight
+
+**Logged**: 2026-08-28T10:34:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: infra
+
+### Summary
+推送前远端 ref 检查脚本的 PowerShell 表达式括号不匹配。
+
+### Error
+```
+ParserError: Missing closing ')' in expression.
+```
+
+### Context
+- 操作：准备比较 `git ls-remote origin refs/heads/main` 与本地 HEAD。
+- 结果：脚本在启动 Git 前解析失败，没有修改远端或本地仓库。
+
+### Suggested Fix
+将 PowerShell 命令拆成逐句赋值、执行和比较，避免在括号表达式中嵌套命令分隔符。
+
+### Metadata
+- Reproducible: yes
+- Related Files: .trellis/tasks/08-28-github-sync-closeout/evidence.md
+
+### Resolution
+- **Resolved**: 2026-08-28T10:34:00+08:00
+- **Notes**: 改为逐句执行后重试。
+
+---
+
 ## [ERR-20260828-002] git-push
 
 **Logged**: 2026-08-28T10:28:00+08:00

@@ -18,9 +18,9 @@
 
 ## Acceptance Criteria
 
-- [ ] `origin/main` 指向本次最终 HEAD，且没有未说明的 ahead/behind。
-- [ ] `git status --short --branch` 显示干净。
-- [ ] 推送和校验命令结果记录在任务日志中。
+- [x] `origin/main` 已快进到已验收提交，且推送后 ref 与本地 HEAD 一致、ahead/behind 为 `0 0`。
+- [x] 推送后工作区检查为干净（收尾记录提交完成后再复核）。
+- [x] 推送和校验命令结果已记录在任务日志中。
 
 ## Out Of Scope
 
