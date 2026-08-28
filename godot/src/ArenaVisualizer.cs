@@ -127,14 +127,18 @@ public partial class ArenaVisualizer : Node3D
         root.AddChild(MakeBox(PlatformSideColor,
             new Vector3(span, top, span), new Vector3(center, top / 2, center)));
 
-        // 顶面灰度纹理: 与内核 FieldGray 手绘模型同源 (角黑→心白, 中央 0.6×0.6 红区)。
+        // 顶面灰度纹理: 与内核 FieldGray 手绘模型同源 (黑带→白心, 中央 0.6×0.6 红区)。
+        // 像素↔场局部坐标的轴向契约见 FieldGrayTextureMap (行 0 = 场地南侧)。
         var surface = new MeshInstance3D
         {
             Mesh = new PlaneMesh { Size = new Vector2(span, span) },
+            // Unshaded: 台面必须按 0–1000 语义原样显示, 有向光/镜面高光不得
+            // 在平面上制造随视角变化的灰度梯度 (旧版斜向灰带即源于此)。
             MaterialOverride = MakeTexturedMaterial(MakeFieldGrayTexture(model, field)),
         };
         surface.Position = new Vector3(center, top + 0.001f, center);
-        // PlaneMesh 默认朝 +Y 且 UV 与局部 X/Z 对应; sim 的 y 轴向上 → 翻转 V。
+        // PlaneMesh 默认 FACE_Y (朝 +Y), UV.u 随局部 +X、UV.v 随局部 +Z 增长,
+        // 与 FieldGrayTextureMap 的图像轴向契约一致; 无需再翻转。
         root.AddChild(surface);
 
         // 中央白"武" (纯视觉, 与灰度传感器无关)。
@@ -188,38 +192,37 @@ public partial class ArenaVisualizer : Node3D
 
     /// <summary>
     /// Generates the platform top-surface texture by sampling the same
-    /// hand-drawn gray model the sensors use: gray ramp + red center square.
+    /// hand-drawn gray model the sensors use (via the pure
+    /// <see cref="FieldGrayTextureMap"/> mapping: row 0 = field south,
+    /// column 0 = field west); gray ramp + red center square.
     /// </summary>
     private static ImageTexture MakeFieldGrayTexture(FieldModel model, FieldParams field)
     {
-        const int resolution = 128;
-        var min = field.Platform.MinX;
-        var max = field.Platform.MaxX;
-        var span = max - min;
+        const int resolution = FieldGrayTextureMap.DefaultResolution;
+        var redZone = ToByteRgb(RedZoneColor);
+        var buffer = FieldGrayTextureMap.BuildRgb8(
+            resolution,
+            field.Platform.MinX, field.Platform.MinY,
+            field.Platform.MaxX, field.Platform.MaxY,
+            model.Center,
+            model.FieldGrayLocal,
+            redZone);
         var image = Image.CreateEmpty(resolution, resolution, false, Image.Format.Rgb8);
         for (var py = 0; py < resolution; py++)
         {
-            // Image V 轴向下; 场 y 向上 → 用 (height-1-py) 采样保持北在上。
-            var y = max - (py + 0.5) / resolution * span;
             for (var px = 0; px < resolution; px++)
             {
-                var x = min + (px + 0.5) / resolution * span;
-                var gray = model.FieldGrayLocal(x, y);
-                Color color;
-                if (Math.Abs(x - model.Center) < 0.30 && Math.Abs(y - model.Center) < 0.30)
-                {
-                    color = RedZoneColor; // 中央红区 (白"武"由 Label3D 叠加)
-                }
-                else
-                {
-                    var v = (float)Math.Clamp(gray / 1000.0, 0.0, 1.0);
-                    color = new Color(v, v, v);
-                }
-                image.SetPixel(px, py, color);
+                var offset = (py * resolution + px) * 3;
+                image.SetPixel(px, py, Godot.Color.Color8(buffer[offset], buffer[offset + 1], buffer[offset + 2]));
             }
         }
         return ImageTexture.CreateFromImage(image);
     }
+
+    private static (byte R, byte G, byte B) ToByteRgb(Color color)
+        => ((byte)MathF.Round(Mathf.Clamp(color.R, 0f, 1f) * 255f),
+            (byte)MathF.Round(Mathf.Clamp(color.G, 0f, 1f) * 255f),
+            (byte)MathF.Round(Mathf.Clamp(color.B, 0f, 1f) * 255f));
 
     // ---------- dynamic entities ----------
 
@@ -341,7 +344,10 @@ public partial class ArenaVisualizer : Node3D
         var material = new StandardMaterial3D
         {
             AlbedoTexture = texture,
-            Roughness = 0.85f,
+            // 受控着色路径: 台面灰度纯自发光显示, 方向光/高光无法制造梯度
+            // (视觉 QA 的像素分桶也依赖颜色与纹理一一对应)。
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Roughness = 1f,
             Metallic = 0.0f,
             VertexColorUseAsAlbedo = false,
         };

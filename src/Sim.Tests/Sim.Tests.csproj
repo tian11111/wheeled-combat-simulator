@@ -24,6 +24,7 @@
     <Compile Include="..\..\godot\src\MatchSession.cs" Link="godot\MatchSession.cs" />
     <Compile Include="..\..\godot\src\ParityCheck.cs" Link="godot\ParityCheck.cs" />
     <Compile Include="..\..\godot\src\LayoutDraft.cs" Link="godot\LayoutDraft.cs" />
+    <Compile Include="..\..\godot\src\FieldGrayTextureMap.cs" Link="godot\FieldGrayTextureMap.cs" />
   </ItemGroup>
 
   <ItemGroup>
