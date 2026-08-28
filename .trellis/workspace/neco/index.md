@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
-- **Last Active**: 2026-08-27
+- **Total Sessions**: 8
+- **Last Active**: 2026-08-28
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~227 | Active |
+| `journal-1.md` | ~250 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-08-28 | Godot 桌面端 UI 优化 | `6273ac3`, `4c41d91`, `57c1375` | `main` |
 | 7 | 2026-08-27 | MBri 传感器标定证据导入 (08-27-mbri-sensor-calibration-import) | - | `main` |
 | 6 | 2026-08-27 | 收尾 00-bootstrap-guidelines: spec 填充提交与归档 | - | `main` |
 | 5 | 2026-08-27 | 真机遥测物理标定闭环 (08-27-real-robot-physics-calibration) | `ad8502f`, `fb1a2ad` | `main` |

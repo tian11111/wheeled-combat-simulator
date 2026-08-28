@@ -225,3 +225,26 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Next Steps
 
 - 数据批次明确后的人工复核; 若需运行时传感器响应集成, 另立 sensor-response-runtime-profile 任务并只接受人工批准的报告
+
+
+## Session 8: Godot 桌面端 UI 优化
+
+**Date**: 2026-08-28
+**Task**: Godot 桌面端 UI 优化
+**Branch**: `main`
+
+### Summary
+
+完成深色赛事控制台 HUD、回放控制条和布局编辑工具栏；通过真实 renderer 1152/1280/1920 截图、Godot parity、CLI replay-check、22 项编辑冒烟和 189 项 .NET 测试。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6273ac3` | (see git log) |
+| `4c41d91` | (see git log) |
+| `57c1375` | (see git log) |
+
+### Status
+
+[OK] **Completed**
