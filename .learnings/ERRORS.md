@@ -4,6 +4,174 @@ Command failures and integration errors.
 
 ---
 
+## [ERR-20260828-UI6] git-index-permission
+
+**Logged**: 2026-08-28T00:00:00+08:00
+**Priority**: medium
+**Status**: resolved
+**Area**: infra
+
+### Summary
+The sandbox denied Git permission to create `.git/index.lock` during the approved commit step.
+
+### Error
+```
+fatal: Unable to create 'D:/project/robot-simulator/.git/index.lock': Permission denied
+```
+
+### Context
+- No commit was created and the repository index was not changed.
+- The commit needs the approved elevated command path on this Windows workspace.
+
+### Suggested Fix
+Retry the same explicit `git add`/`git commit` commands with controlled escalation.
+
+### Metadata
+- Reproducible: yes
+- Related Files: .git/index.lock
+
+---
+
+## [ERR-20260828-UI5] trellis-archive-path
+
+**Logged**: 2026-08-28T00:00:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: infra
+
+### Summary
+The archive listing check targeted `.trellis/archive` instead of the actual `.trellis/tasks/archive` directory.
+
+### Error
+```
+Get-ChildItem: Cannot find path 'D:\\project\\robot-simulator\\.trellis\\archive'
+```
+
+### Context
+- Trellis stores archived task directories under `.trellis/tasks/archive`.
+
+### Suggested Fix
+Use the path shown by `workflow.md` and `task.py list-archive` for archive inspection.
+
+### Metadata
+- Reproducible: yes
+- Related Files: .trellis/workflow.md, .trellis/tasks/archive/
+
+---
+
+## [ERR-20260828-UI4] godot-headless-capture
+
+**Logged**: 2026-08-28T00:00:00+08:00
+**Priority**: medium
+**Status**: resolved
+**Area**: tests
+
+### Summary
+Headless Godot edit-smoke completed all 22 logic assertions but failed its automatic capture because the dummy renderer has no viewport texture.
+
+### Error
+```
+Parameter "t" is null.
+[capture] 失败: Object reference not set to an instance of an object.
+```
+
+### Context
+- The edit-smoke assertions all reported `ok` and the failure occurred only in `Main.TickCapture` under Godot's dummy renderer.
+- Visual evidence must use the real renderer with `--rendering-method gl_compatibility`.
+
+### Suggested Fix
+Treat headless edit-smoke as logic-only and run screenshot QA in a real renderer process.
+
+### Metadata
+- Reproducible: yes
+- Related Files: godot/src/Main.cs, godot/src/HudPanel.cs
+
+---
+
+## [ERR-20260828-UI3] godot-cli-invocation
+
+**Logged**: 2026-08-28T00:00:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+### Summary
+The first Godot parity invocation incorrectly prefixed a PowerShell variable assignment with the call operator.
+
+### Error
+```
+The expression after '&' in a pipeline element produced an object that was not valid.
+```
+
+### Context
+- The executable path must be assigned first, then invoked with `& $godot ...`.
+
+### Suggested Fix
+Keep PowerShell assignment and executable invocation as separate statements.
+
+### Metadata
+- Reproducible: yes
+- Related Files: godot/src/Main.cs
+
+---
+
+## [ERR-20260828-UI2] godot-build-path
+
+**Logged**: 2026-08-28T00:00:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+### Summary
+The initial Godot build check targeted a non-existent project file.
+
+### Error
+```
+MSBUILD : error MSB1009: 项目文件不存在。
+开关:godot/RobotSimulator.Godot.csproj
+```
+
+### Context
+- The repository's Godot project entry must be discovered under `godot/` before invoking a .NET build.
+
+### Suggested Fix
+Use `rg --files godot -g '*.csproj'` and the project-local build instructions before running MSBuild.
+
+### Metadata
+- Reproducible: yes
+- Related Files: godot/
+
+---
+
+## [ERR-20260828-UI1] trellis-context-path
+
+**Logged**: 2026-08-28T00:00:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: infra
+
+### Summary
+The first quality-check context read used the wrong absolute skill path and an unsupported `--task` argument.
+
+### Error
+```
+Cannot find path 'C:\\Users\\Neco\\.agents\\skills\\trellis-check\\SKILL.md'
+get_context.py: error: unrecognized arguments: --task .trellis/tasks/08-28-godot-ui-refresh
+```
+
+### Context
+- The project skill is under `D:\\project\\robot-simulator\\.agents\\skills`.
+- The active task is selected in Trellis, so `get_context.py` should be called without `--task`.
+
+### Suggested Fix
+Resolve the project skill root from the active workspace and use the active-task-aware context command syntax.
+
+### Metadata
+- Reproducible: yes
+- Related Files: .agents/skills/trellis-check/SKILL.md, .trellis/scripts/get_context.py
+
+---
+
 ## [ERR-20260828-003] remote-ref-preflight
 
 **Logged**: 2026-08-28T10:34:00+08:00
