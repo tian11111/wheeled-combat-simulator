@@ -4,6 +4,36 @@ Command failures and integration errors.
 
 ---
 
+## [ERR-20260828-002] git-push
+
+**Logged**: 2026-08-28T10:28:00+08:00
+**Priority**: medium
+**Status**: pending
+**Area**: infra
+
+### Summary
+安全审查拒绝将本次收尾提交推送到外部 GitHub remote。
+
+### Error
+```
+This action was rejected due to unacceptable risk: ... pushes repository contents ... to an unverified external GitHub destination ...
+```
+
+### Context
+- 命令：`git push origin main`
+- remote：`https://github.com/tian11111/wheeled-combat-simulator.git`
+- 本地提交：`192549688e62034dca03be9ee29e93098e14b8b9`
+- 推送未发生；没有执行 force push 或替代路径。
+
+### Suggested Fix
+由用户明确授权向该具体 remote 推送后重试普通 `git push origin main`。
+
+### Metadata
+- Reproducible: yes
+- Related Files: .trellis/tasks/08-28-github-sync-closeout/evidence.md
+
+---
+
 ## [ERR-20260828-001] apply_patch
 
 **Logged**: 2026-08-28T10:18:00+08:00
