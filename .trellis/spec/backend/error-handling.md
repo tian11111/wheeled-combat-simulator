@@ -17,6 +17,8 @@ successful artifacts are written as JSON files. Do not catch and silently ignore
 validation failures.
 
 Common mistakes: allowing non-finite actions into physics, writing output before
-validation, or turning an unknown replay command into a state mutation. Use the
-invalid telemetry cases in `src/Sim.Tests/CalibrationPipelineTests.cs` as
-regression examples.
+validation, or turning an unknown replay command into a state mutation. Additive
+referee commands (e.g. `restart_robot:<role>`, see
+`.trellis/spec/sim/restart-contract.md`) follow the same policy: the CLI warns,
+the shell ignores — never reinterpret old replay bytes. Use the invalid telemetry
+cases in `src/Sim.Tests/CalibrationPipelineTests.cs` as regression examples.

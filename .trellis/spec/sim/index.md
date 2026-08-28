@@ -62,6 +62,17 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   （见 `godot/src/RobotModelLoader.cs::EnsureNormals`）。
 - 视觉 QA 以 `--capture` 视口像素分桶为机器可判定证据；桌面截图存 `godot/docs/`
   （其 `.import` 元数据不入库），调试用临时图不入库。
+- 台面灰度显示：像素↔场局部轴契约由 `godot/src/FieldGrayTextureMap.cs` 单一实现
+  （row 0 = 南、col 0 = 西），数值仍以 `FieldModel.FieldGrayLocal` 为唯一来源；
+  材质必须 Unshaded，防止方向光制造假对角灰度带。Godot 4 PlaneMesh(FACE_Y) 的
+  顶点与 UV 翻转互相抵消，改动映射前先以代表性像素测试验证
+  （`src/Sim.Tests/FieldGrayDisplayTests.cs`）。
+
+## 真实重启契约（restart-v1）
+
+- `MatchEngine.RestartRobot` / `restart_robot:<role>` / `EventKind.Restart` 的
+  签名、不变量、错误矩阵与测试点见 [restart-contract.md](./restart-contract.md)。
+  旧 `restart:<role>:<kind>` 罚分命令逐位兼容，不得重解释。
 
 ## 标定契约（telemetry-v1）
 

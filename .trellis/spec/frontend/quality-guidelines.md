@@ -18,5 +18,15 @@ relying only on offset height. When replay controls are visible, position the
 event feed above the replay bar and verify the rendered gap at the supported
 window sizes; otherwise Godot may expand the card into the replay controls.
 
+Camera/input smoke checks (`--camera-smoke`, `--edit-smoke`) run through the
+real input pipeline and are timing-sensitive: the headless viewport is 64×64,
+the camera pose is damped, and Godot's buffered-input flush jitters, so
+assertions must wait for pose convergence before ray-cast math and action
+injection must poll until an effect is observed instead of sleeping a fixed
+frame count. `--capture` must not run its countdown while a smoke is active —
+schedule captures after the smoke finishes plus a short settle, or the smoke
+exits before asserting. Real-renderer captures are the evidence for visual
+claims (e.g. gray-band absence); keep them out of Git.
+
 Review source-of-truth ownership, nullable handling, replay compatibility,
 headless testability, and whether the UI remains a pure consumer of snapshots.
