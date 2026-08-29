@@ -24,3 +24,15 @@ transform or duplicated field-size constants here.
 
 Common mistake: adding local score or collision logic to a visual node. The
 authoritative implementation remains in `Sim.Core`.
+
+Visual-stack conventions (2026-08 visual-fidelity pass): lights, sky, SSAO,
+tonemap, ReflectionProbe (UPDATE_ONCE, limited extents) and MSAA are
+presentation-only render parameters. The platform-top gray texture stays
+`Unshaded` with the official palette — never light it, never glow it (bloom
+would halo the ~1.0-luminance white center and corrupt gray reading; glow/TAA
+default off, reasons in `godot/README.md`). Decorative nodes (robot detail
+parts, team strips, contact-shadow discs) are tagged, derived from
+`Scenario.Field` geometry, and never participate in collision/rules/sensors.
+Z-order gotcha: the platform top plane sits at `PlatformHeight + 0.001` — any
+under-robot overlay disc must be raised above that (and below the mount ring)
+or it is occluded exactly on-stage where it matters.
