@@ -5,6 +5,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- EchoController 是嵌套的独立 fixture 工程: 其源码/obj 不参与本测试工程编译。 -->
+    <Compile Remove="EchoController/**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -16,6 +21,8 @@
     <ProjectReference Include="..\Sim.Protocol\Sim.Protocol.csproj" />
     <ProjectReference Include="..\Sim.Cli\Sim.Cli.csproj" />
     <ProjectReference Include="..\Sim.Calibration\Sim.Calibration.csproj" />
+    <!-- 最小 JSONL stdio 控制器 fixture (echo/wrongid/bad/die/hang), 供 batch 桥隔离测试。 -->
+    <ProjectReference Include="EchoController\EchoController.csproj" />
   </ItemGroup>
 
   <ItemGroup>
