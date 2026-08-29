@@ -299,3 +299,28 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 11: AI Agent 无头并行快速仿真 (batch 命令)
+
+**Date**: 2026-08-29
+**Task**: AI Agent 无头并行快速仿真 (batch 命令)
+**Branch**: `feat/ai-batch-sim`
+
+### Summary
+
+完成 08-29-ai-agent-headless-parallel-simulation：新增 Sim.Cli batch 命令（sim-batch-result-v1 JSONL、有界 worker pool 默认 min(CPU,8) 上限 32、每场独立 scenario/engine/PythonBridge 子进程、指纹排除运行元数据、退出码 0/1/2、--out 原子写），从 RunOne 抽取 MatchRunner 供 match/replay-record/batch 共用（旧命令字节级兼容验证），EchoController 测试夹具覆盖 echo/wrongid/bad/die/hang 的隔离与回收；测试 315/315，replay-check/Godot parity/edit-smoke 全绿；质量门修复 wrongid 夹具 ID 别名偶发等 3 项。新增 spec/backend/batch-simulation.md 契约。AI agent 可 dotnet run --batch --seeds ... --parallelism k 无界面并行仿真。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5baca51` | (see git log) |
+| `7f9745f` | (see git log) |
+| `f92f434` | (see git log) |
+| `48bc461` | (see git log) |
+| `e38171d` | (see git log) |
+
+### Status
+
+[OK] **Completed**
