@@ -102,3 +102,11 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
 - 灰度 CSV 无坐标 → 报告恒 `coordinateData=false`；禁止伪造成 FieldModel.GrayGridMap。
 - 本产物不进入运行时（FieldModel/SensorSampler/FSM/官方场景/fidelity.json/回放
   字节不变）；运行时集成另立任务且只能消费人工接受的报告。
+
+## 视觉证据契约（vision-replay-v1）
+
+- 真实视觉回放证据与 telemetry-v1 / sensor-calibration-v1 同样**分线**：
+  新 schema（vision-replay-v1）、新命令（`vision import|evaluate`）、新纯库
+  `src/Sim.VisionReplay`（仅引用 Sim.Protocol）。rng 流纪律（回放适配器绝不
+  消费 `context.Random`）、unknown 原因码、导入错误矩阵与 evidence_only 门禁
+  见 [vision-replay-contract.md](./vision-replay-contract.md)。
