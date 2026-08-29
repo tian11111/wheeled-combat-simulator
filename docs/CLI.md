@@ -87,6 +87,50 @@ dotnet run --project src/Sim.Cli -- sensor-calibration import   --data-dir "D:/p
 - 不触碰 FieldModel/SensorSampler/FSM/官方场景/fidelity.json/回放；纯离线产物。
 - 退出码：0 报告已写（允许 evidence_only）；1 校验/IO 错误（零输出）；2 用法。
 
+## vision import / vision evaluate — 真实视觉回放证据（vision-replay-v1，evidence_only）
+
+把 MBri 真车 YOLO 视觉 CSV 规范化为**哈希锁定的回放证据包**，并注入
+`MatchEngine(Scenario, IVisionAdapter)` 做两层离线评估：链路质量（无真值即可算）
++ 策略消费（证明 视觉→FSM 数据流）。与 sensor-calibration / telemetry **分线**：
+新 schema、新命令、互不扩用。
+
+```bash
+# 1) 导入: 选择清单点名 + SHA-256 校验; 方言按表头列集精确匹配 (完整 hunt 方言可导入)
+dotnet run --project src/Sim.Cli -- vision import \
+  --manifest src/Sim.Tests/fixtures/mbri-vision-mini/selection.manifest.json \
+  --data-dir "D:/project/robocup/MBri/data" \
+  --evidence-out vision/evidence-mini \
+  --out calibration/vision-import.json [--force]
+
+# 2) 评估: 链路质量 + 注入引擎整场策略消费回放 (--json 输出全量报告)
+dotnet run --project src/Sim.Cli -- vision evaluate \
+  --evidence vision/evidence-mini \
+  --scenario scenarios/wushu-ring-2026.json \
+  --out calibration/vision-eval.json [--max-age-ms 500] [--session <file>] [--json] [--force]
+```
+
+要点：
+- 清单必须**显式**给出 `good→buff / bad→debuff` 类别映射与帧尺寸；禁止从
+  `good_*`/`bad_*` 文件名推断真值；`label` 列是实验名，报告恒 `groundTruth=false`。
+- 校验矩阵：sequence 严格递增且唯一（重收帧聚合进首次接收）、时间戳单调非降、
+  数值有限、帧尺寸与清单一致、状态枚举、类别映射一致性、置信度 [0,1]、bbox 在帧内、
+  offset ∈ [-1,1]、同接收组 selected_target 至多一个。任一违规 → 非零退出、**零产出**。
+- `main_*` 简化方言（无逐检测明细）与未知表头 → 列入 `rejectedFiles` 并给出缺列清单，
+  不静默降级；数据根（`--data-dir`，缺省为清单所在目录）下未被点名的 CSV 一律列入
+  `ignoredFiles`。
+- `evaluate` 输出：有效/过期/错误率、sequence 缺口直方图、FPS/推理延迟分布、目标保持、
+  选中抖动、首次有效检测延迟；逐帧被消费/跳过原因、FSM 标准化检测、状态转移与
+  `policyFingerprint`（同证据同场景重放逐位一致）。
+- `--session` 未指定时回放**清单第一个文件**（按文件名序），多 session 证据请显式点名；
+  链路质量层始终统计整个证据包的全部 session。时间映射固定 SimT 0 = 该 session 首帧，
+  证据时长短于比赛时长时，之后的 classify 调用按过期（`stale`）计入 unknown 并如实报告。
+- 回放路径经 `VisionReplayAdapter` 提供：不读模拟器世界真值、不消费共享随机流；
+  回放头写入 `visionMode="visionReplay"` 与加性 `visionEvidenceId/Sha256`。
+- **保真度诚实性**：回放的是模型自身输出，只证明链路与策略消费，不证明识别准确率；
+  结论恒 `vision=random_stub (evidence_only)`，Phase A 不触碰 `fidelity.json`，
+  报告内含 Phase B 补采/补标清单。
+- 退出码：0 报告已写（evidence_only）；1 校验/IO 错误（零输出）；2 用法。
+
 ## 退出码
 
 - `0` 成功 / 回放一致

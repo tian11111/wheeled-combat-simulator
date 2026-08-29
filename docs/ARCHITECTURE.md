@@ -45,7 +45,7 @@ Godot 物理仅用于可视摆放与可选诊断，**不参与判分**。未来�
 
 | 手段 | 命令 | 说明 |
 | --- | --- | --- |
-| 内核回归 | `dotnet test` | 167 个测试：规则、确定性、回放复现、跨端校验、视图适配、场地布局、标定闭环 |
+| 内核回归 | `dotnet test` | 265 个测试：规则、确定性、回放复现、跨端校验、视图适配、场地布局、标定闭环、视觉证据分线 |
 | 无头复现 | `dotnet run --project src/Sim.Cli -- replay-check <file>` | 用记录的动作流逐位重放并比对 |
 | 跨端一致 | `godot --headless --path godot -- --parity-check <file>` | Godot 壳按 CLI `replay-check` 语义比对最终比分/结束原因/末帧/事件指纹（无 Godot 时由 `CrossEndTests` 回归同一代码路径） |
 | 视图适配 | `SnapshotViewTests` | 快照→渲染帧投影/插值不失真 |
@@ -90,6 +90,33 @@ CLI 与 Godot 直接加载复现；机器人 `.glb/.gltf` 外观模型仅存在�
 见根目录 [`fidelity.json`](../fidelity.json)。规则与场地布局已验证；场地灰度为手绘、视觉为随机桩、
 摩擦/碰撞/堵转/登台未标定。**模拟结果不能直接宣称为真机成绩。**
 
+## 视觉证据分线（vision-replay-v1，evidence_only）
+
+真实视觉回放是独立于 telemetry-v1 / sensor-calibration-v1 的**第三条离线证据线**，
+新 schema、新命令（`vision import` / `vision evaluate`）、互不扩用：
+
+```
+MBri CSV（本地忽略目录, 不入库）
+   → Sim.VisionReplay 严格导入 (方言按表头列集精确匹配; 校验矩阵全过才写盘, 原子写)
+   → vision-replay-v1 证据包 (frames.jsonl, evidenceId+SHA256 哈希锁定) + 导入报告
+   → Sim.Core VisionReplayAdapter (纯, 无 IO/时钟/随机) 经 MatchEngine(Scenario, IVisionAdapter)
+     注入 → 策略消费回放 → vision-replay-report-v1 (链路质量 + 策略消费 + 指纹)
+```
+
+- 注入边界是**加性**的：`MatchEngine(Scenario)` 保持不变（classifyRate 随机桩路径
+  逐位不变）；回放路径下适配器**绝不消费共享 Mulberry32 流**、绝不读取
+  `VisionContext.Target` 世界真值制造答案，缺帧/过期/错误返回显式 unknown 原因码。
+- 回放头新增可空加性字段 `visionEvidenceId`/`visionEvidenceSha256`；默认路径
+  两者为 null（旧回放 JSON 逐位兼容）。`ReplayTick` 不加字段：同证据复现凭
+  哈希锁定的证据包 + 场景 + 已录动作。
+- Phase A 只回放模型自身 CSV 输出：报告恒 `groundTruth=false`、分级
+  `evidence_only`、结论 `vision=random_stub (evidence_only)`，**不触发
+  fidelity.json 晋升**；检测质量层（混淆矩阵/P/R/F1/IoU）为 Phase B（新采集 +
+  人工标注 holdout）预留字段。
+- `Sim.VisionReplay` 仅引用 `Sim.Protocol`（复用 ProtocolJson），不引用
+  `Sim.Core`/`Sim.Calibration`；Sim.Core 通过自有的 `VisionReplayFrame`
+  只读记录接收帧序列，内核不获得任何 IO 能力。
+
 ## 关键文件
 
 - `src/Sim.Core/MatchEngine.cs` — 比赛内核（发令/暂停/判罚与真实重启/单步/快照/回放头）。
@@ -97,7 +124,8 @@ CLI 与 Godot 直接加载复现；机器人 `.glb/.gltf` 外观模型仅存在�
 - `src/Sim.Core/{Physics,Sensors,Fsm,RuntimeState,DeterministicRandom,Js}.cs` — 物理/传感器/状态机/随机数。
 - `src/Sim.Protocol/` — 版本化协议 DTO 与 JSON 校验（含 `arena-layout-v1` 布局字段与 `telemetry-v1` 遥测契约）。
 - `src/Sim.Calibration/` — 纯标定库：拟合器、分解层、mount 门控评估、报告指纹。
-- `src/Sim.Cli/Program.cs` — 无头命令；`PythonBridge.cs` — 外部策略进程适配。
+- `src/Sim.VisionReplay/` — 视觉证据分线纯库：vision-replay-v1 schema、MBri 导入校验、链路质量指标、报告指纹。
+- `src/Sim.Cli/Program.cs` — 无头命令；`PythonBridge.cs` — 外部策略进程适配；`VisionCommand.cs` — `vision import/evaluate`。
 - `godot/src/SnapshotView.cs` — 快照→渲染帧（无 Godot 依赖，可单测）。
 - `godot/src/MatchSession.cs` — 会话门面：固定步长实况 + 回放重构/缓存/导航（无 Godot 依赖，可单测）。
 - `godot/src/ParityCheck.cs` — 跨端一致性校验（无 Godot 依赖，可单测）。
