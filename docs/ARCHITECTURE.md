@@ -7,7 +7,7 @@
 ```
 ┌──────────────────────────┐   ┌──────────────────────────┐
 │ godot/  (Godot 4 .NET)   │   │ Sim.Cli  (.NET 8 无头)    │
-│ 3D 展示壳: 渲染/相机/HUD/ │   │ 评测/回放: match /        │
+│ 3D 展示壳: 渲染/相机/HUD/ │   │ 评测/回放: match / batch / │
 │ 回放时间轴               │   │ replay-record / replay-check│
 │ 只消费快照+发裁判指令     │   │ 可拉起 Python 策略进程    │
 └──────────┬───────────────┘   └──────────┬───────────────┘
@@ -126,6 +126,7 @@ MBri CSV（本地忽略目录, 不入库）
 - `src/Sim.Calibration/` — 纯标定库：拟合器、分解层、mount 门控评估、报告指纹。
 - `src/Sim.VisionReplay/` — 视觉证据分线纯库：vision-replay-v1 schema、MBri 导入校验、链路质量指标、报告指纹。
 - `src/Sim.Cli/Program.cs` — 无头命令；`PythonBridge.cs` — 外部策略进程适配；`VisionCommand.cs` — `vision import/evaluate`。
+- `src/Sim.Cli/{BatchCommand,BatchExecutor,BatchFingerprint}.cs` — AI agent 无头批量仿真：严格预检、有界 worker pool（每场独立场景副本/引擎/控制器进程）、`sim-batch-result-v1` JSONL 与稳定指纹；并发编排全部留在 CLI 层，`Sim.Core` 不感知并行。
 - `godot/src/SnapshotView.cs` — 快照→渲染帧（无 Godot 依赖，可单测）。
 - `godot/src/MatchSession.cs` — 会话门面：固定步长实况 + 回放重构/缓存/导航（无 Godot 依赖，可单测）。
 - `godot/src/ParityCheck.cs` — 跨端一致性校验（无 Godot 依赖，可单测）。
