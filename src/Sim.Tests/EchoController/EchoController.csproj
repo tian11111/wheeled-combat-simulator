@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>EchoController</RootNamespace>
+    <!--
+      Minimal JSONL stdio controller fixture for batch tests (not part of the
+      product). Built as a dependency of Sim.Tests so the apphost lands in the
+      test output directory; tests launch it per match like a real controller.
+    -->
+  </PropertyGroup>
+
+</Project>
