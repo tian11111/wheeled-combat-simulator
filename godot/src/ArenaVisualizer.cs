@@ -5,8 +5,10 @@
 // 出发区/能量块尺寸均读取 FieldParams, 不存在第二份官方常量。场地的整体平移与
 // 旋转 (field.pose) 通过 ArenaRoot 节点变换呈现; 机器人和能量块使用仿真世界
 // 坐标, 挂在 ArenaVisualizer 根下, 不受 ArenaRoot 变换影响。
-// 台面灰度纹理由 FieldModel.FieldGray 提供区域几何, 按"官方效果图"调色板显示
-// (传感器 0–1000 语义不变); 中央红区+白"武"为纯视觉元素, 不改变任何判定。
+// 台面显示是 visual-only 官方外观 (规则第 10 页: 四角纯黑→中心纯白径向渐变,
+// FieldGrayTextureMap.OfficialSurfaceLuminance) + 几何红区 (白"武"独立层);
+// 传感器 0–1000 语义 (FieldModel.FieldGrayLocal) 不进入显示纹理, 也不被显示层
+// 改写 — 两种灰度语义严格分离。
 
 using Godot;
 using Sim.Core;
@@ -19,10 +21,10 @@ public partial class ArenaVisualizer : Node3D
     private const float WallThickness = 0.04f;
 
     private static readonly Color FloorColor = new(0.16f, 0.18f, 0.22f);
-    // 官方效果图外观: 底座侧面白、台面走道深灰、擂台黑边渐入白心、中央红区(白"武")。
+    // 官方效果图外观: 底座侧面白、台面走道深灰、台面四角纯黑→中心纯白径向渐变、
+    // 中央红区(白"武")。
     private static readonly Color PlatformSideColor = new(0.93f, 0.93f, 0.95f);
     private static readonly Color RedZoneColor = new(0.85f, 0.15f, 0.13f);
-    private static readonly (byte R, byte G, byte B) WalkwayRgb = (72, 72, 72); // 官方走道深灰
     private static readonly Color UsColor = new(0.28f, 0.48f, 0.95f);
     private static readonly Color ThemColor = new(0.92f, 0.30f, 0.28f);
     private static readonly Color BuffColor = new(0.24f, 0.82f, 0.72f);
@@ -133,9 +135,10 @@ public partial class ArenaVisualizer : Node3D
         root.AddChild(MakeBoxMatte(FloorColor.Darkened(0.25f),
             new Vector3(span + 0.03f, 0.014f, span + 0.03f), new Vector3(center, 0.007f, center)));
 
-        // 顶面灰度纹理: 采样内核同一 FieldGrayLocal 的区域几何, 按"官方效果图"
-        // 调色板显示 (走道深灰 / 擂台黑边渐入白心 / 中央红区), 传感器 0–1000
-        // 语义不变。像素↔场局部坐标的轴向契约见 FieldGrayTextureMap (行 0 = 南)。
+        // 顶面灰度纹理: 官方效果图径向渐变 (四角纯黑→中心纯白, visual-only,
+        // 见 FieldGrayTextureMap.OfficialSurfaceLuminance; 传感器 0–1000 语义
+        // 不进入显示层)。像素↔场局部坐标的轴向契约见 FieldGrayTextureMap
+        // (行 0 = 南)。中央红区在纹理内优先覆盖, 白"武"为 Label3D 独立层。
         var surface = new MeshInstance3D
         {
             Mesh = new PlaneMesh { Size = new Vector2(span, span) },
@@ -209,24 +212,23 @@ public partial class ArenaVisualizer : Node3D
     }
 
     /// <summary>
-    /// Generates the platform top-surface texture: region geometry sampled from
-    /// the same hand-drawn gray model the sensors use (via the pure
-    /// <see cref="FieldGrayTextureMap"/> mapping: row 0 = field south,
-    /// column 0 = field west), painted with the official display palette
-    /// (walkway dark gray, ring black-edge→white ramp, red center square).
+    /// Generates the platform top-surface texture with the official display
+    /// gradient (visual-only: center pure white → four corners pure black,
+    /// via the pure <see cref="FieldGrayTextureMap"/> mapping: row 0 = field
+    /// south, column 0 = field west) and the red center square. The sensor
+    /// gray model (<c>FieldModel.FieldGrayLocal</c>) is neither read nor
+    /// modified here — the two gray semantics stay separate.
     /// </summary>
     private static ImageTexture MakeFieldGrayTexture(FieldModel model, FieldParams field)
     {
         const int resolution = FieldGrayTextureMap.DefaultResolution;
         var redZone = ToByteRgb(RedZoneColor);
-        var buffer = FieldGrayTextureMap.BuildRgb8(
+        var buffer = FieldGrayTextureMap.BuildOfficialRgb8(
             resolution,
             field.Platform.MinX, field.Platform.MinY,
             field.Platform.MaxX, field.Platform.MaxY,
             model.Center,
-            model.FieldGrayLocal,
-            redZone,
-            WalkwayRgb);
+            redZone);
         var image = Image.CreateEmpty(resolution, resolution, false, Image.Format.Rgb8);
         for (var py = 0; py < resolution; py++)
         {
@@ -358,7 +360,8 @@ public partial class ArenaVisualizer : Node3D
         ring.Position = new Vector3(0, 0.002f, 0);
         root.AddChild(ring);
 
-        // 接触阴影承载: 脚下半透明暗盘, 补足方向光阴影的近地贴合感。
+        // 接触阴影承载: 脚下半透明暗盘, 补足方向光阴影的近地贴合感
+        // (二轮微调: 台面中心现在更亮, 略提高不透明度让机器人在白心处"落地")。
         var shadow = new MeshInstance3D
         {
             Mesh = new CylinderMesh
@@ -369,7 +372,7 @@ public partial class ArenaVisualizer : Node3D
             },
             MaterialOverride = new StandardMaterial3D
             {
-                AlbedoColor = new Color(0f, 0f, 0f, 0.24f),
+                AlbedoColor = new Color(0f, 0f, 0f, 0.32f),
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                 Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
             },
@@ -552,6 +555,9 @@ public partial class ArenaVisualizer : Node3D
             Roughness = 1f,
             Metallic = 0.0f,
             VertexColorUseAsAlbedo = false,
+            // 稳定线性过滤: 128×128 无 mipmap 图像的双线性采样, 不产生硬阶梯,
+            // 也不让 mipmap 层在掠射角制造假灰度 (设计 3.2)。
+            TextureFilter = BaseMaterial3D.TextureFilterEnum.Linear,
         };
         return material;
     }
