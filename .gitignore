@@ -34,3 +34,9 @@ calibration/*
 !calibration/.gitkeep
 telemetry/data/*
 !telemetry/data/.gitkeep
+
+# Vision evidence packages (vision-replay-v1): normalized frames derived from
+# operator-held MBri CSVs (like replays: reproducible from the data + the
+# vision import command). Commit deliberately with `git add -f` for audits.
+vision/*
+!vision/.gitkeep

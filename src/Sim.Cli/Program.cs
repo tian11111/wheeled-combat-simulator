@@ -23,6 +23,7 @@ public static class Program
                 "replay-check" => RunReplayCheck(args),
                 "calibrate" => CalibrateCommand.Run(args),
                 "sensor-calibration" => SensorCalibrationCommand.Run(args),
+                "vision" => VisionCommand.Run(args),
                 "--help" or "-h" => Help(),
                 _ => Unknown(args[0]),
             };
@@ -346,6 +347,11 @@ public static class Program
               dotnet run --project src/Sim.Cli -- sensor-calibration import --data-dir <MBri/data>
                          --manifest selection.json --out calibration/sensor-report.json
                          [--config config.py] [--force]
+              dotnet run --project src/Sim.Cli -- vision import --manifest <json>
+                         --evidence-out <dir> --out calibration/vision-import.json [--data-dir <path>] [--force]
+              dotnet run --project src/Sim.Cli -- vision evaluate --evidence <dir>
+                         --scenario scenarios/wushu-ring-2026.json --out calibration/vision-eval.json
+                         [--max-age-ms 500] [--session <file>] [--json] [--force]
 
             说明:
               --controller-* 启动外部策略进程（JSONL stdio 协议, decide(obs) -> {"v":..,"w":..});

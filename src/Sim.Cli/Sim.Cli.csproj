@@ -9,6 +9,7 @@
     <ProjectReference Include="..\Sim.Core\Sim.Core.csproj" />
     <ProjectReference Include="..\Sim.Protocol\Sim.Protocol.csproj" />
     <ProjectReference Include="..\Sim.Calibration\Sim.Calibration.csproj" />
+    <ProjectReference Include="..\Sim.VisionReplay\Sim.VisionReplay.csproj" />
   </ItemGroup>
 
 </Project>
