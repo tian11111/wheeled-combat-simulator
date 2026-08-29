@@ -1,0 +1,28 @@
+{
+  "id": "real-vision-replay-evaluation",
+  "name": "real-vision-replay-evaluation",
+  "title": "真实视觉回放评估",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "neco",
+  "assignee": "neco",
+  "createdAt": "2026-08-28",
+  "completedAt": "2026-08-29",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "description": "导入真实相机视觉输出，建立确定性回放、独立真值评估与视觉保真度晋升门禁。"
+  }
+}

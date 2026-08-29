@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "Iron rules: Sim.Core no-IO/no-clock, determinism stream discipline, protocol additive-only, sensor/telemetry line-separation (new schema + new command for vision evidence), fidelity honesty"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Where the new Sim.VisionReplay pure library and CLI command files belong"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "CLI exit-code 0/1/2 conventions, no-output-on-validation-failure, no silent ignored errors"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "CSV import -> evidence bundle -> Sim.Core adapter -> CLI evaluation report must stay consistent across layers"}
