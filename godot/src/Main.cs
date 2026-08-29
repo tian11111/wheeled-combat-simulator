@@ -148,6 +148,26 @@ public partial class Main : Node
             GD.Print($"[capture] 启动镜头模式: {_camera.Mode}");
         }
 
+        // 视觉 QA 取景辅助: 启动即设置概览环绕角 "<yaw>,<pitch>" (度), 复现"左键
+        // 拖动后"的机位供 capture 证据留存; 与拖动共享同一状态与限幅 (MatchCamera.
+        // SetOverviewOrbit), 仅表现层, 不注入输入事件、不触碰仿真。
+        var cameraOrbitIndex = Array.IndexOf(userArgs, "--camera-orbit");
+        if (cameraOrbitIndex >= 0 && cameraOrbitIndex + 1 < userArgs.Length)
+        {
+            var parts = userArgs[cameraOrbitIndex + 1].Split(',');
+            if (parts.Length == 2
+                && float.TryParse(parts[0], System.Globalization.CultureInfo.InvariantCulture, out var orbitYaw)
+                && float.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out var orbitPitch))
+            {
+                _camera.SetOverviewOrbit(orbitYaw, orbitPitch);
+                GD.Print($"[capture] 启动概览环绕角: yaw={_camera.OverviewYaw:0.#}° pitch={_camera.OverviewPitch:0.#}°");
+            }
+            else
+            {
+                GD.PrintErr($"[capture] --camera-orbit 需要 <yaw>,<pitch> 度数, 收到: {userArgs[cameraOrbitIndex + 1]}");
+            }
+        }
+
         LoadRobotModelPreferences(userArgs);
         ApplyRobotModels();
 
@@ -173,8 +193,9 @@ public partial class Main : Node
     /// <summary>
     /// Deterministic camera input evidence through the real input pipeline:
     /// Overview framing, wheel zoom (×1.1 steps + clamp), Top orientation
-    /// (-90° pitch, full-field coverage), left-drag orbit/spin (yaw/pitch
-    /// formula, Top spin at fixed pitch), right-drag ground-plane grab pan in
+    /// (-90° pitch, full-field coverage), left-drag orbit/spin under the
+    /// reversed-direction contract (right/left/down/up drags each asserted;
+    /// Top spins at fixed pitch), right-drag ground-plane grab pan in
     /// Top/Overview, Follow zoom, and the editor-ownership hook (the camera
     /// must ignore the pointer while the layout editor is active). No texture
     /// reads, so it is safe headless. Exits 0 when all checks pass.
@@ -303,9 +324,10 @@ public partial class Main : Node
         await WaitFrames(2);
         Check(Near(_camera.OverviewDistance, baseDistance * 0.3f), "overview zoom clamps at min distance");
 
-        // 左键转动视角: 概览绕焦点环绕 — 偏航 +0.3°/px, 上拖升高俯仰 (+0.25°/px),
-        // 机位按 OrbitDir(yaw, pitch) × 距离重建 (阻尼收敛后取值)。拖动用小像素步长:
-        // 无头 dummy 视口只有 64×64, 大位移会撞上限幅, 破坏等值断言。
+        // 左键转动视角 (2026-08-29 实机反馈反向修正契约): 右拖减小偏航 (-0.3°/px),
+        // 下拖抬高俯仰 (+0.25°/px), 机位按 OrbitDir(yaw, pitch) × 距离重建
+        // (阻尼收敛后取值)。右/左/下/上四个方向分别断言, 防止把旧方向固定回来。
+        // 拖动用小像素步长: 无头 dummy 视口只有 64×64, 大位移会撞上限幅, 破坏等值断言。
         const int dragPx = 8;
         const float yawPerPx = 0.3f;
         const float pitchPerPx = 0.25f;
@@ -313,24 +335,25 @@ public partial class Main : Node
         var yaw0 = _camera.OverviewYaw;
         var pitch0 = _camera.OverviewPitch;
         var dist0 = _camera.OverviewDistance;
-        InjectLeftDrag(screenCenter, screenCenter + new Vector2(dragPx, 0));
+        InjectLeftDrag(screenCenter, screenCenter + new Vector2(dragPx, 0)); // 右拖
         await WaitFrames(2);
-        Check(Near(_camera.OverviewYaw, yaw0 + dragPx * yawPerPx), "left-drag orbits yaw (+0.3°/px)");
+        Check(Near(_camera.OverviewYaw, yaw0 - dragPx * yawPerPx), "left-drag right orbits yaw (-0.3°/px, reversed)");
         await WaitSettled();
         var orbitExpected = center + OrbitDirExpected(_camera.OverviewYaw, pitch0) * dist0;
         Check(_camera.Position.DistanceTo(orbitExpected) < 0.05f,
             "overview orbit position matches yaw/pitch formula");
-        InjectLeftDrag(screenCenter, screenCenter - new Vector2(0, dragPx));
+        InjectLeftDrag(screenCenter, screenCenter - new Vector2(dragPx, 0)); // 左拖
+        await WaitFrames(2);
+        Check(Near(_camera.OverviewYaw, yaw0), "left-drag left restores yaw (+0.3°/px, symmetric)");
+        InjectLeftDrag(screenCenter, screenCenter + new Vector2(0, dragPx)); // 下拖
         await WaitFrames(2);
         Check(Near(_camera.OverviewPitch, Mathf.Clamp(pitch0 + dragPx * pitchPerPx, 10f, 85f)),
-            "left-drag up raises pitch (+0.25°/px)");
-        // 拖回默认角, 后续平移断言仍从默认取景出发。
-        InjectLeftDrag(screenCenter + new Vector2(dragPx, 0), screenCenter);
+            "left-drag down raises pitch (+0.25°/px, reversed)");
+        InjectLeftDrag(screenCenter, screenCenter - new Vector2(0, dragPx)); // 上拖
         await WaitFrames(2);
-        InjectLeftDrag(screenCenter - new Vector2(0, dragPx), screenCenter);
-        await WaitFrames(2);
+        Check(Near(_camera.OverviewPitch, pitch0), "left-drag up lowers pitch (-0.25°/px, symmetric)");
         Check(Near(_camera.OverviewYaw, yaw0) && Near(_camera.OverviewPitch, pitch0),
-            "inverse left-drags restore default orbit angles");
+            "four-direction drags end at the default orbit angles");
 
         // Follow: 缩放只改跟拍距离; 焦点仍由渲染帧驱动。
         await InjectActionUntil("camera_cycle", () => _camera.Mode == CameraMode.Follow);
@@ -343,6 +366,24 @@ public partial class Main : Node
         await WaitFrames(2);
         Check(Near(_camera.FollowZoom, followZoom), "follow zoom back to 1×");
 
+        // Follow 左键环绕: 与概览同一 RotateView 反向契约 (AC1 把 Follow 列入四方向)。
+        var followYaw0 = _camera.FollowYaw;
+        var followPitch0 = _camera.FollowPitch;
+        InjectLeftDrag(screenCenter, screenCenter + new Vector2(dragPx, 0)); // 右拖
+        await WaitFrames(2);
+        Check(Near(_camera.FollowYaw, followYaw0 - dragPx * yawPerPx),
+            "follow left-drag right orbits yaw (-0.3°/px, reversed)");
+        InjectLeftDrag(screenCenter, screenCenter - new Vector2(dragPx, 0)); // 左拖
+        await WaitFrames(2);
+        Check(Near(_camera.FollowYaw, followYaw0), "follow left-drag left restores yaw");
+        InjectLeftDrag(screenCenter, screenCenter + new Vector2(0, dragPx)); // 下拖
+        await WaitFrames(2);
+        Check(Near(_camera.FollowPitch, Mathf.Clamp(followPitch0 + dragPx * pitchPerPx, 10f, 85f)),
+            "follow left-drag down raises pitch (+0.25°/px, reversed)");
+        InjectLeftDrag(screenCenter, screenCenter - new Vector2(0, dragPx)); // 上拖
+        await WaitFrames(2);
+        Check(Near(_camera.FollowPitch, followPitch0), "follow left-drag up lowers pitch (symmetric)");
+
         // Top: 绕 X 轴 -90° 正俯视, 高度覆盖完整场地, 焦点在场地中心。
         await InjectActionUntil("camera_cycle", () => _camera.Mode == CameraMode.Top);
         Check(_camera.Mode == CameraMode.Top, "cycles to Top");
@@ -353,10 +394,10 @@ public partial class Main : Node
         Check(Near(_camera.FocusPoint.X, center.X) && Near(_camera.FocusPoint.Z, center.Z),
             "top focus = arena center");
 
-        // Top 左键自旋: 绕视线轴转图 (俯仰保持 -90° 正俯视), +0.3°/px。
+        // Top 左键自旋: 绕视线轴转图 (俯仰保持 -90° 正俯视), 反向契约右拖 -0.3°/px。
         InjectLeftDrag(screenCenter, screenCenter + new Vector2(dragPx, 0));
         await WaitFrames(2);
-        Check(Near(_camera.TopYaw, dragPx * 0.3f), "top left-drag spins view (+0.3°/px)");
+        Check(Near(_camera.TopYaw, -dragPx * 0.3f), "top left-drag spins view (-0.3°/px, reversed)");
         Check(Near(_camera.RotationDegrees.X, -90f), "top spin keeps straight-down pitch");
         InjectLeftDrag(screenCenter + new Vector2(dragPx, 0), screenCenter);
         await WaitFrames(2);

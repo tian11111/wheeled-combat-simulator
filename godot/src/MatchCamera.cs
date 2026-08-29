@@ -2,7 +2,8 @@
 // 相机只读取渲染帧的建议焦点, 从不写回 Sim.Core (design: 只读观察者)。
 //
 // 指针交互 (仅布局编辑器未激活时):
-//   左键拖动 — 转动视角: 概览/跟随绕焦点环绕 (偏航 + 俯仰限幅), 俯视绕视线轴自旋;
+//   左键拖动 — 转动视角: 概览/跟随绕焦点环绕 (右拖减小偏航、下拖抬高俯仰, 限幅 10°–85°),
+//   俯视绕视线轴自旋 (右拖减小自旋角; 俯仰固定 -90°);
 //   右键拖动 — 画面平移 (抓取语义: 把指针射线投到地面 y=0, 被抓住的地面点跟随光标;
 //   跟随模式焦点由渲染帧驱动, 不支持平移);
 //   滚轮 — 缩放, 距离/高度按基准取景倍率限幅 (概览/俯视), 跟随模式缩放跟拍距离。
@@ -153,6 +154,22 @@ public partial class MatchCamera : Camera3D
             ApplyTopPose();
         }
         else
+        {
+            ResetGoals();
+        }
+    }
+
+    /// <summary>
+    /// Visual-QA framing aid: sets the overview orbit angles directly (same
+    /// state a left-drag mutates, clamped identically). Presentation-only —
+    /// lets `--camera-orbit` reproduce a post-drag camera pose for capture
+    /// evidence without synthesizing input events.
+    /// </summary>
+    public void SetOverviewOrbit(float yawDeg, float pitchDeg)
+    {
+        _overviewYaw = Mathf.Wrap(yawDeg, -180f, 180f);
+        _overviewPitch = Mathf.Clamp(pitchDeg, MinPitch, MaxPitch);
+        if (_mode == CameraMode.Overview)
         {
             ResetGoals();
         }
@@ -350,25 +367,28 @@ public partial class MatchCamera : Camera3D
     }
 
     /// <summary>
-    /// 左键转动视角: 偏航跟随光标横向 (机位绕焦点向右环绕), 俯仰跟随光标纵向
-    /// (上拖升高机位、更俯视)。俯视模式俯仰固定 -90°, 纵向拖动只自旋 (横向)。
+    /// 左键转动视角 (2026-08-29 实机反馈反向修正后的契约): 屏幕坐标 +X = 右、
+    /// +Y = 下。偏航与光标横向相反 (右拖减小偏航, 机位绕焦点向左环绕, 场景
+    /// 呈"被抓住随光标转动"的手感); 俯仰与光标纵向同向 (下拖抬高机位更俯视,
+    /// 上拖压低机位更平视), 限幅 10°–85°。俯视模式俯仰固定 -90°, 纵向拖动
+    /// 不改变姿态, 横向拖动自旋 (右拖减小自旋角)。
     /// </summary>
     private void RotateView(Vector2 screenDelta)
     {
         switch (_mode)
         {
             case CameraMode.Overview:
-                _overviewYaw = Mathf.Wrap(_overviewYaw + screenDelta.X * YawPerPx, -180f, 180f);
-                _overviewPitch = Mathf.Clamp(_overviewPitch - screenDelta.Y * PitchPerPx, MinPitch, MaxPitch);
+                _overviewYaw = Mathf.Wrap(_overviewYaw - screenDelta.X * YawPerPx, -180f, 180f);
+                _overviewPitch = Mathf.Clamp(_overviewPitch + screenDelta.Y * PitchPerPx, MinPitch, MaxPitch);
                 ResetGoals();
                 break;
             case CameraMode.Follow:
-                _followYaw = Mathf.Wrap(_followYaw + screenDelta.X * YawPerPx, -180f, 180f);
-                _followPitch = Mathf.Clamp(_followPitch - screenDelta.Y * PitchPerPx, MinPitch, MaxPitch);
+                _followYaw = Mathf.Wrap(_followYaw - screenDelta.X * YawPerPx, -180f, 180f);
+                _followPitch = Mathf.Clamp(_followPitch + screenDelta.Y * PitchPerPx, MinPitch, MaxPitch);
                 ResetGoals();
                 break;
             case CameraMode.Top:
-                _topYaw = Mathf.Wrap(_topYaw + screenDelta.X * YawPerPx, -180f, 180f);
+                _topYaw = Mathf.Wrap(_topYaw - screenDelta.X * YawPerPx, -180f, 180f);
                 break;
         }
     }
