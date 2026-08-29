@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "vision-replay-v1",
+  "source": "mbri-csv",
+  "label": "mbri-vision-mini",
+  "model": {
+    "name": "yolo-ncnn-mbri",
+    "sha256": null
+  },
+  "classMapping": {
+    "good": "buff",
+    "bad": "debuff"
+  },
+  "opponent": "unavailable(ir-probe)",
+  "frameWidth": 640,
+  "frameHeight": 480,
+  "timeBase": "vision_timestamp_ms 为采集主机 epoch 毫秒; received_age_ms 为控制环收到该帧时相对帧时间戳的毫秒龄; t 为控制环单调秒表",
+  "files": [
+    {
+      "path": "hunt_drive_20260817_095205.csv",
+      "sha256": "b527295c04f26e80f85e3bb7f6940050a5657287e6b9e0d0f44e8f79d0b81387",
+      "bytes": 36345
+    },
+    {
+      "path": "good_recheck_20260816_223647_excerpt.csv",
+      "sha256": "b750aa2dd72bfdcc5b0f6f149eadfe4b8c8ce4f753a23fe314e93ccfde8b4fce",
+      "bytes": 111759
+    }
+  ]
+}
