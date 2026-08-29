@@ -32,11 +32,12 @@ public partial class MatchCamera : Camera3D
     private CameraMode _mode = CameraMode.Overview;
 
     // 概览: 地面焦点 + 环绕角(偏航/俯仰) + 限幅距离; 俯视: 地面焦点 + 限幅高度 + 自旋角;
-    // 跟随: 帧驱动焦点 + 环绕角 + 限幅跟拍倍率。默认角 = 原有取景比例。
+    // 跟随: 帧驱动焦点 + 环绕角 + 限幅跟拍倍率。默认角 = DefaultOverview*Ratio 取景比例。
     private float _overviewYaw;
     private float _overviewPitch = DefaultOverviewPitch;
-    private float _baseOverviewDistance = 9.59f;
-    private float _overviewDistance = 9.59f;
+    // 兜底初值镜像官方默认场地 3.8m × 默认概览比例 (Main 启动会用 Scenario 重新取景)。
+    private float _baseOverviewDistance = 4.05f;
+    private float _overviewDistance = 4.05f;
     private Vector3 _overviewFocus = new(1.9f, 0f, 1.9f);
     private float _baseTopHeight = 9.5f;
     private float _topHeight = 9.5f;
@@ -48,8 +49,13 @@ public partial class MatchCamera : Camera3D
     // ConfigureArena/首个渲染帧前的跟随焦点兜底 (镜像场地中心), 首帧立即覆盖。
     private Vector3 _followFocus = new(1.9f, 0f, 1.9f);
 
-    // 默认环绕角: 概览方向 (0,1.95,1.6)、跟随偏移 (0,3.4,3.8) 的仰角。
-    private const float DefaultOverviewPitch = 50.65f;
+    // 默认环绕角: 概览方向 = DefaultOverviewHeight/BackRatio (仰角 50.36°)、跟随偏移
+    // (0,3.4,3.8) 的仰角。概览比例按 PRD R1 取景目标反推: 场地包围盒在 16:9 视口
+    // (720p/1080p, vfov 75°) 中约占宽 52% / 高 54%, 四边留出安全边距 (原比例
+    // (0,1.95,1.6) 仅约 17%/21%, 场地缩在中央)。
+    private const float DefaultOverviewHeightRatio = 0.82f;
+    private const float DefaultOverviewBackRatio = 0.68f;
+    private const float DefaultOverviewPitch = 50.36f;
     private const float DefaultFollowPitch = 41.82f;
     // 环绕角限幅: 俯仰不能贴地也不能越过正俯视 (俯视模式俯仰固定 -90°)。
     private const float MinPitch = 10f;
@@ -127,8 +133,8 @@ public partial class MatchCamera : Camera3D
     {
         _center = new Vector3((float)center.X, 0f, (float)center.Z);
         _fieldSize = (float)fieldSize;
-        // 原有概览取景比例 (高 1.95 : 后 1.6, 相对场地边长) 与俯视高度 2.5。
-        var dir = new Vector3(0f, _fieldSize * 1.95f, _fieldSize * 1.6f);
+        // 概览取景比例 (高 0.82 : 后 0.68, 相对场地边长) — 见 DefaultOverview*Ratio 注释。
+        var dir = new Vector3(0f, _fieldSize * DefaultOverviewHeightRatio, _fieldSize * DefaultOverviewBackRatio);
         _baseOverviewDistance = dir.Length();
         _baseTopHeight = _fieldSize * 2.5f;
         _overviewFocus = _center;

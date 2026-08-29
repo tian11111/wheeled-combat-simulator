@@ -71,12 +71,12 @@ public partial class ArenaVisualizer : Node3D
             _usRoot = BuildRobot(UsColor, usRadius);
             _usRoot.Name = "UsRobot";
             AddChild(_usRoot);
-            _usRing = (MeshInstance3D)_usRoot.GetChild(3);
+            _usRing = _usRoot.GetNodeOrNull<MeshInstance3D>("Ring");
 
             _themRoot = BuildRobot(ThemColor, themRadius);
             _themRoot.Name = "ThemRobot";
             AddChild(_themRoot);
-            _themRing = (MeshInstance3D)_themRoot.GetChild(3);
+            _themRing = _themRoot.GetNodeOrNull<MeshInstance3D>("Ring");
         }
     }
 
@@ -113,7 +113,7 @@ public partial class ArenaVisualizer : Node3D
     {
         var size = (float)field.FieldSize;
         // 黑色哑光走道地面 (整幅外场, 擂台盖在上面)。
-        root.AddChild(MakeBox(FloorColor,
+        root.AddChild(MakeBoxMatte(FloorColor,
             new Vector3(size, 0.02f, size), new Vector3(size / 2, -0.012f, size / 2)));
     }
 
@@ -125,9 +125,13 @@ public partial class ArenaVisualizer : Node3D
         var center = el + span / 2;
         var top = (float)field.PlatformHeight;
 
-        // 擂台主体 (6 cm 高, 官方 2.4×2.4)。
-        root.AddChild(MakeBox(PlatformSideColor,
+        // 擂台主体 (6 cm 高, 官方 2.4×2.4): 侧面白色板材 (可被反射探针映出环境)。
+        root.AddChild(MakeBoxWhiteBoard(PlatformSideColor,
             new Vector3(span, top, span), new Vector3(center, top / 2, center)));
+
+        // 底座裙边: 比主体略宽的深色收边条, 给平台一个"落地"的倒角深度线索。
+        root.AddChild(MakeBoxMatte(FloorColor.Darkened(0.25f),
+            new Vector3(span + 0.03f, 0.014f, span + 0.03f), new Vector3(center, 0.007f, center)));
 
         // 顶面灰度纹理: 采样内核同一 FieldGrayLocal 的区域几何, 按"官方效果图"
         // 调色板显示 (走道深灰 / 擂台黑边渐入白心 / 中央红区), 传感器 0–1000
@@ -171,7 +175,7 @@ public partial class ArenaVisualizer : Node3D
             }
             var sx = (float)(zone.MaxX - zone.MinX);
             var sz = (float)(zone.MaxY - zone.MinY);
-            root.AddChild(MakeBox(color, new Vector3(sx, 0.005f, sz),
+            root.AddChild(MakeBoxMatte(color, new Vector3(sx, 0.005f, sz),
                 new Vector3((float)((zone.MinX + zone.MaxX) / 2), 0.003f, (float)((zone.MinY + zone.MaxY) / 2))));
         }
     }
@@ -189,8 +193,18 @@ public partial class ArenaVisualizer : Node3D
             (size + t / 2, size / 2, t, size + t * 2),
         })
         {
-            root.AddChild(MakeBox(FloorColor.Darkened(0.05f),
+            root.AddChild(MakeBoxMatte(FloorColor.Darkened(0.05f),
                 new Vector3(sx, height, sz), new Vector3(cx, height / 2, cz)));
+        }
+
+        // 围栏立柱: 四角略高于栏板的橡胶色方柱, 纯装饰深度线索 (尺寸由场边长推导)。
+        var postSide = MathF.Max(0.05f, size * 0.014f);
+        var postHeight = height + postSide;
+        foreach (var (px, pz) in new[] { (0f, 0f), (0f, size), (size, 0f), (size, size) })
+        {
+            root.AddChild(MakeBoxMatte(FloorColor.Darkened(0.35f),
+                new Vector3(postSide, postHeight, postSide),
+                new Vector3(px, postHeight / 2, pz)));
         }
     }
 
@@ -232,45 +246,147 @@ public partial class ArenaVisualizer : Node3D
 
     // ---------- dynamic entities ----------
 
+    /// <summary>
+    /// Primitive 机器人 fallback (render-only 分件): 车体/上盖/侧带/车轮/车头/推铲/
+    /// 团队灯带/接触阴影。所有尺寸从碰撞半径推导, 不新建物理体、不改变
+    /// 碰撞半径/位置/朝向/状态; glTF 模型导入成功时这些分件整体隐藏
+    /// (RobotModelLoader 按 "primitivePart" meta 切换), 登台指示环始终保留。
+    /// 子节点按名字查找: Configure 取 GetNodeOrNull("Ring"), 不依赖顺序。
+    /// </summary>
     private Node3D BuildRobot(Color bodyColor, float radius)
     {
         const float robotHeight = 0.05f;
         var root = new Node3D();
-        var body = MakeMesh(new CylinderMesh
+
+        var body = MakeMeshPaintedMetal(new CylinderMesh
         {
             TopRadius = radius,
             BottomRadius = radius,
             Height = robotHeight,
-        }, bodyColor);
-        body.Name = "Body"; // RobotModelLoader 导入成功后隐藏它 (登台环保留)
+        }, bodyColor, 0.15f, 0.5f);
+        body.Name = "Body";
         body.Position = new Vector3(0, robotHeight / 2, 0);
+        TagPrimitive(body);
         root.AddChild(body);
 
+        // 车体上盖: 略小的浅色顶板, 表现舱盖分件。
+        var topCap = MakeMeshPaintedMetal(new CylinderMesh
+        {
+            TopRadius = radius * 0.62f,
+            BottomRadius = radius * 0.62f,
+            Height = robotHeight * 0.28f,
+        }, bodyColor.Lightened(0.18f), 0.2f, 0.4f);
+        topCap.Name = "TopCap";
+        topCap.Position = new Vector3(0, robotHeight + robotHeight * 0.14f, 0);
+        TagPrimitive(topCap);
+        root.AddChild(topCap);
+
+        // 侧带 (轮/履带暗部): 车身下缘一圈橡胶质感暗环。
+        var sideBand = MakeMeshMatte(new CylinderMesh
+        {
+            TopRadius = radius * 1.015f,
+            BottomRadius = radius * 1.015f,
+            Height = robotHeight * 0.4f,
+        }, new Color(0.08f, 0.08f, 0.09f));
+        sideBand.Name = "SideBand";
+        sideBand.Position = new Vector3(0, robotHeight * 0.24f, 0);
+        TagPrimitive(sideBand);
+        root.AddChild(sideBand);
+
+        // 四只车轮暗件: 车身两侧前后各一, 只露窄边, 不参与任何物理。
+        var wheelRadius = radius * 0.3f;
+        foreach (var (wx, wz, name) in new[]
+        {
+            (-radius * 0.93f, radius * 0.5f, "WheelFL"), (radius * 0.93f, radius * 0.5f, "WheelFR"),
+            (-radius * 0.93f, -radius * 0.5f, "WheelRL"), (radius * 0.93f, -radius * 0.5f, "WheelRR"),
+        })
+        {
+            var wheel = MakeMeshMatte(new CylinderMesh
+            {
+                TopRadius = wheelRadius,
+                BottomRadius = wheelRadius,
+                Height = 0.014f,
+            }, new Color(0.05f, 0.05f, 0.06f));
+            wheel.Name = name;
+            wheel.Position = new Vector3(wx, wheelRadius, wz);
+            wheel.Rotation = new Vector3(0, 0, Mathf.Pi / 2);
+            TagPrimitive(wheel);
+            root.AddChild(wheel);
+        }
+
         // 车头指示: 与机身同色的短箭头, 沿 +Z (Godot 前向)。
-        var nose = MakeBox(bodyColor.Lightened(0.25f),
-            new Vector3(0.05f, 0.018f, 0.12f), Vector3.Zero);
+        var nose = MakeMeshPaintedMetal(new BoxMesh
+        {
+            Size = new Vector3(0.05f, 0.018f, 0.12f),
+        }, bodyColor.Lightened(0.25f), 0.2f, 0.45f);
         nose.Name = "Nose";
         nose.Position = new Vector3(0, robotHeight - 0.008f, radius + 0.02f);
+        TagPrimitive(nose);
         root.AddChild(nose);
 
-        // 推铲示意: 机身前缘加宽低框。
-        var shovel = MakeBox(bodyColor.Darkened(0.15f),
-            new Vector3(radius * 1.78f, 0.02f, 0.03f), Vector3.Zero);
+        // 推铲示意: 机身前缘加宽低框, 金属铲刀质感。
+        var shovel = MakeMeshPaintedMetal(new BoxMesh
+        {
+            Size = new Vector3(radius * 1.78f, 0.02f, 0.03f),
+        }, bodyColor.Darkened(0.15f), 0.6f, 0.35f);
         shovel.Name = "Shovel";
         shovel.Position = new Vector3(0, robotHeight - 0.02f, radius + 0.025f);
+        TagPrimitive(shovel);
         root.AddChild(shovel);
 
-        // 登台指示环 (绿=在台上, 灰=不在)。
+        // 团队识别灯带: 车身上缘一圈同色自发光细环 (渲染层标识, 不承载状态)。
+        var strip = MakeMeshEmissive(new CylinderMesh
+        {
+            TopRadius = radius * 1.02f,
+            BottomRadius = radius * 1.02f,
+            Height = 0.006f,
+        }, bodyColor, 1f);
+        strip.Name = "TeamStrip";
+        strip.Position = new Vector3(0, robotHeight * 0.82f, 0);
+        TagPrimitive(strip);
+        root.AddChild(strip);
+
+        // 登台指示环 (绿=在台上, 灰=不在)。按名字约定供 Configure 取用;
+        // 不打 primitivePart meta (glTF 模型导入后仍作为诊断层保留)。
         var ring = MakeMesh(new CylinderMesh
         {
             TopRadius = radius + 0.045f,
             BottomRadius = radius + 0.045f,
             Height = 0.004f,
         }, RingOff);
+        ring.Name = "Ring";
         ring.Position = new Vector3(0, 0.002f, 0);
         root.AddChild(ring);
+
+        // 接触阴影承载: 脚下半透明暗盘, 补足方向光阴影的近地贴合感。
+        var shadow = new MeshInstance3D
+        {
+            Mesh = new CylinderMesh
+            {
+                TopRadius = radius * 1.22f,
+                BottomRadius = radius * 1.22f,
+                Height = 0.0015f,
+            },
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0f, 0f, 0f, 0.24f),
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            },
+        };
+        shadow.Name = "ContactShadow";
+        // 抬到台面纹理平面 (PlatformHeight + 0.001) 之上、登台环 (0.002) 之下:
+        // 否则台上机器人的接触阴影盘会被台面顶面盖住, 恰好在最需要的位置失效。
+        shadow.Position = new Vector3(0, 0.0016f, 0);
+        TagPrimitive(shadow);
+        root.AddChild(shadow);
+
         return root;
     }
+
+    /// <summary>Marks a render-only primitive part so RobotModelLoader can hide
+    /// the whole set when an imported glTF model takes over.</summary>
+    private static void TagPrimitive(MeshInstance3D part) => part.SetMeta("primitivePart", true);
 
     public void ShowFrame(RenderFrame frame)
     {
@@ -287,8 +403,11 @@ public partial class ArenaVisualizer : Node3D
                 (float)block.Position.Up + _blockSize / 2,
                 (float)block.Position.Z);
             node.Visible = true;
-            _blockMaterials[i].MaterialOverride = MakeMaterial(block.Out ? OutColor
-                : block.Kind == "buff" ? BuffColor : DebuffColor);
+            // 能量块: buff/debuff 保留官方色相, 叠加微弱同色自发光提升可读性;
+            // 出界块为灰色哑光。albedo 不变, 像素分桶 QA 不受影响。
+            _blockMaterials[i].MaterialOverride = block.Out ? MakeMatte(OutColor)
+                : block.Kind == "buff" ? MakeEmissive(BuffColor, 0.35f)
+                : MakeEmissive(DebuffColor, 0.35f);
         }
     }
 
@@ -303,7 +422,8 @@ public partial class ArenaVisualizer : Node3D
         root.Rotation = new Vector3(0, (float)(Math.PI / 2 - robot.Yaw), 0);
         if (ring is not null)
         {
-            ring.MaterialOverride = MakeMaterial(robot.OnPlatform ? RingOn : RingOff);
+            // 登台指示: 在台上 = 绿色自发光状态灯; 不在台上 = 灰色哑光。
+            ring.MaterialOverride = robot.OnPlatform ? MakeEmissive(RingOn, 0.8f) : MakeMatte(RingOff);
         }
     }
 
@@ -320,13 +440,6 @@ public partial class ArenaVisualizer : Node3D
 
     // ---------- helpers ----------
 
-    private static MeshInstance3D MakeBox(Color color, Vector3 size, Vector3 position)
-    {
-        var mesh = MakeMesh(new BoxMesh { Size = size }, color);
-        mesh.Position = position;
-        return mesh;
-    }
-
     private static MeshInstance3D MakeMesh(PrimitiveMesh primitive, Color color)
     {
         var mesh = new MeshInstance3D { Mesh = primitive };
@@ -334,6 +447,89 @@ public partial class ArenaVisualizer : Node3D
         return mesh;
     }
 
+    // ---------- reusable render material strategies ----------
+    // 静态装饰/机器人分件的材质参数统一在这里表达 (喷涂金属/橡胶暗部/白色板材/
+    // 发光标识), 避免每个节点各写一套互相漂移的参数。台面灰度纹理不在此列:
+    // 它必须保持 Unshaded (见 MakeTexturedMaterial), 任何光照/高光都碰不到它。
+
+    /// <summary>橡胶/深色结构件: 高粗糙度、无金属感 (走道地面、围栏、轮/履带暗部)。</summary>
+    private static StandardMaterial3D MakeMatte(Color color)
+    {
+        return new StandardMaterial3D
+        {
+            AlbedoColor = color,
+            Roughness = 0.92f,
+            Metallic = 0f,
+        };
+    }
+
+    /// <summary>喷涂金属: 中低粗糙度 + 少量金属感/高光 (机器人车体、推铲、平台侧面)。</summary>
+    private static StandardMaterial3D MakePaintedMetal(Color color, float metallic, float roughness)
+    {
+        return new StandardMaterial3D
+        {
+            AlbedoColor = color,
+            Roughness = roughness,
+            Metallic = metallic,
+            MetallicSpecular = 0.5f,
+        };
+    }
+
+    /// <summary>发光标识: albedo 保持原色 (像素分桶 QA 依赖), emission 叠加同色能量。</summary>
+    private static StandardMaterial3D MakeEmissive(Color color, float energy)
+    {
+        return new StandardMaterial3D
+        {
+            AlbedoColor = color,
+            Roughness = 0.6f,
+            Metallic = 0f,
+            EmissionEnabled = true,
+            Emission = color,
+            EmissionEnergyMultiplier = energy,
+        };
+    }
+
+    /// <summary>白色板材 (平台侧面): 低金属感、中等粗糙度, 轻微高光。</summary>
+    private static StandardMaterial3D MakeWhiteBoard(Color color)
+        => MakePaintedMetal(color, 0.05f, 0.5f);
+
+    private static MeshInstance3D MakeBoxMatte(Color color, Vector3 size, Vector3 position)
+    {
+        var mesh = MakeMeshMatte(new BoxMesh { Size = size }, color);
+        mesh.Position = position;
+        return mesh;
+    }
+
+    private static MeshInstance3D MakeBoxWhiteBoard(Color color, Vector3 size, Vector3 position)
+    {
+        var mesh = new MeshInstance3D { Mesh = new BoxMesh { Size = size } };
+        mesh.MaterialOverride = MakeWhiteBoard(color);
+        mesh.Position = position;
+        return mesh;
+    }
+
+    private static MeshInstance3D MakeMeshMatte(PrimitiveMesh primitive, Color color)
+    {
+        var mesh = new MeshInstance3D { Mesh = primitive };
+        mesh.MaterialOverride = MakeMatte(color);
+        return mesh;
+    }
+
+    private static MeshInstance3D MakeMeshPaintedMetal(PrimitiveMesh primitive, Color color, float metallic, float roughness)
+    {
+        var mesh = new MeshInstance3D { Mesh = primitive };
+        mesh.MaterialOverride = MakePaintedMetal(color, metallic, roughness);
+        return mesh;
+    }
+
+    private static MeshInstance3D MakeMeshEmissive(PrimitiveMesh primitive, Color color, float energy)
+    {
+        var mesh = new MeshInstance3D { Mesh = primitive };
+        mesh.MaterialOverride = MakeEmissive(color, energy);
+        return mesh;
+    }
+
+    // 动态换色材质 (能量块/指示环): 每帧按快照状态重设, 保持基础哑光参数。
     private static StandardMaterial3D MakeMaterial(Color color)
     {
         var material = new StandardMaterial3D
