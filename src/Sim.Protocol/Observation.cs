@@ -231,7 +231,7 @@ public sealed record FieldGrayInfo
 /// <summary>Metadata about the active vision/classification implementation.</summary>
 public sealed record VisionInfo
 {
-    /// <summary>Vision mode: "default" (classifyRate stub) or "external".</summary>
+    /// <summary>Vision mode: "default" (classifyRate stub), "external" or "visionReplay" (hash-locked evidence replay).</summary>
     public string Mode { get; init; } = "default";
 
     /// <summary>Simulated classification rate when running the random stub.</summary>

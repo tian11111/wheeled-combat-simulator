@@ -66,7 +66,21 @@ public sealed class MatchEngine
     private readonly List<string> _pendingCommands = new();
     private long _requestIdCounter;
 
-    public MatchEngine(Scenario scenario)
+    /// <summary>
+    /// Default construction: the classifyRate random stub stays the vision
+    /// adapter, preserving the one-rng-draw semantics of every existing trace.
+    /// </summary>
+    public MatchEngine(Scenario scenario) : this(scenario, null)
+    {
+    }
+
+    /// <summary>
+    /// Explicit vision adapter injection (R3): the deterministic real-vision
+    /// replay path replaces the classifyRate stub for this match. A null
+    /// adapter is identical to the single-argument constructor — the default
+    /// path must stay bit-identical (rng draw order, events, scores).
+    /// </summary>
+    public MatchEngine(Scenario scenario, IVisionAdapter? visionAdapter)
     {
         var errors = scenario.Validate().ToList();
         if (errors.Count > 0)
@@ -77,7 +91,7 @@ public sealed class MatchEngine
         _field = new FieldModel(scenario.Field);
         _params = SimParameters.FromDictionary(scenario.Parameters);
         _rng = new DeterministicRandom.Mulberry32(unchecked((int)scenario.Seed));
-        _vision = new ClassifyRateVision(_params);
+        _vision = visionAdapter ?? new ClassifyRateVision(_params);
 
         var usVehicle = VehicleNormalizer.Normalize(
             scenario.Vehicles.TryGetValue(RoleNames.Us, out var us) ? us : new VehicleProfile());
@@ -815,12 +829,30 @@ public sealed class MatchEngine
     private Perception BuildPerception() => new()
     {
         FieldGray = _field.GetFieldGrayInfo(),
-        Vision = new VisionInfo
+        Vision = BuildVisionInfo(),
+    };
+
+    /// <summary>
+    /// Vision metadata: the default classifyRate stub keeps its legacy
+    /// "default" shape (bit-compatibility); the injected replay adapter
+    /// reports the visionReplay mode plus its consumption registry.
+    /// </summary>
+    private VisionInfo BuildVisionInfo()
+    {
+        if (_vision is VisionReplayAdapter replay)
+        {
+            return new VisionInfo
+            {
+                Mode = VisionReplayAdapter.ModeName,
+                External = replay.BuildExternalSnapshot(),
+            };
+        }
+        return new VisionInfo
         {
             Mode = "default",
             ClassifyRate = _params.ClassifyRate,
-        },
-    };
+        };
+    }
 
     private ObjectSet BuildObjectSet()
     {
@@ -968,7 +1000,9 @@ public sealed class MatchEngine
         RulesetId = _scenario.Id,
         Seed = _scenario.Seed,
         CoreVersion = CoreVersion,
-        VisionMode = "default",
+        VisionMode = _vision is VisionReplayAdapter ? VisionReplayAdapter.ModeName : "default",
+        VisionEvidenceId = _vision is VisionReplayAdapter evidence ? evidence.EvidenceId : null,
+        VisionEvidenceSha256 = _vision is VisionReplayAdapter sha ? sha.EvidenceSha256 : null,
         Parameters = _scenario.Parameters is null ? null : new Dictionary<string, double>(_scenario.Parameters),
         Vehicles = new Dictionary<string, VehicleProfile>
         {

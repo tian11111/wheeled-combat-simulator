@@ -746,9 +746,15 @@ public sealed class FsmController
                     var detection = ClassifyTargetFor(r, t);
                     if (detection.Label == "buff")
                     {
+                        // 真实回放证据可能把红外目标识别成 buff(模型输出与模拟器
+                        // 世界真值允许不一致): 目标不是增益块时不伪造追踪对象,
+                        // ScoreTarget 留空由 ScoreTick 兜底选取台上增益块。
                         r.Fsm.ScoreTarget = t.Obj as BlockRuntime;
-                        r.Fsm.ScoreLastX = (t.Obj as BlockRuntime)!.X;
-                        r.Fsm.ScoreLastY = (t.Obj as BlockRuntime)!.Y;
+                        if (r.Fsm.ScoreTarget is { } scoreTarget)
+                        {
+                            r.Fsm.ScoreLastX = scoreTarget.X;
+                            r.Fsm.ScoreLastY = scoreTarget.Y;
+                        }
                         r.Fsm.ScoreProgressT = 0;
                         Log(r, "[fsm] 视觉分类 → 增益块 → SCORE_BLOCK");
                         r.Fsm.State = FsmState.ScoreBlock;

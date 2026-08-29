@@ -85,6 +85,17 @@ public sealed record ReplayHeader : IProtocolMessage
     /// <summary>Creation timestamp (informational only; never part of determinism).</summary>
     public DateTimeOffset? CreatedAt { get; init; }
 
+    /// <summary>
+    /// Vision evidence package id when the match ran the visionReplay adapter
+    /// (additive; null on the default classifyRate path, so old headers stay
+    /// byte-identical). Evidence reproduction = hash-locked package + scenario
+    /// + recorded actions; per-frame detections are replayed deterministically.
+    /// </summary>
+    public string? VisionEvidenceId { get; init; }
+
+    /// <summary>SHA-256 of the vision evidence package (additive; null on the default path).</summary>
+    public string? VisionEvidenceSha256 { get; init; }
+
     /// <summary>Number of recorded ticks.</summary>
     [JsonIgnore]
     public int TickCount => Ticks.Count;
@@ -114,6 +125,19 @@ public sealed record ReplayHeader : IProtocolMessage
         if (string.IsNullOrWhiteSpace(VisionMode))
         {
             yield return "replay header: visionMode must not be empty.";
+        }
+        if (VisionEvidenceId is { } evidenceId && string.IsNullOrWhiteSpace(evidenceId))
+        {
+            yield return "replay header: visionEvidenceId must not be empty when present.";
+        }
+        if (VisionEvidenceSha256 is { } evidenceSha
+            && (evidenceSha.Length != 64 || !evidenceSha.All(Uri.IsHexDigit)))
+        {
+            yield return "replay header: visionEvidenceSha256 must be 64 hex chars when present.";
+        }
+        if ((VisionEvidenceId is null) != (VisionEvidenceSha256 is null))
+        {
+            yield return "replay header: visionEvidenceId and visionEvidenceSha256 must be set together.";
         }
         if (FieldGray is null)
         {
