@@ -62,6 +62,20 @@ public sealed record Snapshot : IProtocolMessage
     /// <summary>Score delta since the previous snapshot (gym-style per-step reward).</summary>
     public Scores? Reward { get; init; }
 
+    /// <summary>
+    /// Per-source score breakdown keyed by role ("us"/"them") then by source
+    /// ("drop"/"clock"/"block_buff"/"block_debuff"/"penalty"/"restart"/
+    /// "inactivity"), mirroring the 2026 评分表. Additive (old JSON decodes
+    /// unchanged); the per-source values always sum to <see cref="Scores"/>.
+    /// </summary>
+    public Dictionary<string, Dictionary<string, double>>? ScoreBreakdown { get; init; }
+
+    /// <summary>Active referee score-clock phase ("us_only"/"them_only"); null when both sides share a state.</summary>
+    public string? ScoreClockPhase { get; init; }
+
+    /// <summary>Seconds accumulated toward the next score-clock point (0–10).</summary>
+    public double? ScoreClockSeconds { get; init; }
+
     public IEnumerable<string> Validate()
     {
         if (string.IsNullOrWhiteSpace(Version))

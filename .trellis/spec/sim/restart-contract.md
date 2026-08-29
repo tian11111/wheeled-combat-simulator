@@ -20,11 +20,13 @@
 - 命令行（追加式，只出现在录制命令流中）：`restart_robot:<role>`，
   `role ∈ RoleNames`（`us` / `them`）。
 - 事件：`EventKind.Restart`，category `"score"`，消息前缀 `[referee] 真实重启`，
-  payload `{ role, points: 4, scorer: <对手 role> }`。
+  payload `{ role, points: 3, scorer: <对手 role> }`。
 
 ## 3. Contracts（语义不变量）
 
-- 对手总分恰好 +4 一次；被重启方 penalty 总数 +4（`_penaltyUs`/`_penaltyThem`）。
+- 对手总分恰好 +3 一次（2026 规则: 举手示意并经裁判同意的重启 = 对方 +3；+4 是
+  "未经同意"的违规判罚，只存在于 legacy `restart:<role>:<kind>` 罚分命令，真实重启
+  不使用）；被重启方 penalty 总数 +3（`_penaltyUs`/`_penaltyThem`）。
 - 比赛计时、另一台机器人、场上方块、既有事件序列保持不变；目标 FSM 的
   `SimT`/`Timer` 设为当前比赛时间，比赛不延长、按原计划结束。
 - 目标机器人：场局部出生点经 `FieldModel.Transform` 映射回位（禁止手写旋转）；
@@ -47,7 +49,7 @@
 
 ## 5. Good/Base/Bad Cases
 
-- Good：Running 中按 R → 己方回出生点、对方 +4 一次、`EventKind.Restart` 与
+- Good：Running 中按 R → 己方回出生点、对方 +3 一次、`EventKind.Restart` 与
   `restart_robot:us` 入流、回放逐位复现。
 - Base：Paused 中按 T → 同上；Finished 的目标在比赛活跃时复活且不再延长时钟。
 - Bad：Prep/Ready/Finished 阶段调用 → `false` 且无任何变化；把旧 `restart:`
@@ -55,7 +57,7 @@
 
 ## 6. Tests Required
 
-- `src/Sim.Tests/RestartRobotTests.cs`：相位门控、恰好一次 +4、经
+- `src/Sim.Tests/RestartRobotTests.cs`：相位门控、恰好一次 +3、经
   `FieldTransform` 回位、瞬态/FSM 清理、计时/他方/方块保持、复活、同调度
   逐位一致、fixture 重生成字节一致、Godot/CLI parity、旧命令兼容
   （`LegacyCommandReplay_StillVerifies_BitForBit`、`OldOfficialFixture_StillParityVerifies`）。

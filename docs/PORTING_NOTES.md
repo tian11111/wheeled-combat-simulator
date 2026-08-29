@@ -43,7 +43,8 @@
 9. **真实重启 `RestartRobot(role)`（遗留无此操作）**：遗留 `restartFor` 只有判罚语义
    （+4/+3，不改状态）。新增显式 `RestartRobot`：目标机器人经 `FieldTransform` 回到场景
    出发点并清理运动/传感器/FSM 瞬态（武装、`MOUNT_RING`，已结束的机器人比赛进行中可复活），
-   对手恰好 +4、被重启方计一次判罚；比赛时钟、另一台机器人与场上能量块不动。仅在
+   按 2026 规则"裁判同意的重启 = 对方 +3"计分（+4 保留在 legacy "未经同意"判罚 kind），
+   被重启方计一次判罚；比赛时钟、另一台机器人与场上能量块不动。仅在
    RUNNING/PAUSED 接受，Prep/Ready/Finished 无副作用拒绝；事件 `EventKind.Restart`（遗留
    枚举位既有、首次启用）+ 附加命令 `restart_robot:<role>`。旧 `restart:<role>:<kind>`
    判罚路径与其解码逐字节保留，旧回放绝不重解释。桌面端 R/T 改走真实重启（原判罚语义
