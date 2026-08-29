@@ -9,13 +9,18 @@ namespace Sim.Tests;
 /// representative <see cref="FieldModel.FieldGrayLocal"/> values (0–1000
 /// semantics: walkway 0, edge band 300, ramp, red zone 650), axis symmetry
 /// (no manufactured diagonal), and the pure texture mapping used by the Godot
-/// shell — image row 0 = field south, column 0 = field west, red zone as the
-/// only non-gray region. The measured-grid runtime path is out of scope here;
-/// coordinate-less sensor CSV must never reach these models.
+/// shell — image row 0 = field south, column 0 = field west, official display
+/// palette (ring edge 300 → black band, center 1000 → white, walkway/red zone
+/// as official palette colors). The measured-grid runtime path is out of scope
+/// here; coordinate-less sensor CSV must never reach these models.
 /// </summary>
 public sealed class FieldGrayDisplayTests
 {
     private static FieldParams OfficialField() => new();
+
+    private static (byte R, byte G, byte B) TestRed() => (217, 38, 33);
+
+    private static (byte R, byte G, byte B) TestWalkway() => (72, 72, 72);
 
     // ---------- core gray model: representative values ----------
 
@@ -97,18 +102,29 @@ public sealed class FieldGrayDisplayTests
     }
 
     [Fact]
-    public void NormalizedGray_ClampsToUnitRange()
+    public void DisplayLuminance_OfficialPalette_MapsEdgeBandToBlackCenterToWhite()
     {
-        Assert.Equal(0.0, FieldGrayTextureMap.NormalizedGray(-5), precision: 9);
-        Assert.Equal(0.5, FieldGrayTextureMap.NormalizedGray(500), precision: 9);
-        Assert.Equal(1.0, FieldGrayTextureMap.NormalizedGray(2000), precision: 9);
+        // 官方调色板: 擂台边带 300 → 黑, 中心 1000 → 白; 传感器 0–1000 语义不变。
+        Assert.Equal(0.0, FieldGrayTextureMap.DisplayLuminance(300), precision: 9);
+        Assert.Equal(0.5, FieldGrayTextureMap.DisplayLuminance(650), precision: 9);
+        Assert.Equal(1.0, FieldGrayTextureMap.DisplayLuminance(1000), precision: 9);
+        Assert.Equal(0.0, FieldGrayTextureMap.DisplayLuminance(-5), precision: 9);
+        Assert.Equal(1.0, FieldGrayTextureMap.DisplayLuminance(2000), precision: 9);
+    }
+
+    [Fact]
+    public void IsWalkwayGray_DetectsWalkwayOnlyNearZero()
+    {
+        Assert.True(FieldGrayTextureMap.IsWalkwayGray(0));
+        Assert.True(FieldGrayTextureMap.IsWalkwayGray(0.4));
+        Assert.False(FieldGrayTextureMap.IsWalkwayGray(300));
     }
 
     [Fact]
     public void BuildRgb8_WestEastGradient_PlacesEastBright()
     {
         var buffer = FieldGrayTextureMap.BuildRgb8(4, 0, 0, 1000, 1000, center: -100,
-            (x, y) => x, redZone: (255, 0, 0));
+            (x, y) => x, redZone: (255, 0, 0), walkway: TestWalkway());
         // 同一行的西列暗、东列亮; 同一列的行间一致 (梯度只沿 x)。
         int V(int px, int py) => buffer[(py * 4 + px) * 3];
         Assert.True(V(0, 1) < V(3, 1));
@@ -120,7 +136,7 @@ public sealed class FieldGrayDisplayTests
     public void BuildRgb8_SouthNorthGradient_Row0IsSouth()
     {
         var buffer = FieldGrayTextureMap.BuildRgb8(4, 0, 0, 1000, 1000, center: -100,
-            (x, y) => y, redZone: (255, 0, 0));
+            (x, y) => y, redZone: (255, 0, 0), walkway: TestWalkway());
         int V(int px, int py) => buffer[(py * 4 + px) * 3];
         // 图像行 0 = 场地南侧: 顶行暗、底行亮。
         Assert.True(V(1, 0) < V(1, 3));
@@ -129,32 +145,44 @@ public sealed class FieldGrayDisplayTests
     }
 
     [Fact]
+    public void BuildRgb8_WalkwaySamples_RenderOfficialDarkGray()
+    {
+        // 走道区域 (sensor 值 ≈ 0) 显示官方走道深灰, 而不是纯黑。
+        var buffer = FieldGrayTextureMap.BuildRgb8(4, 0, 0, 1000, 1000, center: -100,
+            (x, y) => 0, redZone: (255, 0, 0), walkway: TestWalkway());
+        int R(int px, int py) => buffer[(py * 4 + px) * 3];
+        Assert.Equal(TestWalkway().R, R(0, 0));
+        Assert.Equal(TestWalkway().R, R(3, 3));
+    }
+
+    [Fact]
     public void BuildRgb8_OfficialPlatform_RepresentativePixels()
     {
         var field = OfficialField();
         var model = new FieldModel(field);
-        var redZone = (R: (byte)158, G: (byte)56, B: (byte)51);
         var buffer = FieldGrayTextureMap.BuildRgb8(
             FieldGrayTextureMap.DefaultResolution,
             field.Platform.MinX, field.Platform.MinY,
             field.Platform.MaxX, field.Platform.MaxY,
             model.Center,
             model.FieldGrayLocal,
-            redZone);
+            TestRed(),
+            TestWalkway());
 
         const int res = FieldGrayTextureMap.DefaultResolution;
         int V(int px, int py) => buffer[(py * res + px) * 3];
         int G(int px, int py) => buffer[(py * res + px) * 3 + 1];
         int B(int px, int py) => buffer[(py * res + px) * 3 + 2];
 
-        // 角像素 (西南角) 的绝对代表值: 距边 0.009375m → g=305.46875 → 78。
-        Assert.Equal(78, V(0, 0));
+        // 角像素 (西南角) 的绝对代表值: 距边 0.009375m → g=305.46875 →
+        // 官方调色板 (305.47-300)/700 → 亮度 0.008 → 2 (擂台外圈黑边)。
+        Assert.Equal(2, V(0, 0));
         // 图像中心在红区内: 精确的红区字节 (白"武"由 Label3D 叠加)。
-        Assert.Equal(redZone.R, V(res / 2, res / 2));
-        Assert.Equal(redZone.G, G(res / 2, res / 2));
-        Assert.Equal(redZone.B, B(res / 2, res / 2));
+        Assert.Equal(TestRed().R, V(res / 2, res / 2));
+        Assert.Equal(TestRed().G, G(res / 2, res / 2));
+        Assert.Equal(TestRed().B, B(res / 2, res / 2));
         // 东北角像素与西南角同值 (轴对称), 但必须落在"最后一行/列"而不是首行。
         Assert.Equal(V(0, 0), V(res - 1, res - 1));
-        Assert.NotEqual(0, V(0, res - 1)); // 采样点永远在平台内, 不会是走道 0
+        Assert.NotEqual(TestWalkway().R, V(0, res - 1)); // 采样点永远在平台内, 不会是走道
     }
 }
