@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- 视觉证据分线 (vision-replay-v1 / vision-replay-report-v1): 纯库, 仅引用
+         Sim.Protocol 以复用 ProtocolJson 序列化。与 sensor-calibration-v1 /
+         telemetry-v1 分线互不扩用; 不引用 Sim.Core / Sim.Calibration。库内不做
+         文件枚举/时钟/随机; 唯一的文件触点是 VisionReplayIO 对显式传入路径的
+         原子写(与 Sim.Calibration.ReportWriter 同一惯例), 编排仍在 Sim.Cli。 -->
+    <RootNamespace>Sim.VisionReplay</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sim.Protocol\Sim.Protocol.csproj" />
+  </ItemGroup>
+
+</Project>
