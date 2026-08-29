@@ -273,3 +273,29 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 10: 真实视觉回放评估 Phase A（evidence_only）
+
+**Date**: 2026-08-29
+**Task**: 真实视觉回放评估 Phase A（evidence_only）
+**Branch**: `main`
+
+### Summary
+
+完成 08-28-real-vision-replay-evaluation Phase A：新建 Sim.VisionReplay 纯库（vision-replay-v1 证据格式、MBri CSV 严格导入/校验/审计、链路质量纯函数评估），MatchEngine 加性视觉适配器注入（VisionReplayAdapter 按 sequence/时间窗确定性选帧、缺帧/过期/错误返回 unknown 原因码、不读世界真值、不消费匹配随机流），回放头加性 VisionEvidenceId/Sha256 字段，新 CLI vision import/evaluate 命令（退出码 0/1/2、零产出纪律），50 个新测试 + mbri-vision-mini fixture；fidelity.json 逐位不变、旧回放逐位兼容、replay-check/parity 全绿（265/265 测试）。新增 spec/sim/vision-replay-contract.md 沉淀分线契约与 rng 流纪律。Phase B（新采集+人工标注+holdout 晋升）另立任务。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c206015` | (see git log) |
+| `1e2030a` | (see git log) |
+| `90b7892` | (see git log) |
+| `4fa5fef` | (see git log) |
+| `69c495b` | (see git log) |
+| `dba3ad2` | (see git log) |
+
+### Status
+
+[OK] **Completed**
