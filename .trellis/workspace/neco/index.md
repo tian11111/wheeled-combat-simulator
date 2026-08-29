@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 11
+- **Total Sessions**: 12
 - **Last Active**: 2026-08-29
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~326 | Active |
+| `journal-1.md` | ~350 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 12 | 2026-08-29 | Godot 3D 赛事视觉真实感优化 | `a2ed0a5`, `be66ac8`, `690f3f6`, `cce7f35` | `feat/godot-3d-visual` |
 | 11 | 2026-08-29 | AI Agent 无头并行快速仿真 (batch 命令) | `5baca51`, `7f9745f`, `f92f434`, `48bc461`, `e38171d` | `feat/ai-batch-sim` |
 | 10 | 2026-08-29 | 真实视觉回放评估 Phase A（evidence_only） | `c206015`, `1e2030a`, `90b7892`, `4fa5fef`, `69c495b`, `dba3ad2` | `main` |
 | 9 | 2026-08-28 | Godot 相机交互、灰度与真实重启收尾 | `781a969`, `4a0ef71`, `4e7cb79`, `fde6644`, `7506b82` | `main` |

@@ -324,3 +324,27 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 12: Godot 3D 赛事视觉真实感优化
+
+**Date**: 2026-08-29
+**Task**: Godot 3D 赛事视觉真实感优化
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 08-29-godot-3d-visual-fidelity-polish（接手另窗口中断的 WIP）：默认取景占比 51.9%×53.9% 达标、程序化天空/三点光/Filmic+SSAO/一次更新 ReflectionProbe、四类 PBR 材质工厂与机器人多分件（顶盖/侧带/4轮/车头/推铲/灯带/接触阴影盘）、MSAA 4×；glow/TAA 默认关（白心泛光威胁灰度判读/拖影，实验配方入 README）；台面灰度 Unshaded 官方调色板契约零改动；新增 --capture-frames/--camera-cycle 验收旗标与 camera-smoke R1 取景断言（去钳制）。质量门修复接触阴影盘 z 序被台面遮挡、R1 断言钳制掩盖回归两处。315/315 测试、双 smoke、Godot parity、双分辨率真实渲染证据全通过；720p 帧时间无退化。前端两份规范沉淀视觉栈约定与证据要求。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a2ed0a5` | (see git log) |
+| `be66ac8` | (see git log) |
+| `690f3f6` | (see git log) |
+| `cce7f35` | (see git log) |
+
+### Status
+
+[OK] **Completed**
