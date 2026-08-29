@@ -11,8 +11,12 @@ the visualizer. Inputs map to referee/session commands and remain separate from
 rendering; parity behavior must be testable headlessly through `ParityCheck`.
 
 `MatchCamera` state is presentation-only: Overview and Follow orbit a ground
-focus via left-drag (yaw +0.3°/px, pitch clamped 10°–85°; Top spins in-plane
-at fixed −90° pitch), right-drag pans with grab semantics — the grabbed ground
+focus via left-drag under the reversed-direction contract (2026-08-29 real-
+machine feedback: screen +X/right drag decreases yaw at −0.3°/px, screen
++Y/down drag raises pitch at +0.25°/px, pitch clamped 10°–85°; Top spins
+−0.3°/px in-plane at fixed −90° pitch — assert all four drag directions in
+`--camera-smoke` so the old signs cannot be pinned back), right-drag pans with
+grab semantics — the grabbed ground
 point follows the pointer so the focus moves opposite the cursor's ground
 delta (Follow focus stays frame-driven) — and wheel zooms within clamped
 distance/height (×0.3–3 overview, ×0.5–3 top, ×0.5–2.5 follow). `F5`/arena
