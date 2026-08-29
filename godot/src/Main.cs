@@ -123,9 +123,29 @@ public partial class Main : Node
             }
             else
             {
+                // 默认 30 帧; --capture-frames 可加长等待 (相机阻尼收敛/比赛推进后再截)。
                 _captureFramesLeft = 30;
-                GD.Print($"[capture] 30 帧后保存视口到 {_capturePath}");
+                var framesIndex = Array.IndexOf(userArgs, "--capture-frames");
+                if (framesIndex >= 0 && framesIndex + 1 < userArgs.Length
+                    && int.TryParse(userArgs[framesIndex + 1], out var frames) && frames > 0)
+                {
+                    _captureFramesLeft = frames;
+                }
+                GD.Print($"[capture] {_captureFramesLeft} 帧后保存视口到 {_capturePath}");
             }
+        }
+
+        // 视觉 QA 取景辅助: 启动即切换镜头模式 (0=概览 1=跟随 2=俯视), 仅表现层,
+        // 供双分辨率 capture 留存三种机位证据; 不改变任何交互/仿真语义。
+        var cameraCycleIndex = Array.IndexOf(userArgs, "--camera-cycle");
+        if (cameraCycleIndex >= 0 && cameraCycleIndex + 1 < userArgs.Length
+            && int.TryParse(userArgs[cameraCycleIndex + 1], out var cameraCycles))
+        {
+            for (var i = 0; i < Math.Min(Math.Max(cameraCycles, 0), 2); i++)
+            {
+                _camera.CycleMode();
+            }
+            GD.Print($"[capture] 启动镜头模式: {_camera.Mode}");
         }
 
         LoadRobotModelPreferences(userArgs);
@@ -208,14 +228,53 @@ public partial class Main : Node
         var viewportSize = GetViewport().GetVisibleRect().Size;
         var screenCenter = viewportSize / 2f;
 
-        // Overview: 焦点在场地中心, 机位 = 焦点 + (0,1.95,1.6) 归一化 × 距离。
+        // Overview: 焦点在场地中心, 机位 = 焦点 + (0,0.82,0.68) 归一化 × 距离
+        // (与 MatchCamera.DefaultOverviewHeight/BackRatio 同一取景比例)。
         Check(_camera.Mode == CameraMode.Overview, "starts in Overview");
         await WaitFrames(3);
         Check(Near(_camera.FocusPoint.X, center.X) && Near(_camera.FocusPoint.Z, center.Z),
             "overview focus = arena center");
-        var expectedPos = center + new Vector3(0, 1.95f, 1.6f).Normalized() * _camera.OverviewDistance;
+        var expectedPos = center + new Vector3(0, 0.82f, 0.68f).Normalized() * _camera.OverviewDistance;
         Check(_camera.Position.DistanceTo(expectedPos) < 0.05f,
             "overview position = focus + framing direction * distance");
+
+        // PRD R1 取景占比: 完整场地包围盒 (含围栏顶) 投影到 16:9 视口 (720p/1080p,
+        // vfov 75° KEEP_HEIGHT) 的宽/高占比必须落在 45–65% × 45–75%。用纯针孔投影
+        // 从相机实际位姿计算, 不依赖无头 64×64 视口; 数值与真实 renderer capture 实测一致。
+        static (double W, double H) ArenaExtentFraction(Camera3D cam, Vector3 c, double half, double fenceTop)
+        {
+            var basis = cam.GlobalTransform.Basis;
+            var fwd = -basis.Column2;
+            var tanV = Math.Tan(cam.Fov * Math.PI / 360.0);
+            var tanH = tanV * 16.0 / 9.0;
+            double minX = 2, maxX = -2, minY = 2, maxY = -2;
+            foreach (var p in new[]
+            {
+                new Vector3((float)(c.X - half), 0f, (float)(c.Z - half)),
+                new Vector3((float)(c.X + half), 0f, (float)(c.Z - half)),
+                new Vector3((float)(c.X - half), 0f, (float)(c.Z + half)),
+                new Vector3((float)(c.X + half), 0f, (float)(c.Z + half)),
+                new Vector3((float)(c.X - half), (float)fenceTop, (float)(c.Z - half)),
+                new Vector3((float)(c.X + half), (float)fenceTop, (float)(c.Z - half)),
+                new Vector3((float)(c.X - half), (float)fenceTop, (float)(c.Z + half)),
+                new Vector3((float)(c.X + half), (float)fenceTop, (float)(c.Z + half)),
+            })
+            {
+                var v = p - cam.GlobalPosition;
+                var zv = v.Dot(fwd);
+                // 不做 [-1,1] 钳制: 角点越出视锥时占比必须 >1 而判 FAIL,
+                // 钳制会把越界角点拉回视口内, 掩盖"场地被裁掉"的回归。
+                // 默认取景下所有角点都在相机前方 ~4m, 不存在退化投影。
+                var nx = v.Dot(basis.Column0) / zv / tanH;
+                var ny = v.Dot(basis.Column1) / zv / tanV;
+                minX = Math.Min(minX, nx); maxX = Math.Max(maxX, nx);
+                minY = Math.Min(minY, ny); maxY = Math.Max(maxY, ny);
+            }
+            return ((maxX - minX) / 2, (maxY - minY) / 2);
+        }
+        var extent = ArenaExtentFraction(_camera, center, fieldSize / 2, _session.Scenario.Field.FenceHeight);
+        Check(extent.W is >= 0.45 and <= 0.65 && extent.H is >= 0.45 and <= 0.75,
+            $"overview frames arena at {extent.W * 100:0.0}% x {extent.H * 100:0.0}% of 16:9 viewport (PRD 45-65% x 45-75%)");
 
         // 滚轮缩放: ×1.1 步进 + 限幅 (放大钳在基准, 缩小钳在上限)。
         var baseDistance = _camera.OverviewDistance;
@@ -867,9 +926,9 @@ public partial class Main : Node
             for (var x = 0; x < w; x++)
             {
                 var c = img.GetPixel(x, y);
-                if (c.R > 0.6f && c.B > 0.6f && c.G < 0.45f)
+                if (c.R > 0.6f && c.B > 0.6f && c.G < 0.6f)
                 {
-                    buckets["model"]++; // 品红测试模型 (robot-cube.gltf)
+                    buckets["model"]++; // 品红测试模型 (robot-cube.gltf); 灯光/tonemap 会把绿色抬到 ~0.55
                 }
                 else if (Close(c, UsColor) || Close(c, ThemColor))
                 {
