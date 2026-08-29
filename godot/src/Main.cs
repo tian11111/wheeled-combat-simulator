@@ -3,9 +3,10 @@
 // SnapshotView 投影, 不复刻任何规则。
 //
 // 操作 (另见 HUD 右上角帮助):
-//   Enter 发令 · P 暂停/继续 · R 我方重启 · T 对手重启 (真实重启, 对手 +4)
+//   Enter 发令 · P 暂停/继续 · R 我方重启 · T 对手重启 (真实重启, 对手 +3)
 //   F5 重置同 seed 比赛 (回放模式回到实况并同步场景/相机) · C 切换镜头 · L 打开回放文件
-//   镜头: 非编辑模式左键拖动平移 (概览/俯视, 抓取语义), 滚轮缩放 (限幅)
+//   镜头: 非编辑模式左键拖动转动视角 (概览/跟随环绕, 俯视自旋), 右键拖动平移 (抓取语义),
+//         滚轮缩放 (限幅)
 //   回放模式: 空格 播放/暂停 · ←/→ 单步 · Home/End 到首/末帧 · 拖动时间轴跳转
 //
 // 无头模式: `godot --headless --path godot -- --parity-check <replay.json>`
@@ -44,6 +45,11 @@ public partial class Main : Node
     private string _capturePath = "";
     private string _captureStats = "";
     private int _smokeExit;
+    // 事件栏累积缓冲: 引擎快照的事件是增量 (自上次提交), 直接显示会闪现一帧
+    // 即清空; 这里跨帧保留最近 N 条, 模式切换/场景重建时清空。
+    private readonly List<string> _eventBuffer = [];
+    private long _lastEventTick = -1;
+    private SessionMode _lastEventMode;
 
     public override void _Ready()
     {
@@ -147,7 +153,8 @@ public partial class Main : Node
     /// <summary>
     /// Deterministic camera input evidence through the real input pipeline:
     /// Overview framing, wheel zoom (×1.1 steps + clamp), Top orientation
-    /// (-90° pitch, full-field coverage), ground-plane grab-drag pan in
+    /// (-90° pitch, full-field coverage), left-drag orbit/spin (yaw/pitch
+    /// formula, Top spin at fixed pitch), right-drag ground-plane grab pan in
     /// Top/Overview, Follow zoom, and the editor-ownership hook (the camera
     /// must ignore the pointer while the layout editor is active). No texture
     /// reads, so it is safe headless. Exits 0 when all checks pass.
@@ -186,6 +193,17 @@ public partial class Main : Node
             }
             var t = -from.Y / dir.Y;
             return t <= 0f ? null : from + dir * t;
+        }
+
+        // 与 MatchCamera.OrbitDir 相同的环绕方向公式 (yaw 0 = +Z, 俯仰自地面起算)。
+        static Vector3 OrbitDirExpected(float yawDeg, float pitchDeg)
+        {
+            var yaw = Mathf.DegToRad(yawDeg);
+            var pitch = Mathf.DegToRad(pitchDeg);
+            return new Vector3(
+                Mathf.Sin(yaw) * Mathf.Cos(pitch),
+                Mathf.Sin(pitch),
+                Mathf.Cos(yaw) * Mathf.Cos(pitch));
         }
         var viewportSize = GetViewport().GetVisibleRect().Size;
         var screenCenter = viewportSize / 2f;
@@ -226,6 +244,35 @@ public partial class Main : Node
         await WaitFrames(2);
         Check(Near(_camera.OverviewDistance, baseDistance * 0.3f), "overview zoom clamps at min distance");
 
+        // 左键转动视角: 概览绕焦点环绕 — 偏航 +0.3°/px, 上拖升高俯仰 (+0.25°/px),
+        // 机位按 OrbitDir(yaw, pitch) × 距离重建 (阻尼收敛后取值)。拖动用小像素步长:
+        // 无头 dummy 视口只有 64×64, 大位移会撞上限幅, 破坏等值断言。
+        const int dragPx = 8;
+        const float yawPerPx = 0.3f;
+        const float pitchPerPx = 0.25f;
+        await WaitSettled();
+        var yaw0 = _camera.OverviewYaw;
+        var pitch0 = _camera.OverviewPitch;
+        var dist0 = _camera.OverviewDistance;
+        InjectLeftDrag(screenCenter, screenCenter + new Vector2(dragPx, 0));
+        await WaitFrames(2);
+        Check(Near(_camera.OverviewYaw, yaw0 + dragPx * yawPerPx), "left-drag orbits yaw (+0.3°/px)");
+        await WaitSettled();
+        var orbitExpected = center + OrbitDirExpected(_camera.OverviewYaw, pitch0) * dist0;
+        Check(_camera.Position.DistanceTo(orbitExpected) < 0.05f,
+            "overview orbit position matches yaw/pitch formula");
+        InjectLeftDrag(screenCenter, screenCenter - new Vector2(0, dragPx));
+        await WaitFrames(2);
+        Check(Near(_camera.OverviewPitch, Mathf.Clamp(pitch0 + dragPx * pitchPerPx, 10f, 85f)),
+            "left-drag up raises pitch (+0.25°/px)");
+        // 拖回默认角, 后续平移断言仍从默认取景出发。
+        InjectLeftDrag(screenCenter + new Vector2(dragPx, 0), screenCenter);
+        await WaitFrames(2);
+        InjectLeftDrag(screenCenter - new Vector2(0, dragPx), screenCenter);
+        await WaitFrames(2);
+        Check(Near(_camera.OverviewYaw, yaw0) && Near(_camera.OverviewPitch, pitch0),
+            "inverse left-drags restore default orbit angles");
+
         // Follow: 缩放只改跟拍距离; 焦点仍由渲染帧驱动。
         await InjectActionUntil("camera_cycle", () => _camera.Mode == CameraMode.Follow);
         Check(_camera.Mode == CameraMode.Follow, "cycles to Follow");
@@ -247,9 +294,16 @@ public partial class Main : Node
         Check(Near(_camera.FocusPoint.X, center.X) && Near(_camera.FocusPoint.Z, center.Z),
             "top focus = arena center");
 
-        // Top 拖动: 抓取语义 — 焦点按地面射线位移的反方向平移。拖动用小像素步长:
-        // 无头 dummy 视口只有 64×64, 大位移会撞上焦点限幅, 破坏等值断言。
-        const int dragPx = 8;
+        // Top 左键自旋: 绕视线轴转图 (俯仰保持 -90° 正俯视), +0.3°/px。
+        InjectLeftDrag(screenCenter, screenCenter + new Vector2(dragPx, 0));
+        await WaitFrames(2);
+        Check(Near(_camera.TopYaw, dragPx * 0.3f), "top left-drag spins view (+0.3°/px)");
+        Check(Near(_camera.RotationDegrees.X, -90f), "top spin keeps straight-down pitch");
+        InjectLeftDrag(screenCenter + new Vector2(dragPx, 0), screenCenter);
+        await WaitFrames(2);
+        Check(Near(_camera.TopYaw, 0f), "inverse top spin restores heading");
+
+        // Top 右键拖动: 抓取语义 — 焦点按地面射线位移的反方向平移。
         await WaitSettled();
         var topS1 = screenCenter;
         var topS2 = screenCenter + new Vector2(dragPx, 0);
@@ -258,16 +312,16 @@ public partial class Main : Node
         Check(tg1 is not null && tg2 is not null, "top rays hit the ground plane");
         if (tg1 is { } g1 && tg2 is { } g2)
         {
-            InjectDrag(topS1, topS2);
+            InjectRightDrag(topS1, topS2);
             await WaitFrames(2);
             Check(Near(_camera.FocusPoint.X, center.X - (g2.X - g1.X))
                 && Near(_camera.FocusPoint.Z, center.Z - (g2.Z - g1.Z)),
-                "top drag pans focus opposite the ground delta (grab semantics)");
+                "top right-drag pans focus opposite the ground delta (grab semantics)");
             // 拖回原位。
-            InjectDrag(topS2, topS1);
+            InjectRightDrag(topS2, topS1);
             await WaitFrames(2);
             Check(Near(_camera.FocusPoint.X, center.X) && Near(_camera.FocusPoint.Z, center.Z),
-                "top drag back restores the center focus");
+                "top right-drag back restores the center focus");
         }
 
         // 俯视缩放限幅。
@@ -284,7 +338,7 @@ public partial class Main : Node
         await WaitFrames(2);
         Check(Near(_camera.TopHeight, topClamped), "top height clamps at max");
 
-        // Overview 拖动: 同样的抓取语义 (世界跟随光标)。等待阻尼收敛后再取地面射线,
+        // Overview 右键拖动: 同样的抓取语义 (世界跟随光标)。等待阻尼收敛后再取地面射线,
         // 保证预期值与事件冲洗时的机位一致。
         await InjectActionUntil("camera_cycle", () => _camera.Mode == CameraMode.Overview);
         await WaitSettled();
@@ -295,15 +349,15 @@ public partial class Main : Node
         var og2 = GroundPointAt(_camera, ovS2);
         if (og1 is { } og1v && og2 is { } og2v)
         {
-            InjectDrag(ovS1, ovS2);
+            InjectRightDrag(ovS1, ovS2);
             await WaitFrames(2);
             var focusNow = _camera.FocusPoint;
             Check(Near(focusNow.X, center.X - (og2v.X - og1v.X))
                 && Near(focusNow.Z, center.Z - (og2v.Z - og1v.Z)),
-                "overview drag pans focus with grab semantics");
+                "overview right-drag pans focus with grab semantics");
         }
 
-        // 编辑器拥有鼠标时相机让位: 拖动不再移动相机焦点。先等机位收敛, 再 F5 复位
+        // 编辑器拥有鼠标时相机让位: 左键旋转/右键平移都不再生效。先等机位收敛, 再 F5 复位
         // (实况新比赛, TickIndex=0 才允许进入编辑模式 — 复位后同步进入, 不留 tick 窗口),
         // 然后注入拖动验证相机不消费指针。
         await WaitSettled();
@@ -312,10 +366,13 @@ public partial class Main : Node
         TryToggleEditor();
         Check(_editor.Active, "editor active (owns the pointer)");
         var focusBeforeEditorDrag = _camera.FocusPoint;
-        InjectDrag(screenCenter, screenCenter + new Vector2(dragPx, dragPx / 2));
+        var yawBeforeEditorDrag = _camera.OverviewYaw;
+        InjectRightDrag(screenCenter, screenCenter + new Vector2(dragPx, dragPx / 2));
+        InjectLeftDrag(screenCenter, screenCenter + new Vector2(dragPx, dragPx / 2));
         await WaitFrames(2);
         Check(Near(_camera.FocusPoint.X, focusBeforeEditorDrag.X)
-            && Near(_camera.FocusPoint.Z, focusBeforeEditorDrag.Z),
+            && Near(_camera.FocusPoint.Z, focusBeforeEditorDrag.Z)
+            && Near(_camera.OverviewYaw, yawBeforeEditorDrag),
             "camera ignores pointer while layout editor is active");
         await InjectActionUntil("editor_toggle", () => !_editor.Active);
         Check(!_editor.Active, "editor closed");
@@ -384,11 +441,21 @@ public partial class Main : Node
             }
         }
 
-        static void InjectDrag(Vector2 from, Vector2 to)
+        static void InjectLeftDrag(Vector2 from, Vector2 to)
+        {
+            InjectButtonDrag(from, to, MouseButton.Left);
+        }
+
+        static void InjectRightDrag(Vector2 from, Vector2 to)
+        {
+            InjectButtonDrag(from, to, MouseButton.Right);
+        }
+
+        static void InjectButtonDrag(Vector2 from, Vector2 to, MouseButton button)
         {
             Input.ParseInputEvent(new InputEventMouseButton
             {
-                ButtonIndex = MouseButton.Left,
+                ButtonIndex = button,
                 Pressed = true,
                 Position = from,
                 GlobalPosition = from,
@@ -400,7 +467,7 @@ public partial class Main : Node
             });
             Input.ParseInputEvent(new InputEventMouseButton
             {
-                ButtonIndex = MouseButton.Left,
+                ButtonIndex = button,
                 Pressed = false,
                 Position = to,
                 GlobalPosition = to,
@@ -596,6 +663,21 @@ public partial class Main : Node
         var (cx, cy) = model.CenterWorld;
         _camera.ConfigureArena(new Vec3(cx, 0, cy), scenario.Field.FieldSize);
         ApplyRobotModels();
+        // 场景重建 = 新比赛/新回放: 事件栏缓冲清空。
+        _eventBuffer.Clear();
+        _lastEventTick = -1;
+        UpdateWindowTitle();
+    }
+
+    /// <summary>
+    /// 窗口标题带 seed/模式/场景 (多开时分辨窗口); pid 保证同名场景也可区分。
+    /// </summary>
+    private void UpdateWindowTitle()
+    {
+        var detail = _session.Mode == SessionMode.Replay ? "回放" : "实况";
+        GetWindow().Title =
+            $"WushuRingSim · seed{_session.Engine.Scenario.Seed} · {detail}"
+            + $" · {_session.Engine.Scenario.Id} · #{System.Environment.ProcessId}";
     }
 
     private void ApplyRobotModels()
@@ -829,13 +911,46 @@ public partial class Main : Node
         _camera.PointerInputEnabled = !_editor.Active;
         _visualizer.ShowFrame(frame);
         _camera.SetFocus(frame);
-        _hud.UpdateFrame(frame, _session.Mode,
+        AccumulateEvents(frame, _session.Mode);
+        var hud = frame.Hud with { RecentEvents = _eventBuffer.ToArray() };
+        _hud.UpdateFrame(frame with { Hud = hud }, _session.Mode,
             _session.Mode == SessionMode.Replay ? _session.ReplayTickForIndex(_session.ReplayIndex) : 0,
             _session.ReplayCache.Count,
             _session.ReplayPlaying,
-            _camera.Mode);
+            _camera.Mode,
+            _camera.Mode switch
+            {
+                CameraMode.Overview => _camera.OverviewYaw,
+                CameraMode.Follow => _camera.FollowYaw,
+                _ => _camera.TopYaw,
+            });
         _hud.UpdateEditor(_editor.Active, _editor.SelectedLabel, _editor.InspectorLine,
             _editor.StatusLine, _editor.CanApplyNow);
+    }
+
+    /// <summary>
+    /// Appends the snapshot's incremental events into the persistent feed
+    /// buffer (dedup by tick: the same snapshot is presented many frames).
+    /// Mode switches clear the buffer (live ↔ replay are different matches).
+    /// </summary>
+    private void AccumulateEvents(RenderFrame frame, SessionMode mode)
+    {
+        if (mode != _lastEventMode)
+        {
+            _eventBuffer.Clear();
+            _lastEventTick = -1;
+            _lastEventMode = mode;
+        }
+        if (frame.Hud.Tick == _lastEventTick)
+        {
+            return;
+        }
+        _lastEventTick = frame.Hud.Tick;
+        _eventBuffer.AddRange(frame.Hud.RecentEvents);
+        if (_eventBuffer.Count > 8)
+        {
+            _eventBuffer.RemoveRange(0, _eventBuffer.Count - 8);
+        }
     }
 
     private static RenderFrame EmptyFrame() => new()
@@ -949,8 +1064,9 @@ public partial class Main : Node
 
     /// <summary>
     /// Referee R/T: real restart of one robot (back to start pose, transients
-    /// cleaned, opponent +4). Only legal while the match is live; the engine
-    /// owns the rule, the shell only routes the command and reports the result.
+    /// cleaned, opponent +3 per the 2026 restart rule). Only legal while the
+    /// match is live; the engine owns the rule, the shell only routes the
+    /// command and reports the result.
     /// </summary>
     private void TryRestartRobot(string role)
     {
@@ -962,7 +1078,7 @@ public partial class Main : Node
         }
         if (engine.RestartRobot(role))
         {
-            GD.Print($"[referee] 已重启 {(role == RoleNames.Us ? "我方" : "对手")}: 回到出发点, 对方 +4");
+            GD.Print($"[referee] 已重启 {(role == RoleNames.Us ? "我方" : "对手")}: 回到出发点, 对方 +3");
         }
         else
         {

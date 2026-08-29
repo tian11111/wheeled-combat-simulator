@@ -55,6 +55,16 @@ public sealed record HudState
     public double RestartPenaltyThem { get; init; }
     /// <summary>Most recent event messages, newest last.</summary>
     public IReadOnlyList<string> RecentEvents { get; init; } = [];
+
+    /// <summary>Per-source score subtotals (2026 评分表: drop/clock/block_buff/block_debuff/penalty/restart/inactivity), null when the snapshot predates the field.</summary>
+    public IReadOnlyDictionary<string, double>? BreakdownUs { get; init; }
+    public IReadOnlyDictionary<string, double>? BreakdownThem { get; init; }
+
+    /// <summary>Active score-clock phase ("us_only"/"them_only"), null when both sides share a state.</summary>
+    public string? ScoreClockPhase { get; init; }
+
+    /// <summary>Seconds toward the next score-clock point (0–10).</summary>
+    public double ScoreClockSeconds { get; init; }
 }
 
 /// <summary>Everything the renderer needs for one frame.</summary>
@@ -123,6 +133,10 @@ public static class SnapshotView
                 RestartPenaltyUs = snapshot.RestartPenalties.Us,
                 RestartPenaltyThem = snapshot.RestartPenalties.Them,
                 RecentEvents = events.TakeLast(maxRecentEvents).ToList(),
+                BreakdownUs = snapshot.ScoreBreakdown is { } bd && bd.TryGetValue(RoleNames.Us, out var bu) ? bu : null,
+                BreakdownThem = snapshot.ScoreBreakdown is { } bd2 && bd2.TryGetValue(RoleNames.Them, out var bt) ? bt : null,
+                ScoreClockPhase = snapshot.ScoreClockPhase,
+                ScoreClockSeconds = snapshot.ScoreClockSeconds ?? 0,
             },
         };
     }

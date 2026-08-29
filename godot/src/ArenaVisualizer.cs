@@ -5,8 +5,8 @@
 // 出发区/能量块尺寸均读取 FieldParams, 不存在第二份官方常量。场地的整体平移与
 // 旋转 (field.pose) 通过 ArenaRoot 节点变换呈现; 机器人和能量块使用仿真世界
 // 坐标, 挂在 ArenaVisualizer 根下, 不受 ArenaRoot 变换影响。
-// 台面灰度纹理由 FieldModel.FieldGray (与灰度传感器同源的手绘模型) 生成,
-// 中央红区+白"武"为纯视觉元素, 不改变任何判定。
+// 台面灰度纹理由 FieldModel.FieldGray 提供区域几何, 按"官方效果图"调色板显示
+// (传感器 0–1000 语义不变); 中央红区+白"武"为纯视觉元素, 不改变任何判定。
 
 using Godot;
 using Sim.Core;
@@ -19,8 +19,10 @@ public partial class ArenaVisualizer : Node3D
     private const float WallThickness = 0.04f;
 
     private static readonly Color FloorColor = new(0.16f, 0.18f, 0.22f);
-    private static readonly Color PlatformSideColor = new(0.55f, 0.56f, 0.60f);
-    private static readonly Color RedZoneColor = new(0.62f, 0.22f, 0.20f);
+    // 官方效果图外观: 底座侧面白、台面走道深灰、擂台黑边渐入白心、中央红区(白"武")。
+    private static readonly Color PlatformSideColor = new(0.93f, 0.93f, 0.95f);
+    private static readonly Color RedZoneColor = new(0.85f, 0.15f, 0.13f);
+    private static readonly (byte R, byte G, byte B) WalkwayRgb = (72, 72, 72); // 官方走道深灰
     private static readonly Color UsColor = new(0.28f, 0.48f, 0.95f);
     private static readonly Color ThemColor = new(0.92f, 0.30f, 0.28f);
     private static readonly Color BuffColor = new(0.24f, 0.82f, 0.72f);
@@ -127,13 +129,14 @@ public partial class ArenaVisualizer : Node3D
         root.AddChild(MakeBox(PlatformSideColor,
             new Vector3(span, top, span), new Vector3(center, top / 2, center)));
 
-        // 顶面灰度纹理: 与内核 FieldGray 手绘模型同源 (黑带→白心, 中央 0.6×0.6 红区)。
-        // 像素↔场局部坐标的轴向契约见 FieldGrayTextureMap (行 0 = 场地南侧)。
+        // 顶面灰度纹理: 采样内核同一 FieldGrayLocal 的区域几何, 按"官方效果图"
+        // 调色板显示 (走道深灰 / 擂台黑边渐入白心 / 中央红区), 传感器 0–1000
+        // 语义不变。像素↔场局部坐标的轴向契约见 FieldGrayTextureMap (行 0 = 南)。
         var surface = new MeshInstance3D
         {
             Mesh = new PlaneMesh { Size = new Vector2(span, span) },
-            // Unshaded: 台面必须按 0–1000 语义原样显示, 有向光/镜面高光不得
-            // 在平面上制造随视角变化的灰度梯度 (旧版斜向灰带即源于此)。
+            // Unshaded: 调色板逐像素固定, 有向光/镜面高光不得在平面上制造
+            // 随视角变化的灰度梯度 (旧版斜向灰带即源于此)。
             MaterialOverride = MakeTexturedMaterial(MakeFieldGrayTexture(model, field)),
         };
         surface.Position = new Vector3(center, top + 0.001f, center);
@@ -141,13 +144,14 @@ public partial class ArenaVisualizer : Node3D
         // 与 FieldGrayTextureMap 的图像轴向契约一致; 无需再翻转。
         root.AddChild(surface);
 
-        // 中央白"武" (纯视觉, 与灰度传感器无关)。
+        // 中央红区上的白"武" (纯视觉, 与灰度传感器无关); 字号 ≈ 红区的 3/4,
+        // 官方样式为红底白字, 不加描边。
         var wu = new Label3D
         {
             Text = "武",
-            FontSize = 128,
-            Modulate = new Color(0.96f, 0.96f, 0.96f),
-            OutlineSize = 6,
+            FontSize = 88,
+            Modulate = new Color(0.98f, 0.98f, 0.98f),
+            OutlineSize = 0,
             Position = new Vector3(center, top + 0.004f, center),
             Rotation = new Vector3(-Mathf.Pi / 2, 0, 0),
         };
@@ -191,10 +195,11 @@ public partial class ArenaVisualizer : Node3D
     }
 
     /// <summary>
-    /// Generates the platform top-surface texture by sampling the same
-    /// hand-drawn gray model the sensors use (via the pure
+    /// Generates the platform top-surface texture: region geometry sampled from
+    /// the same hand-drawn gray model the sensors use (via the pure
     /// <see cref="FieldGrayTextureMap"/> mapping: row 0 = field south,
-    /// column 0 = field west); gray ramp + red center square.
+    /// column 0 = field west), painted with the official display palette
+    /// (walkway dark gray, ring black-edge→white ramp, red center square).
     /// </summary>
     private static ImageTexture MakeFieldGrayTexture(FieldModel model, FieldParams field)
     {
@@ -206,7 +211,8 @@ public partial class ArenaVisualizer : Node3D
             field.Platform.MaxX, field.Platform.MaxY,
             model.Center,
             model.FieldGrayLocal,
-            redZone);
+            redZone,
+            WalkwayRgb);
         var image = Image.CreateEmpty(resolution, resolution, false, Image.Format.Rgb8);
         for (var py = 0; py < resolution; py++)
         {

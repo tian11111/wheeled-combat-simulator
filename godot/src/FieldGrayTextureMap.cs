@@ -3,16 +3,24 @@
 // image-axis orientation and representative values headlessly; ArenaVisualizer
 // only bridges the result into a Godot Image/Texture. The gray VALUES always
 // come from Sim.Core.FieldModel.FieldGrayLocal — this helper never re-implements
-// the field model, it only owns the image-axis convention:
+// the field model. It owns two conventions:
 //
-// Godot 4 PlaneMesh (FACE_Y, the default) generates UVs with U growing along
-// local +X and V growing along local +Z, and UV (0,0) samples the image's
-// top-left pixel. Therefore for the texture to be world-truthful (every
-// rendered pixel shows the gray of the field-local point it actually covers):
-//   image column px = 0 (left)   → field west  (platform MinX)
-//   image row    py = 0 (top)    → field south (platform MinY)
-// i.e. the image is stored "south-up". Cameras put world -Z toward screen-up,
-// so the texture on screen lines up with the arena geometry either way.
+// 1. Image-axis contract: Godot 4 PlaneMesh (FACE_Y, the default) generates
+//    UVs with U growing along local +X and V growing along local +Z, and UV
+//    (0,0) samples the image's top-left pixel. Therefore for the texture to be
+//    world-truthful (every rendered pixel shows the point it actually covers):
+//      image column px = 0 (left)   → field west  (platform MinX)
+//      image row    py = 0 (top)    → field south (platform MinY)
+//    i.e. the image is stored "south-up".
+//
+// 2. Official display palette (视觉约定, 非传感器亮度): the sensor keeps its
+//    0–1000 semantics (walkway 0, ring edge 300, center 1000, red zone 650)
+//    unchanged; the DISPLAY maps them to the official arena look (官方效果图):
+//      walkway (g≈0)        → official dark gray (ArenaVisualizer 提供)
+//      ring edge (g=300)    → black band, ramping to white at g=1000
+//      red zone (几何判定)   → official red (ArenaVisualizer 提供)
+//    i.e. luminance = (g − 300) / 700 inside the ring. Region GEOMETRY always
+//    comes from FieldGrayLocal; only the paint is conventional.
 
 namespace Sim.GodotShell;
 
@@ -41,21 +49,31 @@ public static class FieldGrayTextureMap
     public static bool IsRedZone(double x, double y, double center)
         => Math.Abs(x - center) < RedZoneHalfExtent && Math.Abs(y - center) < RedZoneHalfExtent;
 
-    /// <summary>Maps a 0..1000 gray value into a 0..1 luminance.</summary>
-    public static double NormalizedGray(double gray) => Math.Clamp(gray / 1000.0, 0.0, 1.0);
+    /// <summary>True when the sample is the walkway region (sensor value ≈ 0, outside the ring).</summary>
+    public static bool IsWalkwayGray(double gray) => gray <= 0.5;
+
+    /// <summary>
+    /// Official display luminance inside the ring: g=300 (edge band) → 0
+    /// (black), g=1000 (center) → 1 (white). Sensor values are NOT the display
+    /// luminance — see the file header (official palette convention).
+    /// </summary>
+    public static double DisplayLuminance(double gray)
+        => Math.Clamp((gray - 300.0) / 700.0, 0.0, 1.0);
 
     /// <summary>
     /// Builds the whole texture as an RGB8 byte buffer (row-major, row 0 =
     /// image top = field south). <paramref name="grayAt"/> is the single gray
     /// sample function (FieldModel.FieldGrayLocal); <paramref name="redZone"/>
-    /// is the visual-only red-zone color chosen by the shell.
+    /// and <paramref name="walkway"/> are the visual-only official palette
+    /// colors chosen by the shell.
     /// </summary>
     public static byte[] BuildRgb8(
         int resolution,
         double minX, double minY, double maxX, double maxY,
         double center,
         Func<double, double, double> grayAt,
-        (byte R, byte G, byte B) redZone)
+        (byte R, byte G, byte B) redZone,
+        (byte R, byte G, byte B) walkway)
     {
         ArgumentNullException.ThrowIfNull(grayAt);
         var buffer = new byte[resolution * resolution * 3];
@@ -65,19 +83,24 @@ public static class FieldGrayTextureMap
             {
                 var (x, y) = PixelToFieldLocal(px, py, resolution, minX, minY, maxX, maxY);
                 var offset = (py * resolution + px) * 3;
+                var g = grayAt(x, y);
+                (byte R, byte G, byte B) color;
                 if (IsRedZone(x, y, center))
                 {
-                    buffer[offset] = redZone.R;
-                    buffer[offset + 1] = redZone.G;
-                    buffer[offset + 2] = redZone.B;
+                    color = redZone;
+                }
+                else if (IsWalkwayGray(g))
+                {
+                    color = walkway;
                 }
                 else
                 {
-                    var v = (byte)Math.Round(NormalizedGray(grayAt(x, y)) * 255.0);
-                    buffer[offset] = v;
-                    buffer[offset + 1] = v;
-                    buffer[offset + 2] = v;
+                    var v = (byte)Math.Round(DisplayLuminance(g) * 255.0);
+                    color = (v, v, v);
                 }
+                buffer[offset] = color.R;
+                buffer[offset + 1] = color.G;
+                buffer[offset + 2] = color.B;
             }
         }
         return buffer;

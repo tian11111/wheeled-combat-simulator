@@ -63,10 +63,11 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
 - 视觉 QA 以 `--capture` 视口像素分桶为机器可判定证据；桌面截图存 `godot/docs/`
   （其 `.import` 元数据不入库），调试用临时图不入库。
 - 台面灰度显示：像素↔场局部轴契约由 `godot/src/FieldGrayTextureMap.cs` 单一实现
-  （row 0 = 南、col 0 = 西），数值仍以 `FieldModel.FieldGrayLocal` 为唯一来源；
-  材质必须 Unshaded，防止方向光制造假对角灰度带。Godot 4 PlaneMesh(FACE_Y) 的
-  顶点与 UV 翻转互相抵消，改动映射前先以代表性像素测试验证
-  （`src/Sim.Tests/FieldGrayDisplayTests.cs`）。
+  （row 0 = 南、col 0 = 西），区域几何仍以 `FieldModel.FieldGrayLocal` 为唯一来源；
+  显示用**官方效果图调色板**（走道深灰、擂台边带 300 → 黑边渐入白心、红区红底白"武"），
+  传感器 0–1000 数值不变——调色板是视觉约定；材质必须 Unshaded，防止方向光制造假
+  对角灰度带。Godot 4 PlaneMesh(FACE_Y) 的顶点与 UV 翻转互相抵消，改动映射前先以
+  代表性像素测试验证（`src/Sim.Tests/FieldGrayDisplayTests.cs`）。
 
 ## 真实重启契约（restart-v1）
 

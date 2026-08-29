@@ -2,8 +2,9 @@
 // 相机只读取渲染帧的建议焦点, 从不写回 Sim.Core (design: 只读观察者)。
 //
 // 指针交互 (仅布局编辑器未激活时):
-//   左键拖动 — 抓取语义: 把指针射线投到地面 (y=0), 被抓住的地面点跟随光标
-//   (焦点按世界位移的反方向平移);
+//   左键拖动 — 转动视角: 概览/跟随绕焦点环绕 (偏航 + 俯仰限幅), 俯视绕视线轴自旋;
+//   右键拖动 — 画面平移 (抓取语义: 把指针射线投到地面 y=0, 被抓住的地面点跟随光标;
+//   跟随模式焦点由渲染帧驱动, 不支持平移);
 //   滚轮 — 缩放, 距离/高度按基准取景倍率限幅 (概览/俯视), 跟随模式缩放跟拍距离。
 // 被相机消费的事件一律标记为已处理, 不再下传; 布局编辑器激活时由 Main 关闭
 // PointerInputEnabled, 编辑器的选择/拖拽行为不受影响。
@@ -30,15 +31,32 @@ public partial class MatchCamera : Camera3D
 
     private CameraMode _mode = CameraMode.Overview;
 
-    // 概览: 地面焦点 + 方向 + 限幅距离; 俯视: 地面焦点 + 限幅高度。
-    private Vector3 _overviewDir = new(0f, 0.7725f, 0.6338f); // (0,1.95,1.6) 归一化
+    // 概览: 地面焦点 + 环绕角(偏航/俯仰) + 限幅距离; 俯视: 地面焦点 + 限幅高度 + 自旋角;
+    // 跟随: 帧驱动焦点 + 环绕角 + 限幅跟拍倍率。默认角 = 原有取景比例。
+    private float _overviewYaw;
+    private float _overviewPitch = DefaultOverviewPitch;
     private float _baseOverviewDistance = 9.59f;
     private float _overviewDistance = 9.59f;
     private Vector3 _overviewFocus = new(1.9f, 0f, 1.9f);
     private float _baseTopHeight = 9.5f;
     private float _topHeight = 9.5f;
+    private float _topYaw;
     private Vector3 _topFocus = new(1.9f, 0f, 1.9f);
+    private float _followYaw;
+    private float _followPitch = DefaultFollowPitch;
     private float _followZoom = 1f;
+    // ConfigureArena/首个渲染帧前的跟随焦点兜底 (镜像场地中心), 首帧立即覆盖。
+    private Vector3 _followFocus = new(1.9f, 0f, 1.9f);
+
+    // 默认环绕角: 概览方向 (0,1.95,1.6)、跟随偏移 (0,3.4,3.8) 的仰角。
+    private const float DefaultOverviewPitch = 50.65f;
+    private const float DefaultFollowPitch = 41.82f;
+    // 环绕角限幅: 俯仰不能贴地也不能越过正俯视 (俯视模式俯仰固定 -90°)。
+    private const float MinPitch = 10f;
+    private const float MaxPitch = 85f;
+    // 拖动灵敏度 (度/像素): 左键转动视角。
+    private const float YawPerPx = 0.3f;
+    private const float PitchPerPx = 0.25f;
 
     // 阻尼运动目标 (俯视位姿固定, 不走阻尼)。
     private Vector3 _positionGoal;
@@ -46,8 +64,10 @@ public partial class MatchCamera : Camera3D
     private Vector3 _lookCurrent = new(1.9f, 0f, 1.9f);
     private float _damp = 6.0f;
 
-    private bool _dragging;
-    private Vector2 _dragAnchor;
+    private bool _rotating;
+    private Vector2 _rotateAnchor;
+    private bool _panning;
+    private Vector2 _panWorldAnchor; // 抓取的地面点 (世界 XZ)
 
     public CameraMode Mode => _mode;
 
@@ -74,7 +94,25 @@ public partial class MatchCamera : Camera3D
     /// <summary>Follow-mode zoom multiplier (clamped), for deterministic input evidence.</summary>
     public float FollowZoom => _followZoom;
 
-    private Vector3 _followFocus;
+    /// <summary>Orbit/spin angles (degrees), for deterministic input evidence.</summary>
+    public float OverviewYaw => _overviewYaw;
+    public float OverviewPitch => _overviewPitch;
+    public float TopYaw => _topYaw;
+    public float FollowYaw => _followYaw;
+    public float FollowPitch => _followPitch;
+
+    /// <summary>Orbit direction unit vector from yaw/pitch (yaw 0 = +Z, pitch up from ground).</summary>
+    private Vector3 OrbitDir(float yawDeg, float pitchDeg)
+    {
+        var yaw = Mathf.DegToRad(yawDeg);
+        var pitch = Mathf.DegToRad(pitchDeg);
+        return new Vector3(
+            Mathf.Sin(yaw) * Mathf.Cos(pitch),
+            Mathf.Sin(pitch),
+            Mathf.Cos(yaw) * Mathf.Cos(pitch));
+    }
+
+    private float FollowBaseLen => _followOffset.Length();
 
     public override void _Ready()
     {
@@ -84,7 +122,7 @@ public partial class MatchCamera : Camera3D
         LookAt(_lookCurrent, Vector3.Up);
     }
 
-    /// <summary>Frames the overview/top shots around the (possibly moved) arena.</summary>
+    /// <summary>Frames the overview/top shots around the (possibly moved) arena; rotations reset.</summary>
     public void ConfigureArena(Vec3 center, double fieldSize)
     {
         _center = new Vector3((float)center.X, 0f, (float)center.Z);
@@ -92,13 +130,18 @@ public partial class MatchCamera : Camera3D
         // 原有概览取景比例 (高 1.95 : 后 1.6, 相对场地边长) 与俯视高度 2.5。
         var dir = new Vector3(0f, _fieldSize * 1.95f, _fieldSize * 1.6f);
         _baseOverviewDistance = dir.Length();
-        _overviewDir = dir / _baseOverviewDistance;
         _baseTopHeight = _fieldSize * 2.5f;
         _overviewFocus = _center;
         _overviewDistance = _baseOverviewDistance;
+        _overviewYaw = 0f;
+        _overviewPitch = DefaultOverviewPitch;
         _topFocus = _center;
         _topHeight = _baseTopHeight;
+        _topYaw = 0f;
+        _followYaw = 0f;
+        _followPitch = DefaultFollowPitch;
         _followZoom = 1f;
+        _followFocus = _center;
         if (_mode == CameraMode.Top)
         {
             ApplyTopPose();
@@ -133,8 +176,9 @@ public partial class MatchCamera : Camera3D
 
     private void ApplyTopPose()
     {
+        // Godot 默认旋转序 YXZ: Ry(topYaw)·Rx(-90) — 仍正俯视, 图像绕视线轴自旋。
         Position = TopPosition;
-        RotationDegrees = new Vector3(-90f, 0f, 0f);
+        RotationDegrees = new Vector3(-90f, _topYaw, 0f);
     }
 
     private void ResetGoals()
@@ -142,11 +186,12 @@ public partial class MatchCamera : Camera3D
         switch (_mode)
         {
             case CameraMode.Overview:
-                _positionGoal = _overviewFocus + _overviewDir * _overviewDistance;
+                _positionGoal = _overviewFocus + OrbitDir(_overviewYaw, _overviewPitch) * _overviewDistance;
                 _lookGoal = _overviewFocus;
                 break;
             case CameraMode.Follow:
-                _positionGoal = _followFocus + _followOffset * _followZoom;
+                _positionGoal = _followFocus
+                    + OrbitDir(_followYaw, _followPitch) * (FollowBaseLen * _followZoom);
                 _lookGoal = _followFocus;
                 break;
         }
@@ -154,8 +199,8 @@ public partial class MatchCamera : Camera3D
 
     public void SetFocus(RenderFrame frame)
     {
-        // 跟随模式: 自动以双方中点为焦点 (缩放只改跟拍距离, 不与 SetFocus 抢焦点)。
-        // 概览/俯视: 使用可拖动的地面焦点, 不跟随机器人中点。
+        // 跟随模式: 自动以双方中点为焦点 (缩放/环绕只改机位, 不与 SetFocus 抢焦点)。
+        // 概览/俯视: 使用可平移的地面焦点, 不跟随机器人中点。
         if (_mode != CameraMode.Follow)
         {
             return;
@@ -166,9 +211,14 @@ public partial class MatchCamera : Camera3D
 
     public override void _Process(double delta)
     {
+        // 拖动中编辑器接管指针时, 释放被限定的鼠标 (否则光标一直锁在窗口)。
+        if (!PointerInputEnabled && Input.MouseMode == Input.MouseModeEnum.Confined)
+        {
+            Input.MouseMode = Input.MouseModeEnum.Visible;
+        }
         if (_mode == CameraMode.Top)
         {
-            ApplyTopPose(); // 位姿由焦点/高度直接决定 (支持拖动与缩放)
+            ApplyTopPose(); // 位姿由焦点/高度/自旋直接决定 (支持拖动与缩放)
             return;
         }
         var t = Mathf.Clamp((float)delta * _damp, 0f, 1f);
@@ -177,7 +227,27 @@ public partial class MatchCamera : Camera3D
         LookAt(_lookCurrent, Vector3.Up);
     }
 
-    // ---------- pointer input (pan / zoom) ----------
+    /// <summary>
+    /// 拖动期间把光标限定在窗口内 (防止拖出窗口丢事件); 无头模式无 effects。
+    /// </summary>
+    private void ConfineMouse()
+    {
+        if (DisplayServer.GetName() != "headless")
+        {
+            Input.MouseMode = Input.MouseModeEnum.Confined;
+        }
+    }
+
+    /// <summary>旋转与平移都结束后恢复自由光标。</summary>
+    private void ReleaseMouseIfIdle()
+    {
+        if (!_rotating && !_panning && Input.MouseMode == Input.MouseModeEnum.Confined)
+        {
+            Input.MouseMode = Input.MouseModeEnum.Visible;
+        }
+    }
+
+    // ---------- pointer input (rotate / pan / zoom) ----------
 
     public override void _UnhandledInput(InputEvent @event)
     {
@@ -189,18 +259,36 @@ public partial class MatchCamera : Camera3D
         {
             if (mb.ButtonIndex == MouseButton.Left)
             {
-                if (mb.Pressed && _mode != CameraMode.Follow)
+                if (mb.Pressed && !_rotating)
+                {
+                    _rotating = true;
+                    _rotateAnchor = mb.Position;
+                    ConfineMouse();
+                    GetViewport().SetInputAsHandled();
+                }
+                else if (!mb.Pressed && _rotating)
+                {
+                    _rotating = false;
+                    ReleaseMouseIfIdle();
+                    GetViewport().SetInputAsHandled();
+                }
+            }
+            else if (mb.ButtonIndex == MouseButton.Right)
+            {
+                if (mb.Pressed && !_panning)
                 {
                     if (GroundPoint(mb.Position) is { } hit)
                     {
-                        _dragging = true;
-                        _dragAnchor = new Vector2(hit.X, hit.Z);
-                        GetViewport().SetInputAsHandled();
+                        _panning = true;
+                        _panWorldAnchor = new Vector2(hit.X, hit.Z);
                     }
+                    ConfineMouse();
+                    GetViewport().SetInputAsHandled();
                 }
-                else if (!mb.Pressed && _dragging)
+                else if (!mb.Pressed && _panning)
                 {
-                    _dragging = false;
+                    _panning = false;
+                    ReleaseMouseIfIdle();
                     GetViewport().SetInputAsHandled();
                 }
             }
@@ -215,15 +303,26 @@ public partial class MatchCamera : Camera3D
                 GetViewport().SetInputAsHandled();
             }
         }
-        else if (@event is InputEventMouseMotion motion && _dragging)
+        else if (@event is InputEventMouseMotion motion)
         {
-            if (GroundPoint(motion.Position) is { } hit)
+            if (_rotating)
             {
-                var current = new Vector2(hit.X, hit.Z);
-                PanBy(new Vector3(current.X - _dragAnchor.X, 0f, current.Y - _dragAnchor.Y));
-                _dragAnchor = current;
+                var screenDelta = motion.Position - _rotateAnchor;
+                _rotateAnchor = motion.Position;
+                RotateView(screenDelta);
+                GetViewport().SetInputAsHandled();
             }
-            GetViewport().SetInputAsHandled();
+            else if (_panning)
+            {
+                // 抓取语义: 被抓住的地面点跟随光标 (世界锚点逐步跟随, 焦点反向平移)。
+                if (GroundPoint(motion.Position) is { } now)
+                {
+                    var current = new Vector2(now.X, now.Z);
+                    PanBy(new Vector3(current.X - _panWorldAnchor.X, 0f, current.Y - _panWorldAnchor.Y));
+                    _panWorldAnchor = current;
+                }
+                GetViewport().SetInputAsHandled();
+            }
         }
     }
 
@@ -245,6 +344,30 @@ public partial class MatchCamera : Camera3D
     }
 
     /// <summary>
+    /// 左键转动视角: 偏航跟随光标横向 (机位绕焦点向右环绕), 俯仰跟随光标纵向
+    /// (上拖升高机位、更俯视)。俯视模式俯仰固定 -90°, 纵向拖动只自旋 (横向)。
+    /// </summary>
+    private void RotateView(Vector2 screenDelta)
+    {
+        switch (_mode)
+        {
+            case CameraMode.Overview:
+                _overviewYaw = Mathf.Wrap(_overviewYaw + screenDelta.X * YawPerPx, -180f, 180f);
+                _overviewPitch = Mathf.Clamp(_overviewPitch - screenDelta.Y * PitchPerPx, MinPitch, MaxPitch);
+                ResetGoals();
+                break;
+            case CameraMode.Follow:
+                _followYaw = Mathf.Wrap(_followYaw + screenDelta.X * YawPerPx, -180f, 180f);
+                _followPitch = Mathf.Clamp(_followPitch - screenDelta.Y * PitchPerPx, MinPitch, MaxPitch);
+                ResetGoals();
+                break;
+            case CameraMode.Top:
+                _topYaw = Mathf.Wrap(_topYaw + screenDelta.X * YawPerPx, -180f, 180f);
+                break;
+        }
+    }
+
+    /// <summary>
     /// Translates the mode's ground focus by a world-space delta (grab
     /// semantics: the grabbed ground point follows the cursor, so the focus
     /// moves opposite the cursor's ground delta).
@@ -260,7 +383,7 @@ public partial class MatchCamera : Camera3D
         {
             _topFocus = ClampFocus(_topFocus - groundDelta);
         }
-        // 跟随模式焦点由渲染帧驱动, 不支持拖动平移。
+        // 跟随模式焦点由渲染帧驱动, 不支持平移。
     }
 
     /// <summary>Keeps the ground focus within 场地中心 ± 场地边长 (walkway margin included).</summary>

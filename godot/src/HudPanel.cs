@@ -25,12 +25,13 @@ public partial class HudPanel : Control
     private Label? _statusTimer;
     private Label? _statusScore;
     private Label? _statusPenalty;
+    private Label? _statusBreakdown;
     private Label? _statusEnd;
     private Label? _usStatus;
     private Label? _themStatus;
 
     private PanelContainer? _events;
-    private Label? _eventsBody;
+    private RichTextLabel? _eventsBody;
     private PanelContainer? _help;
     private Label? _helpBody;
 
@@ -59,8 +60,8 @@ public partial class HudPanel : Control
 
     private void BuildStatusCard()
     {
-        _status = MakeCard(new Vector2(380, 224), AccentBlue);
-        SetAnchoredRect(_status, 0, 0, 0, 0, 16, 16, 396, 240);
+        _status = MakeCard(new Vector2(380, 240), AccentBlue);
+        SetAnchoredRect(_status, 0, 0, 0, 0, 16, 16, 396, 256);
         AddChild(_status);
 
         var vbox = new VBoxContainer();
@@ -86,6 +87,8 @@ public partial class HudPanel : Control
         _statusScore.AddThemeConstantOverride("shadow_offset_y", 1);
 
         _statusPenalty = AddLabel(vbox, "重启判罚  我方 0 / 对手 0", 11, TextSecondary);
+        _statusBreakdown = AddLabel(vbox, "明细  我方 —  /  对手 —", 11, TextSecondary);
+        _statusBreakdown.ClipText = true;
 
         var teamRow = new HBoxContainer();
         teamRow.AddThemeConstantOverride("separation", 6);
@@ -108,10 +111,18 @@ public partial class HudPanel : Control
         vbox.AddThemeConstantOverride("separation", 4);
         _events.AddChild(vbox);
         AddLabel(vbox, "LIVE EVENT FEED  /  最近事件", 11, AccentYellow);
-        _eventsBody = AddLabel(vbox, "暂无事件", 12, TextPrimary);
-        _eventsBody.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _eventsBody.ClipText = true;
-        _eventsBody.SizeFlagsVertical = SizeFlags.ExpandFill;
+        // 事件按类别配色 (裁判黄 / FSM 灰 / 得分绿); BBCode 需要转义消息里的 '['。
+        _eventsBody = new RichTextLabel
+        {
+            BbcodeEnabled = true,
+            FitContent = true,
+            ScrollActive = false,
+            MouseFilter = MouseFilterEnum.Ignore,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        _eventsBody.AddThemeFontSizeOverride("normal_font_size", 12);
+        _eventsBody.AddThemeColorOverride("default_color", TextPrimary);
+        vbox.AddChild(_eventsBody);
     }
 
     private void BuildHelpCard()
@@ -437,9 +448,20 @@ public partial class HudPanel : Control
     }
 
     /// <summary>Refreshes all HUD content from the latest render frame + shell state.</summary>
-    public void UpdateFrame(RenderFrame frame, SessionMode mode, long replayTick, long replayTotal, bool replayPlaying, CameraMode camera)
+    public void UpdateFrame(RenderFrame frame, SessionMode mode, long replayTick, long replayTotal,
+        bool replayPlaying, CameraMode camera, float cameraYawDeg = 0f)
     {
         var hud = frame.Hud;
+        // 同一快照被连续呈现多帧 (60fps 渲染 vs 50Hz 仿真): 内容不变则跳过重建。
+        var yawKey = (int)MathF.Round(cameraYawDeg);
+        if (hud.Tick == _lastTick && mode == _lastMode && replayTick == _lastReplayTick
+            && replayPlaying == _lastPlaying && camera == _lastCamera && yawKey == _lastYaw)
+        {
+            return;
+        }
+        (_lastTick, _lastMode, _lastReplayTick, _lastPlaying, _lastCamera, _lastYaw) =
+            (hud.Tick, mode, replayTick, replayPlaying, camera, yawKey);
+
         var phaseName = hud.Done ? "比赛结束"
             : hud.Paused ? "暂停"
             : hud.Phase == MatchPhase.Prep ? "发令准备"
@@ -454,26 +476,35 @@ public partial class HudPanel : Control
         _statusTimer!.Text = $"{hud.Timer:0.0} s";
         _statusScore!.Text = $"{hud.ScoreUs:0.#}  :  {hud.ScoreThem:0.#}";
         _statusPenalty!.Text = $"重启判罚  我方 {hud.RestartPenaltyUs:0.#}  /  对手 {hud.RestartPenaltyThem:0.#}";
+        _statusBreakdown!.Text = $"明细  我方 {BreakdownLine(hud.BreakdownUs)}  /  对手 {BreakdownLine(hud.BreakdownThem)}";
         _statusEnd!.Text = hud.Done
-            ? $"终局 · {hud.DoneReason}"
-            : hud.Paused ? "比赛暂停 · 等待裁判指令" : "裁判台在线 · 状态同步中";
-        _statusEnd.AddThemeColorOverride("font_color", hud.Done ? AccentRed : phaseColor);
+            ? $"终局 · {WinnerText(hud)} · {hud.DoneReason}"
+            : hud.ScoreClockPhase is not null
+                ? ScoreClockText(hud)
+                : hud.Paused ? "比赛暂停 · 等待裁判指令" : "裁判台在线 · 状态同步中";
+        _statusEnd.AddThemeColorOverride("font_color",
+            hud.Done ? AccentRed : hud.ScoreClockPhase is not null ? AccentYellow : phaseColor);
 
         _usStatus!.Text = $"{StateChip(us, "我")}\n{us.Action ?? "待命"}";
         _themStatus!.Text = $"{StateChip(them, "对")}\n{them.Action ?? "待命"}";
 
         _eventsBody!.Text = hud.RecentEvents.Count > 0
-            ? string.Join("\n", hud.RecentEvents)
+            ? string.Join("\n", hud.RecentEvents.Select(EventLine))
             : "(暂无事件)";
 
+        var azimuth = MathF.Abs(cameraYawDeg) >= 1f ? $" · 方位 {NormalizedAzimuth(cameraYawDeg):0}°" : "";
         _helpBody!.Text =
-            $"镜头  {CameraName(camera)}  (C 切换)"
+            $"镜头  {CameraName(camera)}{azimuth}  (C 切换)"
             + (_editorActive
                 ? "\n编辑模式: 拖动选择/移动对象"
                 : mode == SessionMode.Replay
                     ? ""
                     : "\nEnter 发令 · P 暂停/继续")
-            + (_editorActive ? "" : "\nR 我方重启 · T 对手重启 (+4)")
+            + (_editorActive
+                ? ""
+                : mode == SessionMode.Replay
+                    ? "\nR/T 仅实况有效"
+                    : "\nR 我方重启 · T 对手重启 (+3, 仅实况)")
             + (_editorActive ? "\nE 退出编辑" : "\nF5 重置同 seed · L 打开回放")
             + (mode == SessionMode.Replay && !_editorActive
                 ? "\n空格 播放/暂停 · ←→ 单步 · Home/End 首尾"
@@ -520,6 +551,14 @@ public partial class HudPanel : Control
     private bool _syncingSlider;
     private long _sliderTick = -1;
 
+    // UpdateFrame 脏标记: 同一快照 + 同机位状态不重建文本 (60fps 渲染 vs 50Hz 仿真)。
+    private long _lastTick = -1;
+    private SessionMode _lastMode;
+    private long _lastReplayTick = -1;
+    private bool _lastPlaying;
+    private CameraMode _lastCamera;
+    private int _lastYaw;
+
     private void SyncSlider(long index)
     {
         if (_timeline is null || index == _sliderTick)
@@ -538,6 +577,65 @@ public partial class HudPanel : Control
         CameraMode.Follow => "跟随",
         _ => "俯视",
     };
+
+    private static readonly (string Key, string Name)[] BreakdownOrder =
+    [
+        ("drop", "掉台"), ("clock", "读秒"), ("block_buff", "推增益"),
+        ("block_debuff", "推减益"), ("restart", "重启"), ("penalty", "判罚"), ("inactivity", "消极"),
+    ];
+
+    /// <summary>Per-source score subtotals in 评分表 order, zero entries omitted.</summary>
+    private static string BreakdownLine(IReadOnlyDictionary<string, double>? breakdown)
+    {
+        if (breakdown is null || breakdown.Count == 0)
+        {
+            return "—";
+        }
+        var parts = BreakdownOrder
+            .Select(b => (b.Name, Value: breakdown.GetValueOrDefault(b.Key)))
+            .Where(p => p.Value != 0)
+            .Select(p => $"{p.Name}{p.Value:0.#}")
+            .ToList();
+        var extra = breakdown.Keys.Count(k => !BreakdownOrder.Any(b => b.Key == k) && Math.Abs(breakdown.GetValueOrDefault(k)) > 0.001);
+        if (parts.Count == 0)
+        {
+            return "—";
+        }
+        return string.Join("·", parts) + (extra > 0 ? " 等" : "");
+    }
+
+    private static string WinnerText(HudState hud)
+        => hud.ScoreUs > hud.ScoreThem ? "蓝方胜"
+        : hud.ScoreThem > hud.ScoreUs ? "红方胜" : "平局";
+
+    /// <summary>Score-clock hint: the side ON stage gains +1 every 10s while the other is off.</summary>
+    private static string ScoreClockText(HudState hud)
+    {
+        var onStage = hud.ScoreClockPhase == "us_only" ? "我方" : "对手";
+        var offStage = hud.ScoreClockPhase == "us_only" ? "对手" : "我方";
+        var remaining = Math.Max(0, 10 - hud.ScoreClockSeconds);
+        return $"读秒中 · {offStage}台下, {onStage}每10秒+1 (剩 {remaining:0.0}s)";
+    }
+
+    /// <summary>Yaw normalized to [0, 180) for display (camera heading is half-turn symmetric).</summary>
+    private static float NormalizedAzimuth(float yawDeg)
+    {
+        var y = yawDeg % 180f;
+        if (y < 0)
+        {
+            y += 180f;
+        }
+        return y;
+    }
+
+    /// <summary>One feed line as BBCode, colored by category (referee/score/FSM).</summary>
+    private static string EventLine(string msg)
+    {
+        var color = msg.StartsWith("[referee]", StringComparison.Ordinal) ? "fae05a"
+            : msg.StartsWith("[fsm]", StringComparison.Ordinal) ? "8b97a8"
+            : "4fd9ad";
+        return $"[color=#{color}]{msg.Replace("[", "[lb]", StringComparison.Ordinal)}[/color]";
+    }
 
     private static string StateChip(RobotVisual robot, string side)
         => robot.State switch
