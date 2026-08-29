@@ -17,6 +17,10 @@
 - ✅ 场地几何单一来源：`ArenaVisualizer`/`MatchCamera`/`SnapshotView` 全部从 `Scenario` 读取
   尺寸与位姿（无第二份官方常量）；台面灰度纹理由内核同一 `FieldGray` 手绘模型生成。
 - ✅ 布局编辑 + glTF 外观导入已交付（见下文“布局编辑模式”“外观模型导入”）。
+- ✅ 赛事视觉真实感第一轮已交付：概览取景占视口约 52%×54%（PRD R1 目标 45–65%×45–75%）、
+  程序化深色赛事天空、三点灯光、一次更新反射探针、Filmic tonemap + SSAO、MSAA 3D 4×、
+  统一 PBR 材质策略与 primitive 机器人分件（见下文“视觉栈”）；台面灰度 Unshaded 契约、
+  HUD 层级、镜头三模式与交互语义不变，`--camera-smoke`/`--edit-smoke`/`--parity-check` 全通过。
 - ✅ `src/SnapshotView.cs`、`src/MatchSession.cs`、`src/ParityCheck.cs`、`src/LayoutDraft.cs`
   为无 Godot 依赖的纯 C# 层，经 `Sim.Tests` 编译链接纳入回归（含回放重构、跨端比对、
   布局草稿/拖拽分组/保存重载测试）。
@@ -135,8 +139,45 @@ seed/模式/场景/pid 便于分辨。注意自定义用户参数（`--scenario-
 | `--replay-tick <n>` | 加载回放后跳到第 n tick |
 | `--auto-arm` | 启动即发令（演示/截图用） |
 | `--edit-smoke` | 无人值守编辑器冒烟: 注入真实键盘动作 + 拾取/拖动/撤销重做/恢复官方/应用全流程断言, 并顺带跑一次"应用后布局"的逐位 parity 校验; 全部通过退出码 0 |
-| `--camera-smoke` | 无人值守镜头冒烟: 经真实输入管线注入滚轮/左键拖动/动作键, 断言概览取景、缩放限幅、俯视 -90° 姿态与全场地覆盖、抓取语义平移、跟随缩放、编辑器指针所有权; 全部通过退出码 0 |
+| `--camera-smoke` | 无人值守镜头冒烟: 经真实输入管线注入滚轮/左键拖动/动作键, 断言概览取景、缩放限幅、俯视 -90° 姿态与全场地覆盖、抓取语义平移、跟随缩放、编辑器指针所有权, 并校验概览取景占 16:9 视口约 45–65%×45–75% (PRD R1); 全部通过退出码 0 |
 | `--capture <out.png>` | 渲染 30 帧后保存视口 PNG 并输出分桶像素统计（视觉 QA 证据），随后退出；与 `--edit-smoke`/`--camera-smoke` 同用时改为冒烟结束后截图, 退出码=冒烟结果。无头 dummy 渲染器无真实视口纹理, 截图跳过但冒烟退出码不变 |
+| `--capture-frames <n>` | 覆盖 `--capture` 的默认 30 帧等待（例: 相机阻尼收敛/比赛推进后再截） |
+| `--camera-cycle <0-2>` | 启动即切换镜头模式 (0=概览 1=跟随 2=俯视, 仅表现层), 供三种机位的 capture 证据留存 |
+
+## 视觉栈（第一轮，无第三方资产）
+
+Forward+ 默认画面全部由内置能力构成, 每项都经真实 renderer 双分辨率 (1280×720 / 1920×1080)
+capture 验证; 不引入 GLB/纹理/HDRI/自定义全屏 shader, 也不默认启用 SDFGI/VoxelGI/Lightmap 烘焙。
+
+| 层 | 默认配置 | 说明 |
+| --- | --- | --- |
+| 背景 | `ProceduralSkyMaterial` 深色赛事空间渐变 | 消除大面积空黑, 天空/地面两半球都保持可辨的蓝灰, 不抢主体 |
+| 灯光 | 主光 (暖白 1.2, 带阴影) + 补光 (冷蓝 0.3) + 轮廓光 (冷蓝 0.6) | 三点关系: 方向/接触阴影、暗部抬升、机器人与围栏边缘分离 |
+| 反射 | `ReflectionProbe` 一次更新 (`UPDATE_ONCE`), 包围盒 7.5×3.5×7.5 限于擂台+围栏 | 机器人外壳/平台侧面获得稳定环境反射; 非每帧重渲染, 不依赖动态仿真 |
+| 后处理 | tonemap = Filmic, SSAO 开 (仅 Forward+; gl_compatibility 自动忽略) | 轻量层次增强; 台面灰度纹理为 `Unshaded`, 不受 SSAO/灯光/反射影响 |
+| 抗锯齿 | MSAA 3D 4× (`project.godot`) | Forward+/gl_compatibility 都支持, 无运动拖影 |
+| 材质 | `ArenaVisualizer` 统一材质策略: 哑光橡胶 (地面/围栏/轮暗部)、喷涂金属 (车体/推铲)、白色板材 (平台侧面)、自发光 (能量块/灯带/登台环) | roughness/metallic/emission 集中在可复用工厂方法, 避免逐节点漂移 |
+| 机器人 | primitive fallback 含车体分件: 上盖/侧带/四轮暗件/车头/金属推铲/团队灯带/接触阴影盘 | 纯渲染层, 尺寸由碰撞半径推导, 打 `primitivePart` meta, glTF 导入成功时整体让位 (登台指示环保留) |
+
+### 关闭/否决的高成本实验（可复现配置）
+
+- **Glow/Bloom**: 默认关闭。台面白心接近 1.0 亮度, 屏幕空间泛光会在白边外产生光晕,
+  可能被误读为灰度阶梯, 威胁官方调色板像素判读; 若要实验, 在 `Main.tscn` 的
+  `Environment` 中启用 `glow_enabled` 并把 `glow_hdr_threshold` 抬到 >1.0。
+- **TAA**: 默认关闭。仅 Forward+ 可用, 且会在移动机器人后留下拖影 (PRD 明确静态截图
+  不能作为选择依据); MSAA 4× 已满足静态与动态清晰度。实验开关:
+  `project.godot` → `rendering/anti_aliasing/quality/use_taa`。
+- **SSIL/SDFGI/VoxelGI/Lightmap**: 不进入第一轮 (成本/烘焙资产限制, 收益对本场景不显著)。
+- **ReflectionProbe 每帧更新**: 否决, 一次更新已足够 (静态擂台)。
+
+### 性能回退策略
+
+以同机/同场景/同窗口尺寸/同帧数的改动前测量为基线: 任一后处理造成帧时间退化超过
+约 30% 时必须默认关闭并记录为可选实验。实测 (RTX 5070 Ti Laptop, `--disable-vsync`,
+两点法 900/2700 帧边际帧时间, 720p): 改动前 ≈5.33–5.44 ms/帧, 改动后 ≈4.89–5.39 ms/帧
+——本场景在该 GPU 上为 CPU-bound, SSAO+MSAA 4×+天空+三点光+一次更新探针的总开销
+在测量噪声以内, 未触发热处理门限。低性能 GPU 上如出现退化, 按上节逐项关闭
+(先 SSAO, 再 MSAA 降为 2×)。
 
 ## 与无头端的一致性承诺
 
