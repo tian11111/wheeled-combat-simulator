@@ -395,3 +395,26 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 15: 物理反僵局优化 (铲刃微调破除顶牛死锁)
+
+**Date**: 2026-08-30
+**Task**: 物理反僵局优化 (铲刃微调破除顶牛死锁)
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 08-30-physics-anti-stalemate：同型机器人正面顶牛死锁根因=楔入阈值 |Δ铲刃|>4mm 对逐位同型车永假。修复：正面接触(facing>0.6π)时双方铲刃叠加种子派生慢速正弦微调（antiStallBladeAmp 0.006m，周期 2.1/2.7s 拍频，相位 HashString32(seed,role) 构造期派生，零 rng 流消费），周期性越过楔入阈值→对方 FrontLoad→驱动力 20%→僵局自然破除。实测 60s 完全锁死→0.65s 首楔、10s 内推离 0.56m。amp=0 逐位恢复旧行为；普通 seed42 比赛逐位不变（godot-parity 基线除 createdAt 零差异）；restart 基线正规再生成（新链路 8:10）。330/330 测试、全部 replay-check/parity/smoke 绿；PORTING_NOTES 条目 10 记录有意偏差。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4d53942` | (see git log) |
+| `5bbcd3e` | (see git log) |
+| `595ffbf` | (see git log) |
+
+### Status
+
+[OK] **Completed**
