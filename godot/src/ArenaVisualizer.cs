@@ -541,18 +541,19 @@ public partial class ArenaVisualizer : Node3D
             var b = center + normal * ht - side * ht + right * hl;
             var c = center + normal * ht + side * ht + right * hl;
             var d = center + normal * ht + side * ht - right * hl;
+            // Clockwise from outside (Godot front-face convention).
             tool.SetNormal(normal);
             tool.AddVertex(a);
-            tool.SetNormal(normal);
-            tool.AddVertex(b);
-            tool.SetNormal(normal);
-            tool.AddVertex(c);
-            tool.SetNormal(normal);
-            tool.AddVertex(a);
-            tool.SetNormal(normal);
-            tool.AddVertex(c);
             tool.SetNormal(normal);
             tool.AddVertex(d);
+            tool.SetNormal(normal);
+            tool.AddVertex(c);
+            tool.SetNormal(normal);
+            tool.AddVertex(a);
+            tool.SetNormal(normal);
+            tool.AddVertex(c);
+            tool.SetNormal(normal);
+            tool.AddVertex(b);
         }
     }
 
@@ -673,13 +674,17 @@ public partial class ArenaVisualizer : Node3D
         var topLeft = center - right * half + up * half;
 
         // Godot textures use v=0 at the top.  Duplicate vertices keep each face's
-        // normal and UV orientation independent from its neighbours.
+        // normal and UV orientation independent from its neighbours.  Godot uses
+        // CLOCKWISE winding for front faces — from outside, each face's vertices
+        // must go bottom-left → top-left → top-right (…), otherwise the face is
+        // culled from outside and the cube renders hollow (see-through far
+        // faces), which reads as floating tilted sticker panels.
         AddTexturedVertex(tool, bottomLeft, normal, new Vector2(0, 1));
-        AddTexturedVertex(tool, bottomRight, normal, new Vector2(1, 1));
-        AddTexturedVertex(tool, topRight, normal, new Vector2(1, 0));
-        AddTexturedVertex(tool, bottomLeft, normal, new Vector2(0, 1));
-        AddTexturedVertex(tool, topRight, normal, new Vector2(1, 0));
         AddTexturedVertex(tool, topLeft, normal, new Vector2(0, 0));
+        AddTexturedVertex(tool, topRight, normal, new Vector2(1, 0));
+        AddTexturedVertex(tool, bottomLeft, normal, new Vector2(0, 1));
+        AddTexturedVertex(tool, topRight, normal, new Vector2(1, 0));
+        AddTexturedVertex(tool, bottomRight, normal, new Vector2(1, 1));
     }
 
     private static void AddTexturedVertex(SurfaceTool tool, Vector3 position, Vector3 normal, Vector2 uv)
