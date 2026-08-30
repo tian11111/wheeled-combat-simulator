@@ -34,6 +34,11 @@ dotnet run --project src/Sim.Cli -- calibrate --input telemetry/data/<export>.js
 dotnet run --project src/Sim.Cli -- sensor-calibration import --data-dir <MBri/data> --manifest selection.json --out calibration/sensor-report.json
 ```
 
+物理/裁判参数可经场景 `parameters` 覆盖（键与默认值见 `src/Sim.Core/SimParameters.cs`），
+如反僵局铲刃微调：正面顶牛的同型机器人由种子派生初相的慢速正弦铲刃微调周期性触发楔入
+（`antiStallBladeAmp` 默认 0.006 m，**0=关闭逐位恢复旧行为**，周期 2.1/2.7 s；有意偏差，
+见 `docs/PORTING_NOTES.md`）。
+
 ## 桌面端(Godot 4 .NET)
 
 需要安装 [Godot 4.x .NET (Mono)](https://godotengine.org/download)（当前按 4.7.2 验证，

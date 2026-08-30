@@ -207,7 +207,9 @@ SDFGI/VoxelGI/Lightmap 烘焙。能量块仅使用仓库内两张由官方规则
 同一 `seed` + 同一动作序列下，客户端渲染的比赛与
 `dotnet run --project src/Sim.Cli -- match --seed N` 完全一致——因为两边共用
 同一个 `MatchEngine`，客户端不做任何本地仿真。渲染掉帧只影响画面流畅度，
-不改变仿真时钟（固定步长累加器）。
+不改变仿真时钟（固定步长累加器）。物理参数同样两端同源：场景 `parameters`
+覆盖 `SimParameters`（如反僵局铲刃微调 `antiStallBladeAmp`，默认 0.006 m，
+0=关闭逐位恢复旧行为；见 `docs/PORTING_NOTES.md` 第 2 节第 10 条）。
 
 ## 无头校验脚本
 

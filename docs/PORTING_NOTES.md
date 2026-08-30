@@ -49,6 +49,21 @@
    枚举位既有、首次启用）+ 附加命令 `restart_robot:<role>`。旧 `restart:<role>:<kind>`
    判罚路径与其解码逐字节保留，旧回放绝不重解释。桌面端 R/T 改走真实重启（原判罚语义
    仍经回放命令可用）。
+10. **反僵局铲刃微调（anti-stall blade oscillation，遗留无此机制）**：遗留 CORE 中同型
+    机器人正面顶牛时铲刃静差恒为 0，楔入阈值 `|aBlade−bBlade|>0.004` 永假 →
+    `WedgedFront`/`FrontLoad`→降推力路径对同型车永不生效，正面全速对推无限锁死
+    （实测 60 s 原地不动），与真实比赛观察不符，属有意偏差。`PhysicsWorld.ResolveRobotPair`
+    楔入分支（`facing>0.6π`）内给双方有效铲刃高度各叠加慢速正弦微调
+    `A·sin(2π·SimT/P + φ)`：`A=0.006 m`（场景键 `antiStallBladeAmp`，**0=关闭且逐位恢复
+    旧行为**）、`P=2.1/2.7 s`（`antiStallBladePeriodUs/Them`，互质拍频让双方交替获得
+    楔入优势），初相 `φ=(hashString32("anti-stall:{seed}:{role}")/2³²)·2π` 由
+    `MatchEngine` 构造 `PhysicsWorld` 时注入——独立哈希派生，**不消费 Mulberry32
+    比赛流**；时间源是与读秒/FSM 同源的 `a.Fsm.SimT`。阈值 0.004 与
+    `WedgedFront→FrontLoad→thrust` 下游全部不变；非正面/无接触/块体/传感器/掉台路径
+    零改动（回归测试 `AntiStallmateTests` 锁定）。实测：修改前 60 s 锁死；修改后首帧
+    接触（≈0.65 s）即楔入，10 s 内被楔方被推离僵持位置 >0.5 m。seed-42 官方 FSM 回放
+    逐位不变（该局轨迹不受影响，`godot-parity-seed42.json` 重录后除 createdAt 外逐字节
+    一致）；非同型车的楔入时机会被微调轻微推移——有意行为，更贴近真实。
 
 ## 3. 数值与随机数
 
