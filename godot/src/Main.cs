@@ -612,6 +612,10 @@ public partial class Main : Node
         static bool Near(double a, double b) => Math.Abs(a - b) < 1e-9;
         static double Deg(double d) => d * Math.PI / 180;
 
+        // 人工路径回归: 等待若干帧让实况 Prep 空转推进 TickIndex (人工按 E 必然
+        // 发生在重置之后若干 tick), 编辑器门禁只看阶段仍必须放行。
+        await WaitFrames(30);
+        Check(_session.Engine.TickIndex > 0, "prep idle ticks advanced TickIndex");
         TryToggleEditor(); // 进入编辑模式 (走真实入口条件检查)
         Check(_editor.Active, "enter edit mode");
         if (!_editor.Active)
@@ -1245,9 +1249,13 @@ public partial class Main : Node
             return;
         }
         var engine = _session.Engine;
-        if (engine.TickIndex > 0 || engine.Phase != MatchControlPhase.Prep)
+        // 门禁只看阶段: 实况 Prep = 比赛尚未发令。TickIndex 在 Prep 空转时也以
+        // 20 Hz 递增, 用它做门禁会让人工永远进不了编辑器 (0.05 s 后即 >0)。
+        if (engine.Phase != MatchControlPhase.Prep)
         {
-            GD.Print("[editor] 比赛已进行中: 按 F5 重置为同 seed 新比赛后再编辑布局");
+            GD.Print(engine.Phase == MatchControlPhase.Finished
+                ? "[editor] 比赛已结束: 按 F5 重置为同 seed 新比赛后再编辑布局"
+                : "[editor] 比赛已进行中: 按 F5 重置为同 seed 新比赛后再编辑布局");
             return;
         }
         _editor.Enter(_session.ScenarioWithResolvedBlocks());
