@@ -348,3 +348,29 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 13: Godot 3D 二轮视觉校正与能量块修复
+
+**Date**: 2026-08-30
+**Task**: Godot 3D 二轮视觉校正与能量块修复
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 08-29-godot-3d-visual-second-pass：相机拖拽四方向反转契约（camera-smoke 扩为四方向断言 + --camera-orbit QA 旗标）；台面显示改官方欧氏径向渐变（中心白→四角黑，消除 L∞ 方形范数的对角亮带；FieldGrayLocal 传感器 0-1000 语义零改动，显示/传感器双语义分离写入规范）；能量块修复三连——深色棱线+顺光接触阴影（落地感）、绕序修正为 Godot 顺时针正面（修复空心透视导致的悬空面片/跟随视角观感）、官方赛事贴纸与全屏显示校正（六面 UV 贴图/canvas_items 等比拉伸/headless 输入缩放）。319→324 测试全绿，parity/replay-check 逐位通过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ab0f923` | (see git log) |
+| `028ec60` | (see git log) |
+| `d8be837` | (see git log) |
+| `da28169` | (see git log) |
+| `54951d0` | (see git log) |
+| `f000c1c` | (see git log) |
+
+### Status
+
+[OK] **Completed**
