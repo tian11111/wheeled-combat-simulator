@@ -19,6 +19,13 @@ namespace Sim.GodotShell;
 public partial class ArenaVisualizer : Node3D
 {
     private const float WallThickness = 0.04f;
+    private const float SurfaceVisualLift = 0.001f;
+    private const float BlockContactShadowLift = 0.0005f;
+    private const float BlockContactShadowScale = 1.25f;
+    // 主光 (DirectionalLight3D) 从世界上方偏 (+X,+Z) 照来; 阴影盘顺光平移到
+    // 地面可见处 (块底边之外), 低角度近距观察时提供"落地"线索。
+    private const float BlockShadowOffsetX = -0.12f;
+    private const float BlockShadowOffsetZ = -0.22f;
 
     private static readonly Color FloorColor = new(0.16f, 0.18f, 0.22f);
     // 官方效果图外观: 底座侧面白、台面走道深灰、台面四角纯黑→中心纯白径向渐变、
@@ -27,9 +34,10 @@ public partial class ArenaVisualizer : Node3D
     private static readonly Color RedZoneColor = new(0.85f, 0.15f, 0.13f);
     private static readonly Color UsColor = new(0.28f, 0.48f, 0.95f);
     private static readonly Color ThemColor = new(0.92f, 0.30f, 0.28f);
-    private static readonly Color BuffColor = new(0.24f, 0.82f, 0.72f);
-    private static readonly Color DebuffColor = new(0.91f, 0.55f, 0.22f);
-    private static readonly Color OutColor = new(0.45f, 0.45f, 0.48f);
+    // 能量块外观取自规则 PDF 第 11 页示意图: 白色贴纸上是黄绿色闪电
+    // 圆环 (增益) 或紫色警示圆环叠红色叉号 (减益), 不是语义化的 +/− 字符。
+    private const string BuffTexturePath = "res://assets/energy/energy-buff-official.png";
+    private const string DebuffTexturePath = "res://assets/energy/energy-debuff-official.png";
     private static readonly Color RingOn = new(0.35f, 0.92f, 0.45f);
     private static readonly Color RingOff = new(0.42f, 0.44f, 0.50f);
     private static readonly Color StartZoneUs = new(0.95f, 0.85f, 0.15f);   // 纯黄出发区
@@ -37,12 +45,20 @@ public partial class ArenaVisualizer : Node3D
 
     private Node3D? _arenaRoot;
     private readonly List<MeshInstance3D> _blockNodes = [];
-    private readonly List<MeshInstance3D> _blockMaterials = [];
     private Node3D? _usRoot;
     private Node3D? _themRoot;
     private MeshInstance3D? _usRing;
     private MeshInstance3D? _themRing;
     private float _blockSize = 0.15f;
+    private StandardMaterial3D? _buffBlockMaterial;
+    private StandardMaterial3D? _debuffBlockMaterial;
+    private StandardMaterial3D? _outBlockMaterial;
+    private StandardMaterial3D? _blockContactShadowMaterial;
+    private Texture2D? _buffBlockTexture;
+    private Texture2D? _debuffBlockTexture;
+    private ArrayMesh? _energyBlockMesh;
+    private float _energyBlockMeshSize = -1f;
+    private float _platformTop;
 
     private Scenario? _scenario;
 
@@ -99,6 +115,11 @@ public partial class ArenaVisualizer : Node3D
 
         var field = scenario.Field;
         _blockSize = (float)field.BlockSize;
+        // Keep the visual block base on the same rendered support plane as the
+        // grayscale platform surface.  SnapshotView's Up is the simulation
+        // height (0.06 m), while the visual surface is intentionally lifted by
+        // 1 mm to avoid z-fighting with the platform body.
+        _platformTop = (float)field.PlatformHeight + SurfaceVisualLift;
 
         // 场地位姿: field-local → 仿真世界 (与 FieldModel 同一变换)。
         var pose = field.Pose;
@@ -146,7 +167,7 @@ public partial class ArenaVisualizer : Node3D
             // 随视角变化的灰度梯度 (旧版斜向灰带即源于此)。
             MaterialOverride = MakeTexturedMaterial(MakeFieldGrayTexture(model, field)),
         };
-        surface.Position = new Vector3(center, top + 0.001f, center);
+        surface.Position = new Vector3(center, top + SurfaceVisualLift, center);
         // PlaneMesh 默认 FACE_Y (朝 +Y), UV.u 随局部 +X、UV.v 随局部 +Z 增长,
         // 与 FieldGrayTextureMap 的图像轴向契约一致; 无需再翻转。
         root.AddChild(surface);
@@ -400,17 +421,26 @@ public partial class ArenaVisualizer : Node3D
         {
             var block = frame.Blocks[i];
             var node = _blockNodes[i];
-            // 快照给出的 Up 是块底 (台上 = PlatformHeight / 台下 0), 中心抬高半个边长。
+            // SnapshotView.Up is a simulation height.  Anchor the rendered base
+            // to the actual visual support plane so the sticker cube cannot read
+            // as suspended when the top plane is lifted for z-fighting safety.
+            var baseHeight = block.OnPlatform ? _platformTop : 0f;
+            // Blocks are world-space, axis-aligned cubes.  They are not billboards
+            // and must never inherit a view/editor rotation or scale.
+            node.Rotation = Vector3.Zero;
+            node.Scale = Vector3.One;
             node.Position = new Vector3(
                 (float)block.Position.X,
-                (float)block.Position.Up + _blockSize / 2,
+                baseHeight + _blockSize / 2,
                 (float)block.Position.Z);
+            PositionBlockContactShadow(node, _blockSize);
             node.Visible = true;
-            // 能量块: buff/debuff 保留官方色相, 叠加微弱同色自发光提升可读性;
-            // 出界块为灰色哑光。albedo 不变, 像素分桶 QA 不受影响。
-            _blockMaterials[i].MaterialOverride = block.Out ? MakeMatte(OutColor)
-                : block.Kind == "buff" ? MakeEmissive(BuffColor, 0.35f)
-                : MakeEmissive(DebuffColor, 0.35f);
+            // 能量块: 每个面使用同一张赛事风格标识贴图，避免只能靠纯色猜类别；
+            // 材质在 EnsureBlockNodes 中缓存，不在 50 Hz 快照
+            // 更新时重复创建 GPU 资源。
+            node.MaterialOverride = block.Out
+                ? _outBlockMaterial
+                : block.Kind == "buff" ? _buffBlockMaterial : _debuffBlockMaterial;
         }
     }
 
@@ -432,12 +462,259 @@ public partial class ArenaVisualizer : Node3D
 
     private void EnsureBlockNodes(int count)
     {
+        EnsureBlockMaterials();
+        EnsureBlockMesh();
+        _blockContactShadowMaterial ??= MakeBlockContactShadowMaterial();
         while (_blockNodes.Count < count)
         {
-            var mesh = MakeMesh(new BoxMesh { Size = new Vector3(_blockSize, _blockSize, _blockSize) }, OutColor);
+            var mesh = new MeshInstance3D
+            {
+                // 自定义六面网格为每个面复制同一套 UV, 避免 BoxMesh 的面向
+                // 展开把图案旋转/镜像成不同方向。
+                Mesh = _energyBlockMesh,
+                MaterialOverride = _outBlockMaterial,
+            };
+            var edges = new MeshInstance3D
+            {
+                Name = "Edges",
+                Mesh = MakeBlockEdgeMesh(_blockSize),
+                MaterialOverride = MakeBlockEdgeMaterial(),
+            };
+            var shadow = new MeshInstance3D
+            {
+                Name = "ContactShadow",
+                Mesh = MakeBlockContactShadowMesh(_blockSize),
+                MaterialOverride = _blockContactShadowMaterial,
+            };
+            mesh.AddChild(edges);
+            mesh.AddChild(shadow);
             AddChild(mesh);
             _blockNodes.Add(mesh);
-            _blockMaterials.Add(mesh);
+        }
+    }
+
+    /// <summary>
+    /// 12 条深色棱线: 白底贴纸立方体在白亮的擂台中心会失去轮廓, 角对角视角
+    /// 被读成"交叉的斜面板"; 棱线让立方体轮廓在所有角度可辨 (纯渲染装饰)。
+    /// </summary>
+    private static ArrayMesh MakeBlockEdgeMesh(float size)
+    {
+        var half = size / 2f;
+        var tool = new SurfaceTool();
+        tool.Begin(Mesh.PrimitiveType.Triangles);
+        // 沿三条世界轴各布 4 条边; 厚度约为块边长的 6% (似骰子倒角, 远景可辨)。
+        var t = size * 0.06f;
+        var axisX = new Vector3(1, 0, 0);
+        var axisY = new Vector3(0, 1, 0);
+        var axisZ = new Vector3(0, 0, 1);
+        foreach (var s in new[] { -1f, 1f })
+        {
+            foreach (var w in new[] { -half, half })
+            {
+                // X 轴边: y/z 固定在角上。
+                AddEdgeBox(tool, axisX, new Vector3(0, s * half, w), half, t);
+                AddEdgeBox(tool, axisY, new Vector3(w, 0, s * half), half, t);
+                AddEdgeBox(tool, axisZ, new Vector3(s * half, w, 0), half, t);
+            }
+        }
+        return tool.Commit() ?? throw new InvalidOperationException("Could not build block edge mesh");
+    }
+
+    private static void AddEdgeBox(SurfaceTool tool, Vector3 axis, Vector3 center, float length, float thickness)
+    {
+        var right = axis;
+        var up = Math.Abs(axis.Y) > 0.5f ? new Vector3(0, 0, 1) : new Vector3(0, 1, 0);
+        var forward = right.Cross(up);
+        var hl = length / 2f;
+        var ht = thickness / 2f;
+        for (var face = 0; face < 4; face++)
+        {
+            var normal = face switch
+            {
+                0 => up,
+                1 => up * -1,
+                2 => forward,
+                _ => forward * -1,
+            };
+            var side = face < 2 ? forward : up;
+            var a = center + normal * ht - side * ht - right * hl;
+            var b = center + normal * ht - side * ht + right * hl;
+            var c = center + normal * ht + side * ht + right * hl;
+            var d = center + normal * ht + side * ht - right * hl;
+            tool.SetNormal(normal);
+            tool.AddVertex(a);
+            tool.SetNormal(normal);
+            tool.AddVertex(b);
+            tool.SetNormal(normal);
+            tool.AddVertex(c);
+            tool.SetNormal(normal);
+            tool.AddVertex(a);
+            tool.SetNormal(normal);
+            tool.AddVertex(c);
+            tool.SetNormal(normal);
+            tool.AddVertex(d);
+        }
+    }
+
+    private static StandardMaterial3D MakeBlockEdgeMaterial()
+    {
+        return new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.16f, 0.18f, 0.24f),
+            Roughness = 0.9f,
+            Metallic = 0f,
+        };
+    }
+
+    private void EnsureBlockMaterials()
+    {
+        _buffBlockTexture ??= LoadEnergyTexture(BuffTexturePath);
+        _debuffBlockTexture ??= LoadEnergyTexture(DebuffTexturePath);
+        _buffBlockMaterial ??= MakeEnergyBlockMaterial(_buffBlockTexture, Colors.White);
+        _debuffBlockMaterial ??= MakeEnergyBlockMaterial(_debuffBlockTexture, Colors.White);
+        // 出界块仍保留官方识别图案, 仅整体压暗表示它已离开本局有效区域;
+        // 不再绘制会被误认成规则图案的自制斜线/棋盘标记。
+        _outBlockMaterial ??= MakeEnergyBlockMaterial(_buffBlockTexture,
+            new Color(0.48f, 0.49f, 0.53f));
+    }
+
+    private static Texture2D LoadEnergyTexture(string resourcePath)
+    {
+        // 直接从 res:// 读取 PNG, 不依赖编辑器先生成 .import 文件; 这同时覆盖
+        // 首次启动、headless 快速仿真和导出到 PCK 的运行方式。
+        var bytes = Godot.FileAccess.GetFileAsBytes(resourcePath);
+        if (bytes.Length > 0)
+        {
+            var image = new Image();
+            if (image.LoadPngFromBuffer(bytes) == Error.Ok
+                && image.GetWidth() > 0 && image.GetHeight() > 0)
+            {
+                return ImageTexture.CreateFromImage(image);
+            }
+        }
+
+        GD.PushError($"Energy block texture could not be loaded: {resourcePath}");
+        return ImageTexture.CreateFromImage(MakeMissingEnergyTexture());
+    }
+
+    private static StandardMaterial3D MakeEnergyBlockMaterial(Texture2D texture, Color tint)
+    {
+        return new StandardMaterial3D
+        {
+            AlbedoTexture = texture,
+            AlbedoColor = tint,
+            Roughness = 0.72f,
+            Metallic = 0f,
+            TextureFilter = BaseMaterial3D.TextureFilterEnum.Linear,
+        };
+    }
+
+    private static StandardMaterial3D MakeBlockContactShadowMaterial()
+    {
+        return new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.03f, 0.04f, 0.06f, 0.40f),
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        };
+    }
+
+    private static PlaneMesh MakeBlockContactShadowMesh(float size)
+    {
+        // A flat plane is deliberately used instead of a thin cylinder.  A
+        // cylinder protrudes below an oblique camera and reads as a pointed
+        // underside rather than a cube resting on the field.
+        return new PlaneMesh
+        {
+            Size = new Vector2(size * BlockContactShadowScale, size * BlockContactShadowScale),
+        };
+    }
+
+    private static void PositionBlockContactShadow(MeshInstance3D block, float blockSize)
+    {
+        if (block.GetNodeOrNull<MeshInstance3D>("ContactShadow") is not { } shadow)
+        {
+            return;
+        }
+
+        shadow.Position = new Vector3(
+            BlockShadowOffsetX * blockSize,
+            -blockSize / 2f + BlockContactShadowLift,
+            BlockShadowOffsetZ * blockSize);
+        shadow.Visible = true;
+    }
+
+    /// <summary>Builds a cube whose six faces all use the same upright UV square.</summary>
+    private static ArrayMesh MakeOfficialEnergyBlockMesh(float size)
+    {
+        var half = size / 2f;
+        var tool = new SurfaceTool();
+        tool.Begin(Mesh.PrimitiveType.Triangles);
+
+        // right × up = outward normal.  The up vector is world-up for vertical
+        // faces; on the top/bottom it keeps the printed symbol aligned to +Z/−Z.
+        AddTexturedFace(tool, half, new Vector3(0, 0, 1), new Vector3(1, 0, 0), new Vector3(0, 1, 0));
+        AddTexturedFace(tool, half, new Vector3(0, 0, -1), new Vector3(-1, 0, 0), new Vector3(0, 1, 0));
+        AddTexturedFace(tool, half, new Vector3(1, 0, 0), new Vector3(0, 0, -1), new Vector3(0, 1, 0));
+        AddTexturedFace(tool, half, new Vector3(-1, 0, 0), new Vector3(0, 0, 1), new Vector3(0, 1, 0));
+        AddTexturedFace(tool, half, new Vector3(0, 1, 0), new Vector3(1, 0, 0), new Vector3(0, 0, -1));
+        AddTexturedFace(tool, half, new Vector3(0, -1, 0), new Vector3(1, 0, 0), new Vector3(0, 0, 1));
+
+        return tool.Commit() ?? throw new InvalidOperationException("Could not build energy block mesh");
+    }
+
+    private static void AddTexturedFace(SurfaceTool tool, float half, Vector3 normal,
+        Vector3 right, Vector3 up)
+    {
+        var center = normal * half;
+        var bottomLeft = center - right * half - up * half;
+        var bottomRight = center + right * half - up * half;
+        var topRight = center + right * half + up * half;
+        var topLeft = center - right * half + up * half;
+
+        // Godot textures use v=0 at the top.  Duplicate vertices keep each face's
+        // normal and UV orientation independent from its neighbours.
+        AddTexturedVertex(tool, bottomLeft, normal, new Vector2(0, 1));
+        AddTexturedVertex(tool, bottomRight, normal, new Vector2(1, 1));
+        AddTexturedVertex(tool, topRight, normal, new Vector2(1, 0));
+        AddTexturedVertex(tool, bottomLeft, normal, new Vector2(0, 1));
+        AddTexturedVertex(tool, topRight, normal, new Vector2(1, 0));
+        AddTexturedVertex(tool, topLeft, normal, new Vector2(0, 0));
+    }
+
+    private static void AddTexturedVertex(SurfaceTool tool, Vector3 position, Vector3 normal, Vector2 uv)
+    {
+        tool.SetNormal(normal);
+        tool.SetUV(uv);
+        tool.AddVertex(position);
+    }
+
+    private static Image MakeMissingEnergyTexture()
+    {
+        var image = Image.CreateEmpty(8, 8, false, Image.Format.Rgba8);
+        image.Fill(new Color(0.75f, 0.75f, 0.78f));
+        return image;
+    }
+
+    private void EnsureBlockMesh()
+    {
+        if (_energyBlockMesh is not null && Mathf.Abs(_energyBlockMeshSize - _blockSize) <= 1e-5f)
+        {
+            return;
+        }
+
+        _energyBlockMesh = MakeOfficialEnergyBlockMesh(_blockSize);
+        _energyBlockMeshSize = _blockSize;
+        foreach (var node in _blockNodes)
+        {
+            node.Mesh = _energyBlockMesh;
+            if (node.GetNodeOrNull<MeshInstance3D>("ContactShadow") is { } shadow)
+            {
+                shadow.Mesh = MakeBlockContactShadowMesh(_blockSize);
+                shadow.Position = new Vector3(0f,
+                    -_blockSize / 2f + BlockContactShadowLift,
+                    0f);
+            }
         }
     }
 
