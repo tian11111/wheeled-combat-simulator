@@ -374,3 +374,24 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 14: 布局编辑实体点选拖拽
+
+**Date**: 2026-08-30
+**Task**: 布局编辑实体点选拖拽
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 08-30-godot-entity-pick-drag：布局编辑模式支持直接点击/拖动能量块与双方小车——Selection 扩展 RobotUs/RobotThem，世界空间解析命中代理（块体 AABB/车辆圆柱+容差，零物理碰撞体），命中序=最近射线距离（同距优先机器人），低角度不再依赖 y=0 投射；LayoutDraft.MoveStart 只改出生位 X/Y（保留 Th 与出发区），拖动=一次撤销分组；选中高亮与 我方小车/对手小车 标签；edit-smoke 扩展实体拖动隔离/低角度命中/应用重建一致性断言，InjectButtonDrag 修正 canvas→window 拉伸换算。修复布局编辑器门禁（Prep 空转 tick 使 TickIndex>0 导致人工永远无法按 E 进入，改只看比赛阶段）。324/324 测试全绿，parity/replay-check 逐位通过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `de79fd0` | (see git log) |
+
+### Status
+
+[OK] **Completed**

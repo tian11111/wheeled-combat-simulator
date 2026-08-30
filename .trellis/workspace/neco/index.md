@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 13
+- **Total Sessions**: 14
 - **Last Active**: 2026-08-30
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~376 | Active |
+| `journal-1.md` | ~397 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 14 | 2026-08-30 | 布局编辑实体点选拖拽 | `de79fd0` | `feat/godot-3d-visual` |
 | 13 | 2026-08-30 | Godot 3D 二轮视觉校正与能量块修复 | `ab0f923`, `028ec60`, `d8be837`, `da28169`, `54951d0`, `f000c1c` | `feat/godot-3d-visual` |
 | 12 | 2026-08-29 | Godot 3D 赛事视觉真实感优化 | `a2ed0a5`, `be66ac8`, `690f3f6`, `cce7f35` | `feat/godot-3d-visual` |
 | 11 | 2026-08-29 | AI Agent 无头并行快速仿真 (batch 命令) | `5baca51`, `7f9745f`, `f92f434`, `48bc461`, `e38171d` | `feat/ai-batch-sim` |
