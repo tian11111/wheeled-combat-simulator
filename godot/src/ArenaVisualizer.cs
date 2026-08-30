@@ -98,7 +98,11 @@ public partial class ArenaVisualizer : Node3D
         }
     }
 
-    private static float RobotRadiusFor(Scenario scenario, string role)
+    /// <summary>Render/pick footprint radius for a role: the VehicleProfile
+    /// collision radius, or the primitive fallback when the profile is missing.
+    /// Shared with the layout editor's analytic hit proxies so there is exactly
+    /// one radius source per role (never a physics body).</summary>
+    public static float RobotRadiusFor(Scenario scenario, string role)
         => scenario.Vehicles.TryGetValue(role, out var v) && v is not null && v.CollisionRadius > 0
             ? (float)v.CollisionRadius
             : 0.09f;

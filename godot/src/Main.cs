@@ -190,6 +190,67 @@ public partial class Main : Node
 
     // ---------- automated camera smoke (--camera-smoke) ----------
 
+    /// <summary>True when running on the headless dummy display (64×64 input surface).</summary>
+    private static bool IsHeadlessDisplay => DisplayServer.GetName() == "headless";
+
+    private static void InjectWheel(int steps)
+    {
+        // steps > 0 = 滚轮下滚 (拉远), steps < 0 = 上滚 (拉近)。
+        var button = steps > 0 ? MouseButton.WheelDown : MouseButton.WheelUp;
+        for (var i = 0; i < Math.Abs(steps); i++)
+        {
+            Input.ParseInputEvent(new InputEventMouseButton
+            {
+                ButtonIndex = button,
+                Pressed = true,
+                Position = Vector2.Zero,
+                GlobalPosition = Vector2.Zero,
+            });
+        }
+    }
+
+    private void InjectLeftDrag(Vector2 from, Vector2 to)
+        => InjectButtonDrag(from, to, MouseButton.Left);
+
+    private void InjectRightDrag(Vector2 from, Vector2 to)
+        => InjectButtonDrag(from, to, MouseButton.Right);
+
+    /// <summary>
+    /// Injects a press/move/release drag. <paramref name="from"/>/
+    /// <paramref name="to"/> are viewport-canvas coordinates (the space
+    /// <c>Camera3D.UnprojectPosition</c> reports); ParseInputEvent expects
+    /// window-surface coordinates, so convert by the stretch ratio: the real
+    /// window's client size over the visible rect, or the 64×64 headless dummy
+    /// input surface against the 1280px design canvas (1/20).
+    /// </summary>
+    private void InjectButtonDrag(Vector2 from, Vector2 to, MouseButton button)
+    {
+        var inputScale = IsHeadlessDisplay
+            ? new Vector2(1f / 20f, 1f / 20f)
+            : (Vector2)DisplayServer.WindowGetSize() / GetViewport().GetVisibleRect().Size;
+        from *= inputScale;
+        to *= inputScale;
+        Input.ParseInputEvent(new InputEventMouseButton
+        {
+            ButtonIndex = button,
+            Pressed = true,
+            Position = from,
+            GlobalPosition = from,
+        });
+        Input.ParseInputEvent(new InputEventMouseMotion
+        {
+            Position = to,
+            GlobalPosition = to,
+        });
+        Input.ParseInputEvent(new InputEventMouseButton
+        {
+            ButtonIndex = button,
+            Pressed = false,
+            Position = to,
+            GlobalPosition = to,
+        });
+    }
+
     /// <summary>
     /// Deterministic camera input evidence through the real input pipeline:
     /// Overview framing, wheel zoom (×1.1 steps + clamp), Top orientation
@@ -250,9 +311,7 @@ public partial class Main : Node
         // canvas_items + aspect=expand 在 dummy headless 驱动下会把可见矩形
         // 报成基准高度对应的方形，但 ParseInputEvent 仍按 64×64 dummy 视口
         // 接收坐标；使用固定 dummy 中心，避免 smoke 的 8px 拖动被放大。
-        var screenCenter = DisplayServer.GetName() == "headless"
-            ? new Vector2(32f, 32f)
-            : viewportSize / 2f;
+        var screenCenter = IsHeadlessDisplay ? new Vector2(32f, 32f) : viewportSize / 2f;
 
         // Overview: 焦点在场地中心, 机位 = 焦点 + (0,0.82,0.68) 归一化 × 距离
         // (与 MatchCamera.DefaultOverviewHeight/BackRatio 同一取景比例)。
@@ -529,61 +588,6 @@ public partial class Main : Node
                 await WaitFrames(1);
             }
         }
-
-        static void InjectWheel(int steps)
-        {
-            // steps > 0 = 滚轮下滚 (拉远), steps < 0 = 上滚 (拉近)。
-            var button = steps > 0 ? MouseButton.WheelDown : MouseButton.WheelUp;
-            for (var i = 0; i < Math.Abs(steps); i++)
-            {
-                Input.ParseInputEvent(new InputEventMouseButton
-                {
-                    ButtonIndex = button,
-                    Pressed = true,
-                    Position = Vector2.Zero,
-                    GlobalPosition = Vector2.Zero,
-                });
-            }
-        }
-
-        static void InjectLeftDrag(Vector2 from, Vector2 to)
-        {
-            InjectButtonDrag(from, to, MouseButton.Left);
-        }
-
-        static void InjectRightDrag(Vector2 from, Vector2 to)
-        {
-            InjectButtonDrag(from, to, MouseButton.Right);
-        }
-
-        static void InjectButtonDrag(Vector2 from, Vector2 to, MouseButton button)
-        {
-            // canvas_items maps the 64×64 dummy input surface to the 1280px
-            // design canvas. Scale only synthetic headless coordinates; real
-            // window input already arrives in the target viewport space.
-            var inputScale = DisplayServer.GetName() == "headless" ? 1f / 20f : 1f;
-            from *= inputScale;
-            to *= inputScale;
-            Input.ParseInputEvent(new InputEventMouseButton
-            {
-                ButtonIndex = button,
-                Pressed = true,
-                Position = from,
-                GlobalPosition = from,
-            });
-            Input.ParseInputEvent(new InputEventMouseMotion
-            {
-                Position = to,
-                GlobalPosition = to,
-            });
-            Input.ParseInputEvent(new InputEventMouseButton
-            {
-                ButtonIndex = button,
-                Pressed = false,
-                Position = to,
-                GlobalPosition = to,
-            });
-        }
     }
 
     // ---------- automated layout-editor smoke (--edit-smoke) ----------
@@ -664,11 +668,15 @@ public partial class Main : Node
         Check(Near(draft.State.Pose.X, 0) && Near(draft.State.Pose.Y, 0), "undo field drag");
 
         // Select the yellow zone (world point via the current pose transform) and drag it.
+        // The pick point is the zone's west-south corner: the entity-first picker
+        // selects the vehicle standing at the zone center, so the corner keeps
+        // this assertion on the ground fallback (zone rectangle).
         var pose = draft.State.Pose;
         var t = new Sim.Core.FieldTransform(pose.X, pose.Y, pose.Th);
         var zone = draft.State.StartZones[RoleNames.Us];
-        var (zwx, zwy) = t.LocalToWorldPoint((zone.MinX + zone.MaxX) / 2, (zone.MinY + zone.MaxY) / 2);
+        var (zwx, zwy) = t.LocalToWorldPoint(zone.MinX + 0.03, zone.MinY + 0.03);
         _editor.SelectAtGround(zwx, zwy);
+        Check(_editor.SelectedLabel == "黄色出发区", "zone corner pick selects the yellow zone (vehicle proxy owns the center)");
         var startBefore = draft.State.Starts[RoleNames.Us];
         _editor.NudgeSelectedBy(-0.05, 0.02);
         var zoneNow = draft.State.StartZones[RoleNames.Us];
@@ -687,12 +695,102 @@ public partial class Main : Node
         Check(Near(blockNow.X!.Value, block.X.Value - 0.04) && Near(blockNow.Y!.Value, block.Y.Value - 0.03),
             "select block + drag fixes new position");
 
+        // ---------- entity picking: drag a vehicle through the real input pipeline ----------
+        // The injected left-drag walks the exact press/motion/release path the
+        // mouse uses: entity pick (analytic proxy at the vehicle body) → ground
+        // delta → field-local → snap → LayoutDraft.MoveStart, with the whole
+        // drag grouped as one undo entry. Assertions target draft state, not
+        // pixel geometry (injected drags scale through the window surface via
+        // InjectButtonDrag). Press points come from UnprojectPosition so they
+        // ride the same screen-space pipeline as a real mouse click.
+        await WaitSettled();
+        var poseBeforeVehicleDrag = draft.State.Pose;
+        var zoneUsBeforeVehicleDrag = draft.State.StartZones[RoleNames.Us];
+        var zoneThemBeforeVehicleDrag = draft.State.StartZones[RoleNames.Them];
+        var themBeforeVehicleDrag = draft.State.Starts[RoleNames.Them];
+        var usBeforeVehicleDrag = draft.State.Starts[RoleNames.Us];
+        var blocksBeforeVehicleDrag = draft.State.Blocks.ToList();
+        var usCenter = _editor.PreviewFrame!.Us.Position;
+        var vehiclePress = _camera.UnprojectPosition(
+            new Vector3((float)usCenter.X, (float)usCenter.Up, (float)usCenter.Z));
+        InjectLeftDrag(vehiclePress, vehiclePress + new Vector2(24, 12));
+        await WaitUntil(() => !draft.State.Starts[RoleNames.Us].Equals(usBeforeVehicleDrag));
+        await WaitFrames(2);
+        var usAfterVehicleDrag = draft.State.Starts[RoleNames.Us];
+        Check(_editor.SelectedLabel == "我方小车", "screen press on vehicle body selects 我方小车");
+        Check(!usAfterVehicleDrag.Equals(usBeforeVehicleDrag), "vehicle drag moves its start");
+        Check(Near(usAfterVehicleDrag.Th, usBeforeVehicleDrag.Th), "vehicle drag preserves heading");
+        Check(draft.State.Pose.Equals(poseBeforeVehicleDrag), "vehicle drag leaves the field pose untouched");
+        Check(draft.State.StartZones[RoleNames.Us].Equals(zoneUsBeforeVehicleDrag)
+            && draft.State.StartZones[RoleNames.Them].Equals(zoneThemBeforeVehicleDrag),
+            "vehicle drag leaves start zones untouched");
+        Check(draft.State.Starts[RoleNames.Them].Equals(themBeforeVehicleDrag),
+            "vehicle drag leaves the opponent untouched");
+        Check(blocksBeforeVehicleDrag.Select((b, i) => b.Equals(draft.State.Blocks[i])).All(ok => ok),
+            "vehicle drag leaves blocks untouched");
+        _editor.RequestUndo();
+        Check(draft.State.Starts[RoleNames.Us].Equals(usBeforeVehicleDrag),
+            "undo restores the whole vehicle drag (one drag = one entry)");
+        _editor.RequestRedo();
+        Check(draft.State.Starts[RoleNames.Us].Equals(usAfterVehicleDrag), "redo replays the whole vehicle drag");
+
+        // Pick + drag a block through the same screen picker (analytic proxy on
+        // the preview cube). Any block may be the nearest hit along the ray, so
+        // assert "some block moved" plus isolation, not a fixed index.
+        var blockVisual = _editor.PreviewFrame!.Blocks[1];
+        var blockPress = _camera.UnprojectPosition(new Vector3(
+            (float)blockVisual.Position.X,
+            (float)(blockVisual.Position.Up + 0.07),
+            (float)blockVisual.Position.Z));
+        InjectLeftDrag(blockPress, blockPress + new Vector2(-24, -12));
+        await WaitUntil(() => draft.State.Blocks
+            .Select((b, i) => (b, i))
+            .Any(x => !x.b.Equals(blocksBeforeVehicleDrag[x.i])));
+        await WaitFrames(2);
+        Check(_editor.SelectedLabel.Contains("能量块"), "screen press on a block selects the block");
+        Check(draft.State.Blocks.Select((b, i) => (b, i)).Any(x => !x.b.Equals(blocksBeforeVehicleDrag[x.i])),
+            "block drag fixes a new position");
+        Check(draft.State.Starts[RoleNames.Us].Equals(usAfterVehicleDrag)
+            && draft.State.Starts[RoleNames.Them].Equals(themBeforeVehicleDrag),
+            "block drag leaves vehicle starts untouched");
+
+        // Low-angle guard (PRD R4): the pick point is raised to the proxy
+        // mid-height (≈ visual body center; the spawn ZG alone sits at ground
+        // level, where the ray's y=0 crossing would equal the robot's own
+        // position and prove nothing). At a 10° pitch the ray through that
+        // raised point crosses y=0 ~0.7m behind the robot — outside its start
+        // zone — so a y=0-only guess lands on the zone/field, never the
+        // vehicle; the entity proxy must win. Yaw 180 puts the camera on the
+        // robot's side of the platform, so the approach corridor runs over
+        // off-platform ground where no block proxy can stand between the
+        // camera and the vehicle.
+        var usCenterAfterRedo = _editor.PreviewFrame!.Us.Position;
+        var pitchBeforeLowAngle = _camera.OverviewPitch;
+        _camera.SetOverviewOrbit(180f, 10f);
+        await WaitSettled();
+        _editor.SelectAtScreen(_camera.UnprojectPosition(new Vector3(
+            (float)usCenterAfterRedo.X, (float)(usCenterAfterRedo.Up + 0.15), (float)usCenterAfterRedo.Z)));
+        Check(_editor.SelectedLabel == "我方小车",
+            "low-angle entity-center pick selects the robot (not a y=0 guess)");
+        _camera.SetOverviewOrbit(0f, pitchBeforeLowAngle);
+        await WaitSettled();
+
         // Restore official must undo everything and stay applicable.
         _editor.RequestRestoreOfficial();
         Check(_editor.CanApplyNow && Near(draft.State.Pose.X, 0) && Near(draft.State.Pose.Th, 0),
             "restore official layout");
 
         // Edit → apply → the rebuilt session engine runs the edited geometry.
+        // First drag our robot through the same entity picker: the vertical ray
+        // at the start point hits the vehicle proxy (field pose is identity here,
+        // so the ground point equals the field-local start).
+        var usStartBeforeApply = draft.State.Starts[RoleNames.Us];
+        _editor.SelectAtGround(usStartBeforeApply.X, usStartBeforeApply.Y);
+        Check(_editor.SelectedLabel == "我方小车", "start-point pick selects our robot (entity-first)");
+        _editor.NudgeSelectedBy(0.1, 0.0);
+        var usStartEdited = draft.State.Starts[RoleNames.Us];
+        Check(Near(usStartEdited.X, usStartBeforeApply.X + 0.1) && Near(usStartEdited.Y, usStartBeforeApply.Y)
+            && Near(usStartEdited.Th, usStartBeforeApply.Th), "nudge on robot moves only its start (heading kept)");
         _editor.SelectAtGround(1.9, 1.9);
         _editor.NudgeSelectedBy(0.0, 0.3);
         InjectAction("editor_rotate_cw");
@@ -703,10 +801,13 @@ public partial class Main : Node
         var applied = _session.Engine.Scenario.Field.Pose!;
         Check(Near(applied.X, 0) && Near(applied.Y, 0.3) && Near(applied.Th, Deg(5)),
             "applied scenario carries edited pose");
+        var appliedStart = _session.Engine.Scenario.Field.Starts[RoleNames.Us];
+        Check(Near(appliedStart.X, usStartEdited.X) && Near(appliedStart.Y, usStartEdited.Y)
+            && Near(appliedStart.Th, usStartEdited.Th), "applied scenario carries the edited start");
         var (usX, usY) = new Sim.Core.FieldTransform(applied.X, applied.Y, applied.Th)
-            .LocalToWorldPoint(0.95, 0.3);
+            .LocalToWorldPoint(usStartEdited.X, usStartEdited.Y);
         Check(Near(_session.Engine.Us.X, usX) && Near(_session.Engine.Us.Y, usY),
-            "engine spawn follows applied pose");
+            "engine spawn follows the edited start pose");
 
         // The applied layout must reproduce bit-for-bit through record + verify.
         var scenario = _session.Scenario;
@@ -751,6 +852,31 @@ public partial class Main : Node
             for (var i = 0; i < n; i++)
             {
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+        }
+
+        // 阻尼收敛等待: 屏幕点选/反投影断言必须等机位稳定 (SetOverviewOrbit 后
+        // 相机按 lerp 滑向目标), 与 --camera-smoke 同一模式。
+        async Task WaitSettled(int maxFrames = 240)
+        {
+            for (var i = 0; i < maxFrames; i++)
+            {
+                var prev = _camera.Position;
+                await WaitFrames(1);
+                if (_camera.Position.DistanceTo(prev) < 1e-4f)
+                {
+                    return;
+                }
+            }
+        }
+
+        // 注入拖动的效果以草稿状态到位为准 (无头输入缓冲冲洗有 1-2 帧抖动,
+        // 固定等帧数会偶发竞态; 上限 60 帧)。
+        async Task WaitUntil(Func<bool> applied, int maxFrames = 60)
+        {
+            for (var i = 0; i < maxFrames && !applied(); i++)
+            {
+                await WaitFrames(1);
             }
         }
 
