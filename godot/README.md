@@ -26,6 +26,10 @@
   对右/左/下/上分别断言）; 台面显示改为官方"四角纯黑→中心纯白"归一化欧氏径向渐变
   （消除 L∞ 方形显示的白色对角亮带; 传感器 0–1000 语义与 Sim.Core 一字不动）;
   机器人接触阴影略增强。SSAO/反射探针 A/B capture 证明台面灰度逐像素不受全局渲染影响。
+- ✅ 全屏显示校正已交付：HUD 以 1280×720 为设计基准，Godot `canvas_items` 拉伸模式随窗口
+  等比放大，字体启用超采样；能量块按规则 PDF 第 11 页示意图使用黄绿色闪电圆环（增益）
+  与紫色警示圆环叠红叉（减益），自定义六面 UV 保证立方体六个面都显示同一张完整图案。
+  该改动只影响表现层，不改变仿真快照或能量块坐标。
 - ✅ `src/SnapshotView.cs`、`src/MatchSession.cs`、`src/ParityCheck.cs`、`src/LayoutDraft.cs`
   为无 Godot 依赖的纯 C# 层，经 `Sim.Tests` 编译链接纳入回归（含回放重构、跨端比对、
   布局草稿/拖拽分组/保存重载测试）。
@@ -154,10 +158,12 @@ seed/模式/场景/pid 便于分辨。注意自定义用户参数（`--scenario-
 | `--camera-cycle <0-2>` | 启动即切换镜头模式 (0=概览 1=跟随 2=俯视, 仅表现层), 供三种机位的 capture 证据留存 |
 | `--camera-orbit <yaw>,<pitch>` | 启动即设置概览环绕角 (度, 同一限幅), 复现"左键拖动后"机位供 capture 证据 (仅表现层, 不注入输入事件) |
 
-## 视觉栈（第一轮，无第三方资产）
+## 视觉栈（第一轮，官方赛事贴图）
 
 Forward+ 默认画面全部由内置能力构成, 每项都经真实 renderer 双分辨率 (1280×720 / 1920×1080)
-capture 验证; 不引入 GLB/纹理/HDRI/自定义全屏 shader, 也不默认启用 SDFGI/VoxelGI/Lightmap 烘焙。
+capture 验证; 不引入第三方 GLB/HDRI/自定义全屏 shader, 也不默认启用
+SDFGI/VoxelGI/Lightmap 烘焙。能量块仅使用仓库内两张由官方规则第 11 页示意图整理的 PNG；
+规则原文注明示意图仅供参考，实际标准打印图仍以赛项交流群发布版本为准。
 
 | 层 | 默认配置 | 说明 |
 | --- | --- | --- |
@@ -166,7 +172,7 @@ capture 验证; 不引入 GLB/纹理/HDRI/自定义全屏 shader, 也不默认�
 | 反射 | `ReflectionProbe` 一次更新 (`UPDATE_ONCE`), 包围盒 7.5×3.5×7.5 限于擂台+围栏 | 机器人外壳/平台侧面获得稳定环境反射; 非每帧重渲染, 不依赖动态仿真 |
 | 后处理 | tonemap = Filmic, SSAO 开 (仅 Forward+; gl_compatibility 自动忽略) | 轻量层次增强; 台面灰度纹理为 `Unshaded`, 不受 SSAO/灯光/反射影响 |
 | 抗锯齿 | MSAA 3D 4× (`project.godot`) | Forward+/gl_compatibility 都支持, 无运动拖影 |
-| 材质 | `ArenaVisualizer` 统一材质策略: 哑光橡胶 (地面/围栏/轮暗部)、喷涂金属 (车体/推铲)、白色板材 (平台侧面)、自发光 (能量块/灯带/登台环) | roughness/metallic/emission 集中在可复用工厂方法, 避免逐节点漂移 |
+| 材质 | `ArenaVisualizer` 统一材质策略: 哑光橡胶 (地面/围栏/轮暗部)、喷涂金属 (车体/推铲)、白色板材 (平台侧面)、哑光赛事贴纸 (能量块)、自发光 (灯带/登台环) | roughness/metallic/emission 集中在可复用工厂方法, 避免逐节点漂移 |
 | 机器人 | primitive fallback 含车体分件: 上盖/侧带/四轮暗件/车头/金属推铲/团队灯带/接触阴影盘 | 纯渲染层, 尺寸由碰撞半径推导, 打 `primitivePart` meta, glTF 导入成功时整体让位 (登台指示环保留) |
 
 ### 关闭/否决的高成本实验（可复现配置）

@@ -247,7 +247,12 @@ public partial class Main : Node
                 Mathf.Cos(yaw) * Mathf.Cos(pitch));
         }
         var viewportSize = GetViewport().GetVisibleRect().Size;
-        var screenCenter = viewportSize / 2f;
+        // canvas_items + aspect=expand 在 dummy headless 驱动下会把可见矩形
+        // 报成基准高度对应的方形，但 ParseInputEvent 仍按 64×64 dummy 视口
+        // 接收坐标；使用固定 dummy 中心，避免 smoke 的 8px 拖动被放大。
+        var screenCenter = DisplayServer.GetName() == "headless"
+            ? new Vector2(32f, 32f)
+            : viewportSize / 2f;
 
         // Overview: 焦点在场地中心, 机位 = 焦点 + (0,0.82,0.68) 归一化 × 距离
         // (与 MatchCamera.DefaultOverviewHeight/BackRatio 同一取景比例)。
@@ -553,6 +558,12 @@ public partial class Main : Node
 
         static void InjectButtonDrag(Vector2 from, Vector2 to, MouseButton button)
         {
+            // canvas_items maps the 64×64 dummy input surface to the 1280px
+            // design canvas. Scale only synthetic headless coordinates; real
+            // window input already arrives in the target viewport space.
+            var inputScale = DisplayServer.GetName() == "headless" ? 1f / 20f : 1f;
+            from *= inputScale;
+            to *= inputScale;
             Input.ParseInputEvent(new InputEventMouseButton
             {
                 ButtonIndex = button,
@@ -971,13 +982,20 @@ public partial class Main : Node
                 {
                     buckets["model"]++; // 品红测试模型 (robot-cube.gltf); 灯光/tonemap 会把绿色抬到 ~0.55
                 }
+                // Official energy marks are deliberately classified before the
+                // team colors: the debuff's red X is close to the red robot under
+                // the broad presentation-color tolerance used by this QA bucket.
+                else if (IsOfficialBuffPixel(c))
+                {
+                    buckets["buff"]++;
+                }
+                else if (IsOfficialDebuffPixel(c))
+                {
+                    buckets["debuff"]++;
+                }
                 else if (Close(c, UsColor) || Close(c, ThemColor))
                 {
                     buckets[Close(c, UsColor) ? "us" : "them"]++;
-                }
-                else if (Close(c, BuffColor) || Close(c, DebuffColor))
-                {
-                    buckets[Close(c, BuffColor) ? "buff" : "debuff"]++;
                 }
                 else if (c.R > 0.7f && c.G > 0.7f && c.B > 0.7f && Mathf.Abs(c.R - c.G) < 0.05f)
                 {
@@ -998,12 +1016,16 @@ public partial class Main : Node
         return Mathf.Abs(a.R - b.R) < tol && Mathf.Abs(a.G - b.G) < tol && Mathf.Abs(a.B - b.B) < tol;
     }
 
-    // us/them/buff/debuff colors duplicated for the capture check; keep in sync
-    // with ArenaVisualizer (visual QA evidence, not rule logic).
+    private static bool IsOfficialBuffPixel(Color c)
+        => c.R > 0.65f && c.G > 0.65f && c.B < 0.25f;
+
+    private static bool IsOfficialDebuffPixel(Color c)
+        => c.R > 0.65f && c.G < 0.18f && c.B < 0.18f;
+
+    // us/them colors plus representative official energy-mark colors used by
+    // the capture bucket check (visual QA evidence, not rule logic).
     private static readonly Color UsColor = new(0.28f, 0.48f, 0.95f);
     private static readonly Color ThemColor = new(0.92f, 0.30f, 0.28f);
-    private static readonly Color BuffColor = new(0.24f, 0.82f, 0.72f);
-    private static readonly Color DebuffColor = new(0.91f, 0.55f, 0.22f);
 
     private void Present(RenderFrame frame)
     {

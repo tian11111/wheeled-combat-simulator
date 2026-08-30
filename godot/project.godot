@@ -15,6 +15,21 @@ config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 
 project/assembly_name="GodotSim"
 
+[display]
+
+; HUD 的固定像素布局以 1280×720 为设计基准，全屏/拉伸窗口时由
+; CanvasItem stretch 统一放大，避免 3D 变大而赛事控制台仍停留在原尺寸。
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/resizable=true
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/stretch/scale_mode="fractional"
+
+[gui]
+
+fonts/dynamic_fonts/use_oversampling=true
+
 [input]
 
 ui_accept={
