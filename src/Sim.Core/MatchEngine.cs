@@ -109,7 +109,8 @@ public sealed class MatchEngine
         _them.Fsm.Timer = matchDuration;
 
         _events = new EventBus();
-        _physics = new PhysicsWorld(_field, _params, _us, _them, _blocks, _events);
+        _physics = new PhysicsWorld(_field, _params, _us, _them, _blocks, _events,
+            AntiStallPhase(scenario.Seed, RoleNames.Us), AntiStallPhase(scenario.Seed, RoleNames.Them));
         _sensors = new SensorSampler(_field, _params, _us, _them, _blocks, scenario.Seed, () => SimStepIndex);
         _fsm = new FsmController(_field, _physics, _params, () => _rng.Next(), _us, _them, _blocks, _events,
             _vision, OnBothDone);
@@ -118,6 +119,13 @@ public sealed class MatchEngine
         _sensors.SampleSensorsFor(_us);
         _sensors.SampleSensorsFor(_them);
     }
+
+    /// <summary>
+    /// 反僵局铲刃微调初相 (rad): 由 (seed, role) 经既有 <c>hashString32</c> 派生到
+    /// [0, 2π)。独立哈希派生, 不消费 Mulberry32 比赛随机流; 同 seed 同 role 恒同相。
+    /// </summary>
+    private static double AntiStallPhase(long seed, string role)
+        => (uint)DeterministicRandom.HashString32($"anti-stall:{seed}:{role}") / 4294967296.0 * (2 * Math.PI);
 
     /// <summary>
     /// Spawns a robot. Scenario start poses are field-local (see
@@ -217,6 +225,9 @@ public sealed class MatchEngine
     public Scenario Scenario => _scenario;
 
     public FieldModel Field => _field;
+
+    /// <summary>物理世界只读诊断入口 (反僵局微调参数/初相等, 供测试与诊断; 不开放写路径)。</summary>
+    public PhysicsWorld Physics => _physics;
 
     public RobotRuntime Us => _us;
 

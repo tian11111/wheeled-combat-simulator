@@ -29,8 +29,32 @@ public sealed class PhysicsWorld
     private readonly List<BlockRuntime> _blocks;
     private readonly EventBus _events;
 
+    // 反僵局铲刃微调 (docs/PORTING_NOTES.md 有意偏差): 正面顶牛的同型机器人铲刃静差
+    // 恒为 0, 楔入阈值 |aBlade−bBlade|>0.004 永不触发 → 对推死锁。给双方有效铲刃
+    // 高度叠加种子派生初相的慢速正弦项, 差值周期性越过阈值 → 既有楔入路径生效。
+    private readonly double _antiStallAmp;
+    private readonly double _antiStallPeriodUs;
+    private readonly double _antiStallPeriodThem;
+    private readonly double _phaseUs;
+    private readonly double _phaseThem;
+
+    /// <summary>铲刃微调振幅 (m); 0 = 关闭 (逐位恢复旧行为)。</summary>
+    public double AntiStallBladeAmp => _antiStallAmp;
+
+    /// <summary>我方微调周期 (s)。</summary>
+    public double AntiStallBladePeriodUs => _antiStallPeriodUs;
+
+    /// <summary>对手微调周期 (s)。</summary>
+    public double AntiStallBladePeriodThem => _antiStallPeriodThem;
+
+    /// <summary>我方微调初相 (rad), 由 MatchEngine 从 (seed, role) 哈希派生。</summary>
+    public double AntiStallPhaseUs => _phaseUs;
+
+    /// <summary>对手微调初相 (rad)。</summary>
+    public double AntiStallPhaseThem => _phaseThem;
+
     public PhysicsWorld(FieldModel field, SimParameters parameters, RobotRuntime us, RobotRuntime them,
-        List<BlockRuntime> blocks, EventBus events)
+        List<BlockRuntime> blocks, EventBus events, double phaseUs = 0, double phaseThem = 0)
     {
         _field = field;
         _params = parameters;
@@ -38,6 +62,12 @@ public sealed class PhysicsWorld
         _them = them;
         _blocks = blocks;
         _events = events;
+        _phaseUs = phaseUs;
+        _phaseThem = phaseThem;
+        // 可空参数解析: null/非有限 → 默认; 振幅显式 0 = 关闭; 周期必须为正。
+        _antiStallAmp = _params.AntiStallBladeAmp is { } amp && double.IsFinite(amp) ? amp : 0.006;
+        _antiStallPeriodUs = _params.AntiStallBladePeriodUs is { } pu && double.IsFinite(pu) && pu > 0 ? pu : 2.1;
+        _antiStallPeriodThem = _params.AntiStallBladePeriodThem is { } pt && double.IsFinite(pt) && pt > 0 ? pt : 2.7;
     }
 
     // ---------- geometry ----------
@@ -832,6 +862,14 @@ public sealed class PhysicsWorld
         {
             var aBlade = a.ZG + a.Vehicle.ShovelHeight;
             var bBlade = b.ZG + b.Vehicle.ShovelHeight;
+            if (_antiStallAmp > 0)
+            {
+                // 反僵局微调: 双方有效铲刃高度各叠加慢速正弦项 (共享 a.Fsm.SimT 时间源,
+                // 初相由 (seed, role) 哈希派生, 振幅/周期是 SimParameters 加性键);
+                // amp<=0 时完全跳过 → 逐位恢复旧行为。阈值 0.004 与楔入下游路径不变。
+                aBlade += _antiStallAmp * Math.Sin(2 * Math.PI * a.Fsm.SimT / _antiStallPeriodUs + _phaseUs);
+                bBlade += _antiStallAmp * Math.Sin(2 * Math.PI * a.Fsm.SimT / _antiStallPeriodThem + _phaseThem);
+            }
             if (Math.Abs(aBlade - bBlade) > 0.004)
             {
                 (aBlade > bBlade ? a : b).WedgedFront = true;
