@@ -299,3 +299,144 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 11: AI Agent 无头并行快速仿真 (batch 命令)
+
+**Date**: 2026-08-29
+**Task**: AI Agent 无头并行快速仿真 (batch 命令)
+**Branch**: `feat/ai-batch-sim`
+
+### Summary
+
+完成 08-29-ai-agent-headless-parallel-simulation：新增 Sim.Cli batch 命令（sim-batch-result-v1 JSONL、有界 worker pool 默认 min(CPU,8) 上限 32、每场独立 scenario/engine/PythonBridge 子进程、指纹排除运行元数据、退出码 0/1/2、--out 原子写），从 RunOne 抽取 MatchRunner 供 match/replay-record/batch 共用（旧命令字节级兼容验证），EchoController 测试夹具覆盖 echo/wrongid/bad/die/hang 的隔离与回收；测试 315/315，replay-check/Godot parity/edit-smoke 全绿；质量门修复 wrongid 夹具 ID 别名偶发等 3 项。新增 spec/backend/batch-simulation.md 契约。AI agent 可 dotnet run --batch --seeds ... --parallelism k 无界面并行仿真。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5baca51` | (see git log) |
+| `7f9745f` | (see git log) |
+| `f92f434` | (see git log) |
+| `48bc461` | (see git log) |
+| `e38171d` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 12: Godot 3D 赛事视觉真实感优化
+
+**Date**: 2026-08-29
+**Task**: Godot 3D 赛事视觉真实感优化
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 08-29-godot-3d-visual-fidelity-polish（接手另窗口中断的 WIP）：默认取景占比 51.9%×53.9% 达标、程序化天空/三点光/Filmic+SSAO/一次更新 ReflectionProbe、四类 PBR 材质工厂与机器人多分件（顶盖/侧带/4轮/车头/推铲/灯带/接触阴影盘）、MSAA 4×；glow/TAA 默认关（白心泛光威胁灰度判读/拖影，实验配方入 README）；台面灰度 Unshaded 官方调色板契约零改动；新增 --capture-frames/--camera-cycle 验收旗标与 camera-smoke R1 取景断言（去钳制）。质量门修复接触阴影盘 z 序被台面遮挡、R1 断言钳制掩盖回归两处。315/315 测试、双 smoke、Godot parity、双分辨率真实渲染证据全通过；720p 帧时间无退化。前端两份规范沉淀视觉栈约定与证据要求。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a2ed0a5` | (see git log) |
+| `be66ac8` | (see git log) |
+| `690f3f6` | (see git log) |
+| `cce7f35` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 13: Godot 3D 二轮视觉校正与能量块修复
+
+**Date**: 2026-08-30
+**Task**: Godot 3D 二轮视觉校正与能量块修复
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 08-29-godot-3d-visual-second-pass：相机拖拽四方向反转契约（camera-smoke 扩为四方向断言 + --camera-orbit QA 旗标）；台面显示改官方欧氏径向渐变（中心白→四角黑，消除 L∞ 方形范数的对角亮带；FieldGrayLocal 传感器 0-1000 语义零改动，显示/传感器双语义分离写入规范）；能量块修复三连——深色棱线+顺光接触阴影（落地感）、绕序修正为 Godot 顺时针正面（修复空心透视导致的悬空面片/跟随视角观感）、官方赛事贴纸与全屏显示校正（六面 UV 贴图/canvas_items 等比拉伸/headless 输入缩放）。319→324 测试全绿，parity/replay-check 逐位通过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ab0f923` | (see git log) |
+| `028ec60` | (see git log) |
+| `d8be837` | (see git log) |
+| `da28169` | (see git log) |
+| `54951d0` | (see git log) |
+| `f000c1c` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 14: 布局编辑实体点选拖拽
+
+**Date**: 2026-08-30
+**Task**: 布局编辑实体点选拖拽
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 08-30-godot-entity-pick-drag：布局编辑模式支持直接点击/拖动能量块与双方小车——Selection 扩展 RobotUs/RobotThem，世界空间解析命中代理（块体 AABB/车辆圆柱+容差，零物理碰撞体），命中序=最近射线距离（同距优先机器人），低角度不再依赖 y=0 投射；LayoutDraft.MoveStart 只改出生位 X/Y（保留 Th 与出发区），拖动=一次撤销分组；选中高亮与 我方小车/对手小车 标签；edit-smoke 扩展实体拖动隔离/低角度命中/应用重建一致性断言，InjectButtonDrag 修正 canvas→window 拉伸换算。修复布局编辑器门禁（Prep 空转 tick 使 TickIndex>0 导致人工永远无法按 E 进入，改只看比赛阶段）。324/324 测试全绿，parity/replay-check 逐位通过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `de79fd0` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 15: 物理反僵局优化 (铲刃微调破除顶牛死锁)
+
+**Date**: 2026-08-30
+**Task**: 物理反僵局优化 (铲刃微调破除顶牛死锁)
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 08-30-physics-anti-stalemate：同型机器人正面顶牛死锁根因=楔入阈值 |Δ铲刃|>4mm 对逐位同型车永假。修复：正面接触(facing>0.6π)时双方铲刃叠加种子派生慢速正弦微调（antiStallBladeAmp 0.006m，周期 2.1/2.7s 拍频，相位 HashString32(seed,role) 构造期派生，零 rng 流消费），周期性越过楔入阈值→对方 FrontLoad→驱动力 20%→僵局自然破除。实测 60s 完全锁死→0.65s 首楔、10s 内推离 0.56m。amp=0 逐位恢复旧行为；普通 seed42 比赛逐位不变（godot-parity 基线除 createdAt 零差异）；restart 基线正规再生成（新链路 8:10）。330/330 测试、全部 replay-check/parity/smoke 绿；PORTING_NOTES 条目 10 记录有意偏差。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4d53942` | (see git log) |
+| `5bbcd3e` | (see git log) |
+| `595ffbf` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 16: Godot 3D 视觉三阶收尾
+
+**Date**: 2026-08-31
+**Task**: Godot 3D 视觉三阶收尾
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 Forward+ SDFGI、低密度体积雾、阈值 Glow、远景 DoF、程序化材质微噪声、自定义倒角能量块、机器人细分件及场地装饰；通过 330 项 .NET 测试、Godot camera/edit smoke、CLI 与 Godot parity，归档视觉任务。保留未相关的 .learnings 与遥测任务。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `86ac17f` | (see git log) |
+| `8617f3b` | (see git log) |
+
+### Status
+
+[OK] **Completed**

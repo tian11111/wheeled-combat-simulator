@@ -7,7 +7,7 @@
 ```
 ┌──────────────────────────┐   ┌──────────────────────────┐
 │ godot/  (Godot 4 .NET)   │   │ Sim.Cli  (.NET 8 无头)    │
-│ 3D 展示壳: 渲染/相机/HUD/ │   │ 评测/回放: match /        │
+│ 3D 展示壳: 渲染/相机/HUD/ │   │ 评测/回放: match / batch / │
 │ 回放时间轴               │   │ replay-record / replay-check│
 │ 只消费快照+发裁判指令     │   │ 可拉起 Python 策略进程    │
 └──────────┬───────────────┘   └──────────┬───────────────┘
@@ -38,6 +38,12 @@ Godot 物理仅用于可视摆放与可选诊断，**不参与判分**。未来�
 - 随机数用 mulberry32 并按 `(seed, step, role, channel)` 派生独立传感器噪声流，
   增删一个传感器通道不会重排比赛逻辑里的随机序列。
 - 渲染掉帧/客户端关闭 **不改变**仿真时钟：展示端用固定步长累加器推进内核。
+- 反僵局铲刃微调：正面顶牛的同型机器人铲刃静差恒为 0，遗留楔入阈值永不触发 →
+  对推死锁。楔入判定内给双方有效铲刃高度叠加慢速正弦微调（场景键
+  `antiStallBladeAmp` 默认 0.006 m，**0=关闭逐位恢复旧行为**；周期
+  `antiStallBladePeriodUs/Them` 默认 2.1/2.7 s），初相由 `(seed, role)` 哈希派生、
+  时间源是比赛时钟——仍是比赛时间的确定函数，不消费比赛随机流
+  （有意偏差，见 `docs/PORTING_NOTES.md` 第 2 节第 10 条）。
 
 ## 跨端一致性
 
@@ -126,6 +132,7 @@ MBri CSV（本地忽略目录, 不入库）
 - `src/Sim.Calibration/` — 纯标定库：拟合器、分解层、mount 门控评估、报告指纹。
 - `src/Sim.VisionReplay/` — 视觉证据分线纯库：vision-replay-v1 schema、MBri 导入校验、链路质量指标、报告指纹。
 - `src/Sim.Cli/Program.cs` — 无头命令；`PythonBridge.cs` — 外部策略进程适配；`VisionCommand.cs` — `vision import/evaluate`。
+- `src/Sim.Cli/{BatchCommand,BatchExecutor,BatchFingerprint}.cs` — AI agent 无头批量仿真：严格预检、有界 worker pool（每场独立场景副本/引擎/控制器进程）、`sim-batch-result-v1` JSONL 与稳定指纹；并发编排全部留在 CLI 层，`Sim.Core` 不感知并行。
 - `godot/src/SnapshotView.cs` — 快照→渲染帧（无 Godot 依赖，可单测）。
 - `godot/src/MatchSession.cs` — 会话门面：固定步长实况 + 回放重构/缓存/导航（无 Godot 依赖，可单测）。
 - `godot/src/ParityCheck.cs` — 跨端一致性校验（无 Godot 依赖，可单测）。

@@ -12,4 +12,9 @@
     <ProjectReference Include="..\Sim.VisionReplay\Sim.VisionReplay.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Sim.Tests drives internal seams (BatchExecutor fake-worker overlap test). -->
+    <InternalsVisibleTo Include="Sim.Tests" />
+  </ItemGroup>
+
 </Project>

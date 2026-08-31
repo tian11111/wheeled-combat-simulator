@@ -5,8 +5,6 @@ namespace Sim.Cli;
 
 public static class Program
 {
-    private const int MaxTicks = 10_000;
-
     public static int Main(string[] args)
     {
         if (args.Length == 0)
@@ -24,6 +22,7 @@ public static class Program
                 "calibrate" => CalibrateCommand.Run(args),
                 "sensor-calibration" => SensorCalibrationCommand.Run(args),
                 "vision" => VisionCommand.Run(args),
+                "batch" => BatchCommand.Run(args),
                 "--help" or "-h" => Help(),
                 _ => Unknown(args[0]),
             };
@@ -60,6 +59,15 @@ public static class Program
             };
             return scenario;
         }
+
+        /// <summary>Controller/timeout/event options for the shared MatchRunner.</summary>
+        public MatchRunner.Options RunnerOptions() => new()
+        {
+            ControllerUs = ControllerUs,
+            ControllerThem = ControllerThem,
+            TimeoutMs = TimeoutMs,
+            Events = Events,
+        };
     }
 
     private static Options ParseOptions(string[] args)
@@ -104,7 +112,7 @@ public static class Program
     }
 
     /// <summary>Default layout: official 2026 field with frozen block coordinates.</summary>
-    private static Scenario DefaultScenario() => new()
+    internal static Scenario DefaultScenario() => new()
     {
         Seed = 42,
         Blocks = OfficialLayout.Blocks,
@@ -112,64 +120,7 @@ public static class Program
 
     // ---------- match ----------
 
-    private sealed record MatchResult(
-        long Seed, long Ticks, Scores Scores, Scores Penalties,
-        string? DoneReason, long UsFaults, long ThemFaults,
-        List<string> EventFingerprints, ReplayHeader Header);
-
-    private static MatchResult RunOne(Options options, long seed)
-    {
-        var engine = new MatchEngine(options.BuildScenario(seed));
-        using PythonBridge? usBridge = options.ControllerUs is null
-            ? null
-            : PythonBridge.Start(options.ControllerUs, options.TimeoutMs);
-        using PythonBridge? themBridge = options.ControllerThem is null
-            ? null
-            : PythonBridge.Start(options.ControllerThem, options.TimeoutMs);
-
-        engine.Arm();
-        var fingerprints = new List<string>();
-        var snapshots = new List<Snapshot>();
-        while (!engine.Done && snapshots.Count < MaxTicks)
-        {
-            RobotAction? usAction = null;
-            RobotAction? themAction = null;
-            if (usBridge is not null && !engine.Done)
-            {
-                usAction = usBridge.Decide(engine.BuildObservation(engine.Us));
-            }
-            if (themBridge is not null && !engine.Done)
-            {
-                themAction = themBridge.Decide(engine.BuildObservation(engine.Them));
-            }
-            var snapshot = engine.Tick(usAction, themAction);
-            snapshots.Add(snapshot);
-            if (snapshot.Events is { Count: > 0 })
-            {
-                foreach (var evt in snapshot.Events)
-                {
-                    fingerprints.Add($"{evt.Seq}|{evt.Tick}|{evt.Type}|{evt.Cls}|{evt.Msg}");
-                    if (options.Events)
-                    {
-                        Console.WriteLine($"[{evt.Seq,4}] t={evt.T,7:0.00} {evt.Type,-16} {evt.Msg}");
-                    }
-                }
-            }
-        }
-
-        return new MatchResult(
-            seed,
-            snapshots.Count,
-            engine.Scores,
-            engine.RestartPenalties,
-            engine.Done ? snapshots[^1].DoneReason : "(未结束)",
-            usBridge?.Faults ?? 0,
-            themBridge?.Faults ?? 0,
-            fingerprints,
-            engine.BuildReplayHeader());
-    }
-
-    private static void PrintResult(MatchResult result)
+    private static void PrintResult(MatchRunner.MatchRunResult result)
     {
         Console.WriteLine(
             $"seed={result.Seed} ticks={result.Ticks} score 我方 {result.Scores.Us:0.#} : {result.Scores.Them:0.#} 对手"
@@ -179,10 +130,10 @@ public static class Program
 
     private static int RunMatch(Options options)
     {
-        var results = new List<MatchResult>();
+        var results = new List<MatchRunner.MatchRunResult>();
         foreach (var seed in options.Seeds)
         {
-            var result = RunOne(options, seed);
+            var result = MatchRunner.Run(options.BuildScenario(seed), options.RunnerOptions());
             PrintResult(result);
             results.Add(result);
         }
@@ -211,7 +162,7 @@ public static class Program
         }
 
         var scenario = options.BuildScenario(options.Seeds[0]);
-        var result = RunOne(options, options.Seeds[0]);
+        var result = MatchRunner.Run(scenario, options.RunnerOptions());
         var file = new ReplayFile
         {
             Scenario = scenario,
@@ -337,6 +288,9 @@ public static class Program
               dotnet run --project src/Sim.Cli -- match [--seed 42|--seeds 1,2,3] [--scenario <path>]
                          [--duration 120] [--controller-us <cmd>] [--controller-them <cmd>]
                          [--timeout-ms 100] [--events]
+              dotnet run --project src/Sim.Cli -- batch [--seed 42|--seeds 1,2,3] [--scenario <path>]
+                         [--duration 120] [--controller-us <cmd>] [--controller-them <cmd>]
+                         [--timeout-ms 100] [--parallelism 4] [--out artifacts/batch.jsonl]
               dotnet run --project src/Sim.Cli -- replay-record --seed 42 --out replays/seed-42.json
                          [--scenario <path>] [--controller-us <cmd>] [--events]
               dotnet run --project src/Sim.Cli -- replay-check replays/seed-42.json

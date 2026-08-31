@@ -189,7 +189,18 @@ public static class VisionCommand
         var scenarioPath = Get(args, "--scenario");
         var outPath = Get(args, "--out");
         var sessionArg = Get(args, "--session");
-        var maxAgeMs = double.TryParse(Get(args, "--max-age-ms"), out var age) ? age : DefaultMaxAgeMs;
+        var maxAgeRaw = Get(args, "--max-age-ms");
+        double maxAgeMs;
+        if (maxAgeRaw is null)
+        {
+            maxAgeMs = DefaultMaxAgeMs;
+        }
+        else if (!double.TryParse(maxAgeRaw, System.Globalization.NumberStyles.Float,
+                     System.Globalization.CultureInfo.InvariantCulture, out maxAgeMs))
+        {
+            // 显式拒绝不可解析的取值: 静默回退默认窗口会让 stale 统计失真且无从察觉。
+            throw new VisionEvidenceException($"--max-age-ms 不是有效数值: '{maxAgeRaw}'");
+        }
         var json = args.Contains("--json");
         var force = args.Contains("--force");
         if (evidenceDir is null || scenarioPath is null || outPath is null)

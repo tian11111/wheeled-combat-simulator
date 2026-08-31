@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "Determinism contract (no rng stream consumption, seed-derived phase), Sim.Core purity, baseline regeneration via official tools only"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Parameter parsing conventions in SimParameters"}

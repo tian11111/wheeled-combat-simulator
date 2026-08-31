@@ -27,6 +27,10 @@ godot/.godot/
 # Godot reimport metadata for evidence screenshots (regenerated on editor open)
 godot/docs/*.png.import
 
+# Godot visual-QA captures are reproducible task evidence; commit the markdown
+# report, not the generated PNG batches.
+.trellis/tasks/**/research/**/*.png
+
 # Calibration inputs/reports derived from operator-held telemetry (like
 # replays: reproducible from the data + calibrate command, no binary value
 # in git). Commit deliberately with `git add -f` when an audit needs it.

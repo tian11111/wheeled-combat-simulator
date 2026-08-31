@@ -190,6 +190,26 @@ public class VisionReplayEvaluateTests : IDisposable
     }
 
     [Fact]
+    public void InvalidMaxAge_IsRejected_NotSilentlyDefaulted()
+    {
+        var (_, evidenceDir, _, evalOut) = NewWorkspace();
+        var scenario = FindRepoFile(ScenarioPath);
+        var exit = RunEvaluate(evidenceDir, scenario, evalOut, "--max-age-ms", "abc");
+        Assert.Equal(1, exit);
+        Assert.False(File.Exists(evalOut));
+    }
+
+    [Fact]
+    public void ExplicitMaxAge_IsHonored_InvariantDecimal()
+    {
+        var (work, evidenceDir, _, _) = NewWorkspace();
+        var evalOut = Path.Combine(work, "eval-age.json");
+        Assert.Equal(0, RunEvaluate(evidenceDir, FindRepoFile(ScenarioPath), evalOut, "--max-age-ms", "250.5"));
+        var report = ProtocolJson.Deserialize<VisionReplayReport>(File.ReadAllText(evalOut));
+        Assert.Equal(250.5, report.Policy!.MaxAgeMs, 6);
+    }
+
+    [Fact]
     public void UnknownSession_IsRejected()
     {
         var (_, evidenceDir, _, evalOut) = NewWorkspace();

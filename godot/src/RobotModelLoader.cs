@@ -147,13 +147,18 @@ public static class RobotModelLoader
         node.Free();
     }
 
+    /// <summary>
+    /// 切换 primitive fallback 分件的可见性: ArenaVisualizer 给每个渲染分件
+    /// (车体/上盖/侧带/车轮/车头/推铲/灯带/接触阴影) 打 "primitivePart" meta,
+    /// 登台指示环不打 — 模型导入成功后分件整体让位, 指示环始终保留为诊断层。
+    /// </summary>
     private static void ShowPrimitive(Node3D robotRoot, bool visible)
     {
-        foreach (var part in new[] { "Body", "Nose", "Shovel" })
+        foreach (var child in robotRoot.GetChildren())
         {
-            if (robotRoot.GetNodeOrNull<Node3D>(part) is { } node)
+            if (child is Node3D part && part.HasMeta("primitivePart"))
             {
-                node.Visible = visible;
+                part.Visible = visible;
             }
         }
     }
@@ -174,9 +179,16 @@ public static class RobotModelLoader
                     var normals = array.SurfaceGetArrays(i)[(int)Mesh.ArrayType.Normal];
                     if (normals.VariantType == Variant.Type.Nil || normals.As<Vector3[]>().Length == 0)
                     {
+                        var material = array.SurfaceGetMaterial(i);
                         var tool = new SurfaceTool();
                         tool.AppendFrom(array, i, Transform3D.Identity);
                         tool.GenerateNormals();
+                        // AppendFrom 不携带 surface 材质: 不回挂的话 Commit 后会掉到
+                        // Godot 默认白材质 (缺失法线的网格被"修黑为白")。
+                        if (material is not null)
+                        {
+                            tool.SetMaterial(material);
+                        }
                         var fixedMesh = tool.Commit();
                         if (fixedMesh is not null)
                         {

@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "Iron rules: Sim.Core must stay engine/IO/thread/process-free; determinism contract; PythonBridge JSONL stdio with request-id matching and timeout-zero-action-fault semantics"}
+{"file": ".trellis/spec/backend/index.md", "reason": "CLI layer boundaries and IO ownership around the headless simulation libraries"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "Where BatchCommand/BatchExecutor/MatchRunner files belong in Sim.Cli and where the batch DTO belongs in Sim.Protocol"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "CLI exit-code 0/1/2 conventions, validate-before-output, no fake partial success reports"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "CLI stdout/stderr conventions: machine JSONL on stdout, human diagnostics on stderr"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Protocol DTO -> CLI orchestration -> core engine data flow must stay consistent across layers"}

@@ -109,7 +109,8 @@ public sealed class MatchEngine
         _them.Fsm.Timer = matchDuration;
 
         _events = new EventBus();
-        _physics = new PhysicsWorld(_field, _params, _us, _them, _blocks, _events);
+        _physics = new PhysicsWorld(_field, _params, _us, _them, _blocks, _events,
+            AntiStallPhase(scenario.Seed, RoleNames.Us), AntiStallPhase(scenario.Seed, RoleNames.Them));
         _sensors = new SensorSampler(_field, _params, _us, _them, _blocks, scenario.Seed, () => SimStepIndex);
         _fsm = new FsmController(_field, _physics, _params, () => _rng.Next(), _us, _them, _blocks, _events,
             _vision, OnBothDone);
@@ -118,6 +119,13 @@ public sealed class MatchEngine
         _sensors.SampleSensorsFor(_us);
         _sensors.SampleSensorsFor(_them);
     }
+
+    /// <summary>
+    /// 反僵局铲刃微调初相 (rad): 由 (seed, role) 经既有 <c>hashString32</c> 派生到
+    /// [0, 2π)。独立哈希派生, 不消费 Mulberry32 比赛随机流; 同 seed 同 role 恒同相。
+    /// </summary>
+    private static double AntiStallPhase(long seed, string role)
+        => (uint)DeterministicRandom.HashString32($"anti-stall:{seed}:{role}") / 4294967296.0 * (2 * Math.PI);
 
     /// <summary>
     /// Spawns a robot. Scenario start poses are field-local (see
@@ -217,6 +225,9 @@ public sealed class MatchEngine
     public Scenario Scenario => _scenario;
 
     public FieldModel Field => _field;
+
+    /// <summary>物理世界只读诊断入口 (反僵局微调参数/初相等, 供测试与诊断; 不开放写路径)。</summary>
+    public PhysicsWorld Physics => _physics;
 
     public RobotRuntime Us => _us;
 
@@ -325,7 +336,7 @@ public sealed class MatchEngine
         {
             _penaltyThem += pts;
         }
-        OppGain(r, pts);
+        OppGain(r, pts, "penalty");
         _events.Emit(EventKind.RestartPenalty, r,
             $"[referee] {(pts == 4 ? "重启" : "调试")}判罚, 对方 +{Js.Num(pts)} ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})", "score");
         RecordCommand($"restart:{key}:{kind}");
@@ -334,17 +345,19 @@ public sealed class MatchEngine
 
     /// <summary>
     /// Real restart (referee R/T): the target robot returns to its scenario
-    /// start pose with motion, sensor and FSM transients cleaned; the opponent
-    /// is awarded exactly 4 points and the restarted role's penalty total
-    /// increments once. The match clock, the other robot and the blocks are
-    /// preserved, and the restarted robot re-enters MOUNT_RING (armed) so it
-    /// resumes the mount/recovery flow without extending the clock — a robot
-    /// that already finished is revivable while the match is still active.
+    /// start pose with motion, sensor and FSM transients cleaned. Per the 2026
+    /// rules (重启机器人: 举手示意并经裁判同意后重启给对方加 3 分) the opponent
+    /// is awarded exactly 3 points — the +4 path is the unapproved-restart
+    /// penalty, kept only in the legacy <see cref="RestartPenalty"/> kind
+    /// mapping — and the restarted role's penalty total increments once. The
+    /// match clock, the other robot and the blocks are preserved, and the
+    /// restarted robot re-enters MOUNT_RING (armed) so it resumes the
+    /// mount/recovery flow without extending the clock — a robot that already
+    /// finished is revivable while the match is still active.
     /// Only legal while the match is live (<see cref="MatchControlPhase.Running"/>
     /// or <see cref="MatchControlPhase.Paused"/>); Prep/Ready/Finished reject
     /// with no score, event or replay changes. Records the additive command
-    /// <c>restart_robot:&lt;role&gt;</c>; the legacy penalty-only
-    /// <see cref="RestartPenalty"/> path is untouched.
+    /// <c>restart_robot:&lt;role&gt;</c>.
     /// Returns false when the current phase rejects the restart.
     /// </summary>
     public bool RestartRobot(string role)
@@ -360,7 +373,7 @@ public sealed class MatchEngine
         }
         var r = role == RoleNames.Us ? _us : _them;
         ResetRobotToStart(r);
-        const double points = 4;
+        const double points = 3; // 2026 规则: 裁判同意的重启 = 对方 +3 (+4 是未经同意的违规判罚)
         if (r.IsUs)
         {
             _penaltyUs += points;
@@ -369,7 +382,7 @@ public sealed class MatchEngine
         {
             _penaltyThem += points;
         }
-        OppGain(r, points);
+        OppGain(r, points, "restart");
         _events.Emit(EventKind.Restart, r,
             $"[referee] 真实重启 {r.Name}: 回到出发点并清理瞬态, 对方 +{Js.Num(points)} ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})",
             "score",
@@ -442,8 +455,14 @@ public sealed class MatchEngine
 
     // ---------- scoring helpers ----------
 
-    private void Gain(RobotRuntime r, double pts)
+    // 按规则记分表分类的计分明细 (掉台/读秒/推块/判罚/重启/消极), 供记分牌显示。
+    private readonly Dictionary<string, double> _breakdownUs = new();
+    private readonly Dictionary<string, double> _breakdownThem = new();
+
+    private void Gain(RobotRuntime r, double pts, string source = "other")
     {
+        var breakdown = r.IsUs ? _breakdownUs : _breakdownThem;
+        breakdown[source] = breakdown.GetValueOrDefault(source) + pts;
         if (r.IsUs)
         {
             _scoreUs += pts;
@@ -454,7 +473,8 @@ public sealed class MatchEngine
         }
     }
 
-    private void OppGain(RobotRuntime r, double pts) => Gain(r.IsUs ? _them : _us, pts);
+    private void OppGain(RobotRuntime r, double pts, string source = "other")
+        => Gain(r.IsUs ? _them : _us, pts, source);
 
     private void LogScore(RobotRuntime r, string msg, EventKind kind = EventKind.BlockScore, object? data = null)
         => _events.Emit(kind, r, msg, "score", data);
@@ -617,7 +637,7 @@ public sealed class MatchEngine
                 var pusher = role == RoleNames.Us ? _us : role == RoleNames.Them ? _them : null;
                 if (o.Kind == BlockKind.Buff && pusher is not null)
                 {
-                    Gain(pusher, 3);
+                    Gain(pusher, 3, "block_buff");
                     LogScore(pusher,
                         $"[score] 增益块被推下擂台! {pusher.Name} +3 ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})",
                         data: new { block = o.Name, points = 3, scorer = pusher.Role, kind = o.Kind.ToString().ToLowerInvariant() });
@@ -625,7 +645,7 @@ public sealed class MatchEngine
                 }
                 else if (o.Kind == BlockKind.Debuff && pusher is not null)
                 {
-                    OppGain(pusher, 6);
+                    OppGain(pusher, 6, "block_debuff");
                     LogScore(pusher,
                         $"[score] 失误! 减益块被推下, 对方 +6 ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})",
                         data: new { block = o.Name, points = 6, scorer = (pusher.IsUs ? RoleNames.Them : RoleNames.Us), kind = "debuff" });
@@ -678,13 +698,13 @@ public sealed class MatchEngine
         }
         else if (usDrop && prevThem && nowThem && _us.Fsm.Armed && _us.Fsm.State != FsmState.Finished)
         {
-            OppGain(_us, 1);
+            OppGain(_us, 1, "drop");
             LogScore(_us, $"[score] 我方掉台, 对方 +1 ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})",
                 EventKind.Drop, new { role = RoleNames.Us, points = 1, scorer = RoleNames.Them });
         }
         else if (themDrop && prevUs && nowUs && _them.Fsm.Armed && _them.Fsm.State != FsmState.Finished)
         {
-            OppGain(_them, 1);
+            OppGain(_them, 1, "drop");
             LogScore(_them, $"[score] 对手掉台, 我方 +1 ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})",
                 EventKind.Drop, new { role = RoleNames.Them, points = 1, scorer = RoleNames.Us });
         }
@@ -720,7 +740,7 @@ public sealed class MatchEngine
             {
                 _scorePhaseT -= 10;
                 var r = phase == "us_only" ? _us : _them;
-                Gain(r, 1);
+                Gain(r, 1, "clock");
                 LogScore(r, $"[score] 登台/掉台读秒: {r.Name} +1 ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})",
                     EventKind.ScoreClock, new { points = 1, phase });
             }
@@ -756,7 +776,7 @@ public sealed class MatchEngine
             if (st.InactiveT >= 10 && !st.InactiveWarned)
             {
                 st.InactiveWarned = true;
-                OppGain(r, 1);
+                OppGain(r, 1, "inactivity");
                 _events.Emit(EventKind.Inactivity, r,
                     $"[score] 消极比赛超过10秒, 对方 +1 ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})", "warn",
                     new { role = r.Role, points = 1 });
@@ -939,6 +959,13 @@ public sealed class MatchEngine
         Objects = BuildObjectSet(),
         Events = events,
         Reward = reward,
+        ScoreBreakdown = new Dictionary<string, Dictionary<string, double>>
+        {
+            [RoleNames.Us] = new Dictionary<string, double>(_breakdownUs),
+            [RoleNames.Them] = new Dictionary<string, double>(_breakdownThem),
+        },
+        ScoreClockPhase = _scorePhase is "us_only" or "them_only" ? _scorePhase : null,
+        ScoreClockSeconds = _scorePhaseT,
     };
 
     private RobotState ToRobotState(RobotRuntime r) => new()

@@ -158,6 +158,86 @@ public class LayoutDraftTests : IDisposable
     }
 
     [Fact]
+    public void MoveStart_ChangesPositionOnly_KeepsHeadingZonesAndOtherRoles()
+    {
+        var draft = new LayoutDraft(OfficialBase());
+        var zoneBefore = draft.State.StartZones[RoleNames.Us];
+        var themBefore = draft.State.Starts[RoleNames.Them];
+
+        draft.MoveStart(RoleNames.Us, 1.05, 0.4);
+
+        var start = draft.State.Starts[RoleNames.Us];
+        Assert.Equal(1.05, start.X, 9);
+        Assert.Equal(0.4, start.Y, 9);
+        Assert.Equal(-Math.PI / 2, start.Th); // heading preserved bit-for-bit
+        Assert.Equal(zoneBefore, draft.State.StartZones[RoleNames.Us]);
+        Assert.Equal(themBefore, draft.State.Starts[RoleNames.Them]);
+    }
+
+    [Fact]
+    public void MoveStart_DragGroup_CommitsAsOneUndoStep()
+    {
+        var draft = new LayoutDraft(OfficialBase());
+        var before = draft.State.Starts[RoleNames.Us];
+
+        draft.BeginGroup();
+        draft.MoveStart(RoleNames.Us, 0.8, 0.2);
+        draft.MoveStart(RoleNames.Us, 1.1, 0.45);
+        draft.EndGroup();
+
+        Assert.Equal(1.1, draft.State.Starts[RoleNames.Us].X, 9);
+        Assert.Equal(0.45, draft.State.Starts[RoleNames.Us].Y, 9);
+        Assert.True(draft.CanUndo);
+        draft.Undo();
+        Assert.Equal(before, draft.State.Starts[RoleNames.Us]);
+        Assert.False(draft.CanUndo); // one continuous drag = one undo entry
+        draft.Redo();
+        Assert.Equal(1.1, draft.State.Starts[RoleNames.Us].X, 9);
+        Assert.Equal(0.45, draft.State.Starts[RoleNames.Us].Y, 9);
+    }
+
+    [Fact]
+    public void MoveStart_NoOpInsideGroup_LeavesNoHistory()
+    {
+        var draft = new LayoutDraft(OfficialBase());
+        var before = draft.State.Starts[RoleNames.Us];
+        draft.BeginGroup();
+        draft.MoveStart(RoleNames.Us, before.X, before.Y);
+        draft.EndGroup();
+        Assert.False(draft.CanUndo);
+    }
+
+    [Fact]
+    public void MoveStart_BuildScenarioCarriesStartIntoKernelSpawn()
+    {
+        var draft = new LayoutDraft(OfficialBase());
+        draft.MoveStart(RoleNames.Us, 1.05, 0.4);
+
+        var scenario = draft.BuildScenario();
+        Assert.Equal(1.05, scenario.Field.Starts[RoleNames.Us].X, 9);
+        Assert.Equal(0.4, scenario.Field.Starts[RoleNames.Us].Y, 9);
+        Assert.Equal(-Math.PI / 2, scenario.Field.Starts[RoleNames.Us].Th);
+
+        // The kernel spawns the robot exactly at the edited field-local start.
+        var engine = new Sim.Core.MatchEngine(scenario);
+        var snapshot = engine.CommitSnapshot();
+        var (sx, sy) = engine.Field.Transform.LocalToWorldPoint(1.05, 0.4);
+        Assert.Equal(sx, snapshot.Robots[RoleNames.Us].X, 12);
+        Assert.Equal(sy, snapshot.Robots[RoleNames.Us].Y, 12);
+    }
+
+    [Fact]
+    public void MoveStart_OutsideField_IsRejectedByValidation()
+    {
+        var draft = new LayoutDraft(OfficialBase());
+        draft.MoveStart(RoleNames.Us, -0.5, 0.3);
+        Assert.False(draft.CanApply);
+        Assert.Contains(draft.Validate(), e => e.Contains("must be inside the inner field"));
+        draft.Undo();
+        Assert.True(draft.CanApply);
+    }
+
+    [Fact]
     public void MoveBlock_FixesCoordinatesAndCanonicalOutput()
     {
         var draft = new LayoutDraft(new Scenario

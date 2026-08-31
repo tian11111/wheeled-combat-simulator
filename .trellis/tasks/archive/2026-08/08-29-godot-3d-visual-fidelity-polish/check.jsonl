@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "灰度契约/官方调色板/渲染不复刻规则的回归门"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "capture/parity/smoke 证据要求与相机交互回归清单"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "dotnet test 确定性门禁"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "跨层检查: 视觉增强不得改变 Scenario/Snapshot/仿真结果"}

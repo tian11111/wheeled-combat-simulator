@@ -1,16 +1,54 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://src/Main.cs" id="1_main"]
 [ext_resource type="Script" path="res://src/ArenaVisualizer.cs" id="2_arena"]
 [ext_resource type="Script" path="res://src/MatchCamera.cs" id="3_cam"]
 [ext_resource type="Script" path="res://src/HudPanel.cs" id="4_hud"]
 
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.035, 0.05, 0.085, 1)
+sky_horizon_color = Color(0.125, 0.16, 0.23, 1)
+sky_curve = 0.14
+; 概览机位俯角约 50°: 画面绝大部分背景是天空"地面"半球, 地面半球必须保持
+; 可辨的蓝灰而不是死黑, 否则擂台仍像浮在空黑里 (baseline 实测即此问题)。
+ground_bottom_color = Color(0.055, 0.072, 0.105, 1)
+ground_horizon_color = Color(0.115, 0.148, 0.205, 1)
+ground_curve = 0.3
+
+[sub_resource type="Sky" id="sky_main"]
+sky_material = SubResource("sky_mat")
+
 [sub_resource type="Environment" id="env_main"]
-background_mode = 1
-background_color = Color(0.09, 0.11, 0.14, 1)
-ambient_light_source = 3
-ambient_light_color = Color(0.72, 0.76, 0.86, 1)
-ambient_light_energy = 1.0
+background_mode = 2
+sky = SubResource("sky_main")
+ambient_light_source = 2
+ambient_light_color = Color(0.6, 0.66, 0.8, 1)
+ambient_light_energy = 0.75
+tonemap_mode = 2
+ssao_enabled = true
+sdfgi_enabled = true
+sdfgi_use_occlusion = true
+sdfgi_cascades = 2
+sdfgi_y_scale = 0.75
+sdfgi_energy = 1.0
+sdfgi_bounce_feedback = 0.35
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.003
+volumetric_fog_albedo = Color(0.28, 0.34, 0.46, 1)
+volumetric_fog_ambient_inject = 0.08
+volumetric_fog_sky_affect = 0.12
+volumetric_fog_temporal_reprojection_enabled = false
+glow_enabled = true
+glow_intensity = 0.35
+glow_bloom = 0.0
+glow_hdr_threshold = 1.2
+glow_hdr_scale = 1.0
+
+[sub_resource type="CameraAttributesPractical" id="camera_attributes_main"]
+dof_blur_far_enabled = true
+dof_blur_far_distance = 7.0
+dof_blur_far_transition = 3.0
+dof_blur_amount = 0.045
 
 [node name="Main" type="Node"]
 script = ExtResource("1_main")
@@ -20,12 +58,32 @@ environment = SubResource("env_main")
 
 [node name="Camera3D" type="Camera3D" parent="."]
 current = true
+attributes = SubResource("camera_attributes_main")
 script = ExtResource("3_cam")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.866, -0.354, 0.354, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 1.9, 5.2, 3.2)
-light_energy = 1.1
+light_color = Color(1, 0.97, 0.92, 1)
+light_energy = 1.2
 shadow_enabled = true
+
+[node name="FillLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.435561, 0, 0.900159, 0.468646, 0.853785, 0.226764, -0.768543, 0.520626, -0.371875, 0, 4, 0)
+light_color = Color(0.65, 0.75, 1, 1)
+light_energy = 0.3
+
+[node name="RimLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.96025, 0, -0.279142, -0.118521, 0.905386, 0.407712, 0.252732, 0.424589, -0.869397, 0, 4, 0)
+light_color = Color(0.75, 0.85, 1, 1)
+light_energy = 0.6
+
+[node name="ReflectionProbe" type="ReflectionProbe" parent="."]
+; 覆盖擂台+围栏并留少量余量, 居中于场地中心; UPDATE_ONCE 一次更新, 非每帧重渲染。
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.9, 1.5, 1.9)
+update_mode = 0
+intensity = 0.8
+box_projection = true
+size = Vector3(7.5, 3.5, 7.5)
 
 [node name="ArenaVisualizer" type="Node3D" parent="."]
 script = ExtResource("2_arena")

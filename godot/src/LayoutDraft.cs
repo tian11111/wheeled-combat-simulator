@@ -137,6 +137,27 @@ public sealed class LayoutDraft
         Apply(State with { StartZones = zones, Starts = starts });
     }
 
+    // ---------- start poses ----------
+
+    /// <summary>
+    /// Moves one role's start pose to an absolute field-local position. Only
+    /// X/Y change: the heading (<c>Th</c>) and the start zones stay untouched,
+    /// so dragging a vehicle never drags its zone rectangle and never turns it.
+    /// Goes through <see cref="Apply"/>, so undo/redo and drag groups work.
+    /// </summary>
+    public void MoveStart(string role, double localX, double localY)
+    {
+        if (!State.Starts.TryGetValue(role, out var start) || start is null)
+        {
+            return;
+        }
+        var starts = new Dictionary<string, Pose2>(State.Starts)
+        {
+            [role] = new Pose2 { X = localX, Y = localY, Th = start.Th },
+        };
+        Apply(State with { Starts = starts });
+    }
+
     // ---------- blocks ----------
 
     /// <summary>Moves a block to a fixed field-local position.</summary>

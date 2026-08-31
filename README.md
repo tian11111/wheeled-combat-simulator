@@ -9,10 +9,15 @@
 
 ```bash
 dotnet build                                   # 构建
-dotnet test                                    # 187 个回归测试(规则/确定性/回放/跨端/视图/场地布局/标定)
+dotnet test                                    # 315 个回归测试(规则/确定性/回放/跨端/视图/场地布局/标定)
 
 # 无头比赛(内置 FSM)
 dotnet run --project src/Sim.Cli -- match --seed 42
+
+# AI agent 无头批量仿真(多种子并行, JSONL 机器可读, 不启动 Godot)
+dotnet run --project src/Sim.Cli -- batch --seeds 1,2,3,4 --parallelism 4 --duration 3
+# → stdout 每个输入种子一行 sim-batch-result-v1 JSON(输入顺序), 退出码 0/1/2
+#   详见 docs/CLI.md 的 batch 章节
 
 # 接入外部 Python 策略(我方)
 dotnet run --project src/Sim.Cli -- match --seed 42 \
@@ -28,6 +33,11 @@ dotnet run --project src/Sim.Cli -- calibrate --input telemetry/data/<export>.js
 # MBri 传感器标定证据导入(sensor-calibration-v1; 与物理标定分线, 不影响运行时)
 dotnet run --project src/Sim.Cli -- sensor-calibration import --data-dir <MBri/data> --manifest selection.json --out calibration/sensor-report.json
 ```
+
+物理/裁判参数可经场景 `parameters` 覆盖（键与默认值见 `src/Sim.Core/SimParameters.cs`），
+如反僵局铲刃微调：正面顶牛的同型机器人由种子派生初相的慢速正弦铲刃微调周期性触发楔入
+（`antiStallBladeAmp` 默认 0.006 m，**0=关闭逐位恢复旧行为**，周期 2.1/2.7 s；有意偏差，
+见 `docs/PORTING_NOTES.md`）。
 
 ## 桌面端(Godot 4 .NET)
 

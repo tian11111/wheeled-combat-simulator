@@ -63,10 +63,16 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
 - 视觉 QA 以 `--capture` 视口像素分桶为机器可判定证据；桌面截图存 `godot/docs/`
   （其 `.import` 元数据不入库），调试用临时图不入库。
 - 台面灰度显示：像素↔场局部轴契约由 `godot/src/FieldGrayTextureMap.cs` 单一实现
-  （row 0 = 南、col 0 = 西），数值仍以 `FieldModel.FieldGrayLocal` 为唯一来源；
-  材质必须 Unshaded，防止方向光制造假对角灰度带。Godot 4 PlaneMesh(FACE_Y) 的
-  顶点与 UV 翻转互相抵消，改动映射前先以代表性像素测试验证
-  （`src/Sim.Tests/FieldGrayDisplayTests.cs`）。
+  （row 0 = 南、col 0 = 西），**显示与传感器是两种独立灰度语义**：传感器 0–1000
+  永远是 `FieldModel.FieldGrayLocal`（L∞ 手绘模型，一字不改、永不进纹理）；
+  显示用**官方效果图外观**（规则 PDF 第 10 页"四角纯黑→中心纯白"）——归一化欧氏
+  径向渐变 `OfficialSurfaceLuminance`（中心白、四角黑、边中点 1−1/√2、等欧氏半径
+  同亮度），几何红区红底白"武"优先覆盖，走道深灰属外场地面材质。旧 L∞ 方形显示
+  会画出白色对角亮带，禁止以任何 `max`/`|dx|+|dy|` 形式回到显示层。材质必须
+  Unshaded + 线性过滤，防止方向光/SSAO/探针制造假灰度带（关 SSAO/探针的 A/B
+  capture 逐像素一致）。Godot 4 PlaneMesh(FACE_Y) 的顶点与 UV 翻转互相抵消，
+  改动映射前先以代表性像素测试验证（`src/Sim.Tests/FieldGrayDisplayTests.cs`，
+  必须覆盖等欧氏半径轴向/对角向，不能只测对称点同值）。
 
 ## 真实重启契约（restart-v1）
 

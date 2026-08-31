@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "Determinism/baseline gates: bitwise replay-check/parity after physics change; legacy deviation must be documented in PORTING_NOTES"}
