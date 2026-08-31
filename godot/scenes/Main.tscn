@@ -26,6 +26,29 @@ ambient_light_color = Color(0.6, 0.66, 0.8, 1)
 ambient_light_energy = 0.75
 tonemap_mode = 2
 ssao_enabled = true
+sdfgi_enabled = true
+sdfgi_use_occlusion = true
+sdfgi_cascades = 2
+sdfgi_y_scale = 0.75
+sdfgi_energy = 1.0
+sdfgi_bounce_feedback = 0.35
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.003
+volumetric_fog_albedo = Color(0.28, 0.34, 0.46, 1)
+volumetric_fog_ambient_inject = 0.08
+volumetric_fog_sky_affect = 0.12
+volumetric_fog_temporal_reprojection_enabled = false
+glow_enabled = true
+glow_intensity = 0.35
+glow_bloom = 0.0
+glow_hdr_threshold = 1.2
+glow_hdr_scale = 1.0
+
+[sub_resource type="CameraAttributesPractical" id="camera_attributes_main"]
+dof_blur_far_enabled = true
+dof_blur_far_distance = 7.0
+dof_blur_far_transition = 3.0
+dof_blur_amount = 0.045
 
 [node name="Main" type="Node"]
 script = ExtResource("1_main")
@@ -35,6 +58,7 @@ environment = SubResource("env_main")
 
 [node name="Camera3D" type="Camera3D" parent="."]
 current = true
+attributes = SubResource("camera_attributes_main")
 script = ExtResource("3_cam")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]

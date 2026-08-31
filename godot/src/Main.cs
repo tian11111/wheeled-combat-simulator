@@ -45,6 +45,11 @@ public partial class Main : Node
     private string _capturePath = "";
     private string _captureStats = "";
     private int _smokeExit;
+    private int _visualFrameStatsLeft = -1;
+    private int _visualFrameStatsCount;
+    private double _visualFrameStatsSumMs;
+    private double _visualFrameStatsMinMs = double.PositiveInfinity;
+    private double _visualFrameStatsMaxMs;
     // 事件栏累积缓冲: 引擎快照的事件是增量 (自上次提交), 直接显示会闪现一帧
     // 即清空; 这里跨帧保留最近 N 条, 模式切换/场景重建时清空。
     private readonly List<string> _eventBuffer = [];
@@ -70,6 +75,9 @@ public partial class Main : Node
         {
             ScenarioPath = Path.GetFullPath(userArgs[spIndex + 1]);
         }
+
+        ApplyVisualQaOverrides(userArgs);
+        ConfigureVisualFrameStats(userArgs);
 
         var scenario = BuildScenario();
         _session = new MatchSession(scenario);
@@ -186,6 +194,57 @@ public partial class Main : Node
         GD.Print($"[shell] core={MatchEngine.CoreVersion} seed={scenario.Seed}"
             + $" tick={scenario.Field.TickSeconds}s duration={scenario.Field.MatchDuration}s"
             + $" mode={_session.Mode}");
+    }
+
+    /// <summary>
+    /// Applies presentation-only A/B switches before the first scenario render.
+    /// These flags deliberately live in the shell; they never enter Scenario,
+    /// Snapshot, replay hashes, or Sim.Core state.
+    /// </summary>
+    private void ApplyVisualQaOverrides(string[] userArgs)
+    {
+        var baseline = Array.IndexOf(userArgs, "--visual-baseline") >= 0;
+        var environment = GetNode<WorldEnvironment>("WorldEnvironment").Environment;
+        if (environment is not null)
+        {
+            if (baseline || Array.IndexOf(userArgs, "--visual-no-sdfgi") >= 0)
+            {
+                environment.SdfgiEnabled = false;
+            }
+            if (baseline || Array.IndexOf(userArgs, "--visual-no-fog") >= 0)
+            {
+                environment.VolumetricFogEnabled = false;
+            }
+            if (baseline || Array.IndexOf(userArgs, "--visual-no-glow") >= 0)
+            {
+                environment.GlowEnabled = false;
+            }
+        }
+
+        if (_camera.Attributes is CameraAttributesPractical practical
+            && (baseline || Array.IndexOf(userArgs, "--visual-no-dof") >= 0))
+        {
+            practical.DofBlurFarEnabled = false;
+        }
+
+        _visualizer.MaterialDetailEnabled = !baseline
+            && Array.IndexOf(userArgs, "--visual-no-material-noise") < 0;
+        GD.Print($"[visual-qa] sdfgi={environment?.SdfgiEnabled ?? false} "
+            + $"fog={environment?.VolumetricFogEnabled ?? false} "
+            + $"glow={environment?.GlowEnabled ?? false} "
+            + $"dof={_camera.Attributes is CameraAttributesPractical dof && dof.DofBlurFarEnabled} "
+            + $"materialNoise={_visualizer.MaterialDetailEnabled}");
+    }
+
+    private void ConfigureVisualFrameStats(string[] userArgs)
+    {
+        var index = Array.IndexOf(userArgs, "--visual-frame-stats");
+        if (index >= 0 && index + 1 < userArgs.Length
+            && int.TryParse(userArgs[index + 1], out var frames) && frames > 0)
+        {
+            _visualFrameStatsLeft = Math.Clamp(frames, 1, 10_000);
+            GD.Print($"[visual-qa] frame stats: {_visualFrameStatsLeft} frames");
+        }
     }
 
     // ---------- automated camera smoke (--camera-smoke) ----------
@@ -1006,6 +1065,7 @@ public partial class Main : Node
         {
             return;
         }
+        TickVisualFrameStats(delta);
         HandleCommands();
 
         if (_editor.Active)
@@ -1045,6 +1105,26 @@ public partial class Main : Node
         }
 
         TickCapture();
+    }
+
+    private void TickVisualFrameStats(double delta)
+    {
+        if (_visualFrameStatsLeft < 0)
+        {
+            return;
+        }
+        var milliseconds = delta * 1000.0;
+        _visualFrameStatsCount++;
+        _visualFrameStatsSumMs += milliseconds;
+        _visualFrameStatsMinMs = Math.Min(_visualFrameStatsMinMs, milliseconds);
+        _visualFrameStatsMaxMs = Math.Max(_visualFrameStatsMaxMs, milliseconds);
+        _visualFrameStatsLeft--;
+        if (_visualFrameStatsLeft == 0)
+        {
+            GD.Print($"[visual-qa] frame stats: count={_visualFrameStatsCount} "
+                + $"avg={_visualFrameStatsSumMs / _visualFrameStatsCount:0.###}ms "
+                + $"min={_visualFrameStatsMinMs:0.###}ms max={_visualFrameStatsMaxMs:0.###}ms");
+        }
     }
 
     // ---------- visual QA capture (--capture <png>) ----------

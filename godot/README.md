@@ -30,6 +30,10 @@
   等比放大，字体启用超采样；能量块按规则 PDF 第 11 页示意图使用黄绿色闪电圆环（增益）
   与紫色警示圆环叠红叉（减益），自定义六面 UV 保证立方体六个面都显示同一张完整图案。
   该改动只影响表现层，不改变仿真快照或能量块坐标。
+- ✅ 三轮视觉增强已交付：Forward+ 默认开启 SDFGI、低密度体积雾、阈值 Glow、远景 DoF，
+  并加入程序化表面微噪声、能量块倒角、机器人细分件、出发区描边与中央环线；所有增强均有
+  独立 QA 开关。RTX 5070 Ti Laptop 在 1920×1080 的热缓存进程帧间隔回归约 14.8%，未超过 30% 门槛，
+  台面仍保持独立 Unshaded 灰度契约。
 - ✅ `src/SnapshotView.cs`、`src/MatchSession.cs`、`src/ParityCheck.cs`、`src/LayoutDraft.cs`
   为无 Godot 依赖的纯 C# 层，经 `Sim.Tests` 编译链接纳入回归（含回放重构、跨端比对、
   布局草稿/拖拽分组/保存重载测试）。
@@ -164,12 +168,17 @@ seed/模式/场景/pid 便于分辨。注意自定义用户参数（`--scenario-
 | `--capture-frames <n>` | 覆盖 `--capture` 的默认 30 帧等待（例: 相机阻尼收敛/比赛推进后再截） |
 | `--camera-cycle <0-2>` | 启动即切换镜头模式 (0=概览 1=跟随 2=俯视, 仅表现层), 供三种机位的 capture 证据留存 |
 | `--camera-orbit <yaw>,<pitch>` | 启动即设置概览环绕角 (度, 同一限幅), 复现"左键拖动后"机位供 capture 证据 (仅表现层, 不注入输入事件) |
+| `--visual-baseline` | 关闭本轮全部视觉增强，作为同机位 A/B 基线 |
+| `--visual-no-sdfgi` / `--visual-no-fog` | 单独关闭 SDFGI / 体积雾 |
+| `--visual-no-glow` / `--visual-no-dof` | 单独关闭 Glow / 远景景深 |
+| `--visual-no-material-noise` | 单独关闭材质程序噪声 |
+| `--visual-frame-stats <n>` | 记录 n 帧主循环 `delta` 的平均/最小/最大毫秒值（表现进程代理指标，不含 GPU 计时） |
 
-## 视觉栈（第一轮，官方赛事贴图）
+## 视觉栈（三轮，官方赛事贴图）
 
 Forward+ 默认画面全部由内置能力构成, 每项都经真实 renderer 双分辨率 (1280×720 / 1920×1080)
-capture 验证; 不引入第三方 GLB/HDRI/自定义全屏 shader, 也不默认启用
-SDFGI/VoxelGI/Lightmap 烘焙。能量块仅使用仓库内两张由官方规则第 11 页示意图整理的 PNG；
+capture 验证; 不引入第三方 GLB/HDRI/自定义全屏 shader。SDFGI/体积雾/Glow/DoF 仅在支持的
+Forward+/Mobile 路径生效，gl_compatibility 自动降级。能量块仅使用仓库内两张由官方规则第 11 页示意图整理的 PNG；
 规则原文注明示意图仅供参考，实际标准打印图仍以赛项交流群发布版本为准。
 
 | 层 | 默认配置 | 说明 |
@@ -178,29 +187,33 @@ SDFGI/VoxelGI/Lightmap 烘焙。能量块仅使用仓库内两张由官方规则
 | 灯光 | 主光 (暖白 1.2, 带阴影) + 补光 (冷蓝 0.3) + 轮廓光 (冷蓝 0.6) | 三点关系: 方向/接触阴影、暗部抬升、机器人与围栏边缘分离 |
 | 反射 | `ReflectionProbe` 一次更新 (`UPDATE_ONCE`), 包围盒 7.5×3.5×7.5 限于擂台+围栏 | 机器人外壳/平台侧面获得稳定环境反射; 非每帧重渲染, 不依赖动态仿真 |
 | 后处理 | tonemap = Filmic, SSAO 开 (仅 Forward+; gl_compatibility 自动忽略) | 轻量层次增强; 台面灰度纹理为 `Unshaded`, 不受 SSAO/灯光/反射影响 |
+| 全局光照 | SDFGI 开、2 级联、occlusion 开、Y scale 0.75 | 仅 Forward+；`--visual-no-sdfgi` 可独立 A/B，台面仍由 Unshaded 纹理负责 |
+| 氛围 | 体积雾 density 0.003、低天空影响；Glow threshold 1.2、低强度；远景 DoF 0.045 | 不改 HUD；`--visual-no-fog` / `--visual-no-glow` / `--visual-no-dof` 可独立关闭 |
 | 抗锯齿 | MSAA 3D 4× (`project.godot`) | Forward+/gl_compatibility 都支持, 无运动拖影 |
-| 材质 | `ArenaVisualizer` 统一材质策略: 哑光橡胶 (地面/围栏/轮暗部)、喷涂金属 (车体/推铲)、白色板材 (平台侧面)、哑光赛事贴纸 (能量块)、自发光 (灯带/登台环) | roughness/metallic/emission 集中在可复用工厂方法, 避免逐节点漂移 |
-| 机器人 | primitive fallback 含车体分件: 上盖/侧带/四轮暗件/车头/金属推铲/团队灯带/接触阴影盘 | 纯渲染层, 尺寸由碰撞半径推导, 打 `primitivePart` meta, glTF 导入成功时整体让位 (登台指示环保留) |
+| 材质 | `ArenaVisualizer` 统一材质策略 + `NoiseTexture2D/FastNoiseLite` 微噪声 | 只作用于走道/围栏/机器人/平台侧面；台面灰度贴图不挂程序噪声；`--visual-no-material-noise` 可关闭 |
+| 能量块 | 自定义 chamfered `ArrayMesh` + 六面同图案 UV + 12 条边缘辅助线 | Godot 4.7 未提供 `RoundedBoxMesh`，因此用倒角面保留完整官方贴纸，不改变规则碰撞几何 |
+| 机器人 | primitive fallback 含斜切上盖/侧带/四轮暗件/径向胎纹/车头/金属推铲/团队呼吸灯带/天线/接触阴影盘 | 纯渲染层, 尺寸由碰撞半径推导, 打 `primitivePart` meta, glTF 导入成功时整体让位 (登台指示环保留) |
+| 标识 | 出发区四边描边 + 中央薄环线 | 从 `Scenario.Field` 推导，纯装饰、不参与拾取/规则 |
 
 ### 关闭/否决的高成本实验（可复现配置）
 
-- **Glow/Bloom**: 默认关闭。台面白心接近 1.0 亮度, 屏幕空间泛光会在白边外产生光晕,
-  可能被误读为灰度阶梯, 威胁官方调色板像素判读; 若要实验, 在 `Main.tscn` 的
-  `Environment` 中启用 `glow_enabled` 并把 `glow_hdr_threshold` 抬到 >1.0。
+- **Glow/Bloom**: 当前默认开启低强度 Glow，阈值 1.2；1280/1920 A/B 未见台面白心
+  外溢晕染。若低端 GPU 或实际官方贴图出现误判，可用 `--visual-no-glow` 回退。
 - **TAA**: 默认关闭。仅 Forward+ 可用, 且会在移动机器人后留下拖影 (PRD 明确静态截图
   不能作为选择依据); MSAA 4× 已满足静态与动态清晰度。实验开关:
   `project.godot` → `rendering/anti_aliasing/quality/use_taa`。
-- **SSIL/SDFGI/VoxelGI/Lightmap**: 不进入第一轮 (成本/烘焙资产限制, 收益对本场景不显著)。
+- **SSIL/VoxelGI/Lightmap 烘焙**: 仍不进入本轮；SDFGI 已作为 Forward+ 可回退的实时方案启用，
+  不引入烘焙资产。
 - **ReflectionProbe 每帧更新**: 否决, 一次更新已足够 (静态擂台)。
 
 ### 性能回退策略
 
 以同机/同场景/同窗口尺寸/同帧数的改动前测量为基线: 任一后处理造成帧时间退化超过
-约 30% 时必须默认关闭并记录为可选实验。实测 (RTX 5070 Ti Laptop, `--disable-vsync`,
-两点法 900/2700 帧边际帧时间, 720p): 改动前 ≈5.33–5.44 ms/帧, 改动后 ≈4.89–5.39 ms/帧
-——本场景在该 GPU 上为 CPU-bound, SSAO+MSAA 4×+天空+三点光+一次更新探针的总开销
-在测量噪声以内, 未触发热处理门限。低性能 GPU 上如出现退化, 按上节逐项关闭
-(先 SSAO, 再 MSAA 降为 2×)。
+约 30% 时必须默认关闭并记录为可选实验。RTX 5070 Ti Laptop、Forward+、`--disable-vsync`、
+`--visual-frame-stats 180` 热缓存实测：1280×720 全套 4.867 ms/帧、基线 4.276 ms/帧；
+1920×1080 全套 5.585 ms/帧、基线 4.866 ms/帧，后者回归约 14.8%，未触发门限。
+该指标来自主循环 `delta`，用于同机相对比较，不等同 GPU frame time；低性能 GPU 上可按上节
+逐项关闭（先 Glow/DoF/雾，再 SDFGI；必要时 MSAA 降为 2×）。
 
 ## 与无头端的一致性承诺
 
