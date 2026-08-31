@@ -418,3 +418,25 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 16: Godot 3D 视觉三阶收尾
+
+**Date**: 2026-08-31
+**Task**: Godot 3D 视觉三阶收尾
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 Forward+ SDFGI、低密度体积雾、阈值 Glow、远景 DoF、程序化材质微噪声、自定义倒角能量块、机器人细分件及场地装饰；通过 330 项 .NET 测试、Godot camera/edit smoke、CLI 与 Godot parity，归档视觉任务。保留未相关的 .learnings 与遥测任务。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `86ac17f` | (see git log) |
+| `8617f3b` | (see git log) |
+
+### Status
+
+[OK] **Completed**
