@@ -440,3 +440,24 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 17: 玻璃控制台、运行设置与自定义控制器
+
+**Date**: 2026-09-01
+**Task**: 玻璃控制台、运行设置与自定义控制器
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成玻璃赛事控制台视觉、运行设置面板与自定义小车外部控制器接入；保留现有 Sim.Core 仿真边界，验证完整测试、Godot parity 和设置 smoke。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1053e8d` | (see git log) |
+
+### Status
+
+[OK] **Completed**
