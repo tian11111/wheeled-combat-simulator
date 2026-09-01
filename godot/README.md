@@ -31,9 +31,12 @@
   与紫色警示圆环叠红叉（减益），自定义六面 UV 保证立方体六个面都显示同一张完整图案。
   该改动只影响表现层，不改变仿真快照或能量块坐标。
 - ✅ 三轮视觉增强已交付：Forward+ 默认开启 SDFGI、低密度体积雾、阈值 Glow、远景 DoF，
-  并加入程序化表面微噪声、能量块倒角、机器人细分件、出发区描边与中央环线；所有增强均有
+  并加入程序化表面微噪声、能量块倒角、机器人细分件与出发区描边；所有增强均有
   独立 QA 开关。RTX 5070 Ti Laptop 在 1920×1080 的热缓存进程帧间隔回归约 14.8%，未超过 30% 门槛，
   台面仍保持独立 Unshaded 灰度契约。
+- ✅ 玻璃控制台、桌面设置与自定义控制器入口已交付：F10 或右上角设置按钮打开设置页；
+  显示项即时应用，仿真参数/控制器在下一场或 F5 重置后应用；外部控制器沿用 JSONL stdio，
+  每个角色在独立后台线程/进程中运行，渲染线程不等待策略响应。
 - ✅ `src/SnapshotView.cs`、`src/MatchSession.cs`、`src/ParityCheck.cs`、`src/LayoutDraft.cs`
   为无 Godot 依赖的纯 C# 层，经 `Sim.Tests` 编译链接纳入回归（含回放重构、跨端比对、
   布局草稿/拖拽分组/保存重载测试）。
@@ -87,7 +90,7 @@
 ```
 godot/
 ├─ project.godot           # 输入映射 (比赛/回放/编辑三组 actions, 编辑见上节)
-├─ GodotSim.csproj         # Godot.NET.Sdk (4.7.2), 依赖 Sim.Core + Sim.Protocol
+├─ GodotSim.csproj         # Godot.NET.Sdk (4.7.2), 依赖 Sim.Core + Sim.Protocol + Sim.Controller
 ├─ scenes/Main.tscn        # 相机/灯光/环境/可视化器/HUD 场景树
 ├─ docs/*.png              # 桌面冒烟截图证据 (标准/旋转/模型/坏模型回退/回放)
 └─ src/
@@ -96,11 +99,14 @@ godot/
    ├─ ParityCheck.cs       # 纯跨端一致性校验（可单测, 与 CLI replay-check 同语义）
    ├─ LayoutDraft.cs       # 纯布局编辑模型: 快照式撤销重做 + 拖拽分组 + 原子保存（可单测）
    ├─ FieldGrayTextureMap.cs # 纯灰度纹理像素↔场局部映射（无 Godot 依赖, 可单测）
-   ├─ Main.cs              # 壳入口: 指令路由 + 无头 parity-check / 截图 QA / 冒烟 / 场景与模型偏好参数
+   ├─ Main.cs              # 壳入口: 指令路由 + 设置/驱动编排 + parity-check / 截图 QA / 冒烟
    ├─ LayoutEditor.cs      # 编辑交互层: 拾取/拖动/旋转/吸附/对话框/预览
    ├─ ArenaVisualizer.cs   # Scenario 驱动的程序化场地(灰度纹理/出发区/围栏/武)+机器人/能量块
    ├─ RobotModelLoader.cs  # glTF 外观导入 (上限/校验/primitive 回退, 仅渲染层)
-   ├─ HudPanel.cs          # 锚点 HUD: 状态卡/事件/操作帮助/回放时间轴/编辑器顶栏
+   ├─ HudPanel.cs          # 锚点玻璃 HUD: 状态卡/事件/操作帮助/回放时间轴/编辑器顶栏
+   ├─ DesktopSettings.cs   # Godot-free 桌面配置、参数白名单/校验、user:// 持久化
+   ├─ SettingsPanel.cs     # 模态设置页: 显示/仿真/控制器配置
+   ├─ DesktopLiveDriver.cs # 外部控制器后台驱动: 有界队列/固定步长/状态回传
    └─ MatchCamera.cs       # 概览/跟随/俯视 三模式相机 (按场地位姿/尺寸取景)
 ```
 
@@ -112,6 +118,7 @@ godot/
 | P | 暂停 / 继续 | — |
 | R / T | 真实重启我方 / 对手（回出发点、清理瞬态, 对手 +3；仅 RUNNING/PAUSED。2026 规则: 裁判同意的重启 +3, +4 是未经同意的违规判罚, 仅存于 legacy restart 命令） | — |
 | F5 | 重置为同 seed 新比赛 | 回到实况 |
+| F10 / 设置按钮 | 打开桌面设置（Esc 关闭） | 同左 |
 | C | 切换镜头 (概览→跟随→俯视) | 同左 |
 | L | 打开回放文件对话框 | 同左 |
 | E | 进入/退出布局编辑（仅比赛未开始的实况模式） | 提示先回实况 |
@@ -133,6 +140,27 @@ godot/
 布局编辑器激活时相机让出全部指针处理（`MatchCamera.PointerInputEnabled` 由 `Main` 镜像
 `LayoutEditor.Active`），编辑器的选择/拖拽不受影响；被相机消费的事件一律标记已处理。
 旋转/自旋/平移/焦点的确定性证据由 `--camera-smoke` 无人值守校验。
+
+### 桌面设置与自定义小车控制器
+
+设置文件保存在 Godot 用户目录的 `user://wushu-ring-settings.json`（Windows 默认位于
+`%APPDATA%/Godot/app_userdata/WushuRingSim/`）。首次启动或配置损坏时自动回退默认值，并在
+日志输出 `[settings]` 诊断。窗口宽高、窗口化/全屏和 UI 缩放即时生效；仿真参数与控制器来源
+只在下一场比赛或按 F5 重置后生效，当前比赛不会被静默改写。
+
+仿真页展示 `Sim.Core` 当前登记的全部 25 个可覆盖键，按“常用/高级”分组，带单位、范围、默认值
+和实验性标记；“自动”表示省略覆盖并沿用内核默认值。设置不会写入场景、回放或 `fidelity.json`。
+
+控制器页可分别为我方/对手选择“内置 FSM”或“外部命令”，例如：
+
+```text
+python controllers/example_controller.py
+```
+
+外部命令必须遵循 [`docs/CONTROLLER_PROTOCOL.md`](../docs/CONTROLLER_PROTOCOL.md) 的 JSONL stdio
+协议。桌面端每场为每个外部角色独立启动进程；启动失败、超时、坏行或退出会安全回退为零动作，
+并在右侧控制器状态与日志显示 fault。外部命令拥有本机进程权限，请只运行可信脚本；设置页不提供
+内嵌代码编辑器或代码沙箱。回放模式不启动外部控制器。
 
 ### 台面灰度显示（官方外观渐变, 与传感器语义分离）
 
@@ -164,7 +192,8 @@ seed/模式/场景/pid 便于分辨。注意自定义用户参数（`--scenario-
 | `--auto-arm` | 启动即发令（演示/截图用） |
 | `--edit-smoke` | 无人值守编辑器冒烟: 注入真实键盘/鼠标输入 + 拾取/拖动/撤销重做/恢复官方/应用全流程断言 (含能量块/双方小车的实体点选拖动、低视角实体命中、小车拖动只改出生位姿), 并顺带跑一次"应用后布局"的逐位 parity 校验; 全部通过退出码 0 |
 | `--camera-smoke` | 无人值守镜头冒烟: 经真实输入管线注入滚轮/左键拖动/动作键, 断言概览取景、缩放限幅、俯视 -90° 姿态与全场地覆盖、抓取语义平移、跟随缩放、编辑器指针所有权, 并校验概览取景占 16:9 视口约 45–65%×45–75% (PRD R1); 全部通过退出码 0 |
-| `--capture <out.png>` | 渲染 30 帧后保存视口 PNG 并输出分桶像素统计（视觉 QA 证据），随后退出；与 `--edit-smoke`/`--camera-smoke` 同用时改为冒烟结束后截图, 退出码=冒烟结果。无头 dummy 渲染器无真实视口纹理, 截图跳过但冒烟退出码不变 |
+| `--settings-smoke` | 无人值守构建并打开设置页；配合 `--capture <png>` 保存真实渲染器截图 |
+| `--capture <out.png>` | 渲染 30 帧后保存视口 PNG 并输出分桶像素统计（视觉 QA 证据），随后退出；与 `--edit-smoke`/`--camera-smoke`/`--settings-smoke` 同用时改为冒烟结束后截图, 退出码=冒烟结果。无头 dummy 渲染器无真实视口纹理, 截图跳过但冒烟退出码不变 |
 | `--capture-frames <n>` | 覆盖 `--capture` 的默认 30 帧等待（例: 相机阻尼收敛/比赛推进后再截） |
 | `--camera-cycle <0-2>` | 启动即切换镜头模式 (0=概览 1=跟随 2=俯视, 仅表现层), 供三种机位的 capture 证据留存 |
 | `--camera-orbit <yaw>,<pitch>` | 启动即设置概览环绕角 (度, 同一限幅), 复现"左键拖动后"机位供 capture 证据 (仅表现层, 不注入输入事件) |
@@ -193,7 +222,7 @@ Forward+/Mobile 路径生效，gl_compatibility 自动降级。能量块仅使�
 | 材质 | `ArenaVisualizer` 统一材质策略 + `NoiseTexture2D/FastNoiseLite` 微噪声 | 只作用于走道/围栏/机器人/平台侧面；台面灰度贴图不挂程序噪声；`--visual-no-material-noise` 可关闭 |
 | 能量块 | 自定义 chamfered `ArrayMesh` + 六面同图案 UV + 12 条边缘辅助线 | Godot 4.7 未提供 `RoundedBoxMesh`，因此用倒角面保留完整官方贴纸，不改变规则碰撞几何 |
 | 机器人 | primitive fallback 含斜切上盖/侧带/四轮暗件/径向胎纹/车头/金属推铲/团队呼吸灯带/天线/接触阴影盘 | 纯渲染层, 尺寸由碰撞半径推导, 打 `primitivePart` meta, glTF 导入成功时整体让位 (登台指示环保留) |
-| 标识 | 出发区四边描边 + 中央薄环线 | 从 `Scenario.Field` 推导，纯装饰、不参与拾取/规则 |
+| 标识 | 出发区四边描边 | 从 `Scenario.Field` 推导，纯装饰、不参与拾取/规则 |
 
 ### 关闭/否决的高成本实验（可复现配置）
 

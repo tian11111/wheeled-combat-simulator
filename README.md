@@ -52,7 +52,9 @@ godot --path godot -- --scenario-path scenarios/wushu-ring-2026.json      # 加�
 
 桌面端支持 **布局编辑模式**(E 进入): 选择场地/出发区/能量块, 拖动+旋转+网格吸附,
 Ctrl+Z/Y 撤销重做, 保存/重载 `arena-layout-v1` JSON 场景并应用到仿真; 机器人可导入
-`.glb/.gltf` 外观模型(仅渲染层)。详见 `godot/README.md`。
+`.glb/.gltf` 外观模型(仅渲染层)。按 F10 或右上角按钮打开玻璃控制台设置页，可调整分辨率、
+全屏/UI 缩放、全部已登记仿真参数，并为双方绑定外部 Python/C# 等 JSONL 控制器；显示设置即时生效，
+仿真参数和控制器在下一场或 F5 重置后生效。详见 `godot/README.md`。
 
 无头跨端一致性校验（与 Sim.Cli `replay-check` 语义一致，比对最终比分/结束原因/末帧/事件指纹）：
 
@@ -68,6 +70,7 @@ godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.j
 | --- | --- |
 | `src/Sim.Core` | 确定性比赛内核（规则/物理/传感器/事件/快照），无引擎依赖 |
 | `src/Sim.Protocol` | 版本化协议 DTO 与 JSON 校验（含 telemetry-v1 遥测契约） |
+| `src/Sim.Controller` | CLI/Godot 共用的外部控制器 JSONL stdio 桥（每角色/每场独立进程） |
 | `src/Sim.Cli` | 无头评测/回放 + Python 进程适配器 + `calibrate` 离线标定 |
 | `src/Sim.Calibration` | 纯标定库（物理拟合器/mount 门控评估/传感器回放评估器/报告指纹），无 IO 副作用于内核 |
 | `src/Sim.Tests` | xUnit 回归 |

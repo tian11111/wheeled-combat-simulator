@@ -20,6 +20,7 @@
     <ProjectReference Include="..\Sim.Core\Sim.Core.csproj" />
     <ProjectReference Include="..\Sim.Protocol\Sim.Protocol.csproj" />
     <ProjectReference Include="..\Sim.Cli\Sim.Cli.csproj" />
+    <ProjectReference Include="..\Sim.Controller\Sim.Controller.csproj" />
     <ProjectReference Include="..\Sim.Calibration\Sim.Calibration.csproj" />
     <!-- 最小 JSONL stdio 控制器 fixture (echo/wrongid/bad/die/hang), 供 batch 桥隔离测试。 -->
     <ProjectReference Include="EchoController\EchoController.csproj" />
@@ -32,6 +33,8 @@
     <Compile Include="..\..\godot\src\ParityCheck.cs" Link="godot\ParityCheck.cs" />
     <Compile Include="..\..\godot\src\LayoutDraft.cs" Link="godot\LayoutDraft.cs" />
     <Compile Include="..\..\godot\src\FieldGrayTextureMap.cs" Link="godot\FieldGrayTextureMap.cs" />
+    <Compile Include="..\..\godot\src\DesktopSettings.cs" Link="godot\DesktopSettings.cs" />
+    <Compile Include="..\..\godot\src\DesktopLiveDriver.cs" Link="godot\DesktopLiveDriver.cs" />
   </ItemGroup>
 
   <ItemGroup>

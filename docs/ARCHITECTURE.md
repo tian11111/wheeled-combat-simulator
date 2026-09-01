@@ -8,8 +8,8 @@
 ┌──────────────────────────┐   ┌──────────────────────────┐
 │ godot/  (Godot 4 .NET)   │   │ Sim.Cli  (.NET 8 无头)    │
 │ 3D 展示壳: 渲染/相机/HUD/ │   │ 评测/回放: match / batch / │
-│ 回放时间轴               │   │ replay-record / replay-check│
-│ 只消费快照+发裁判指令     │   │ 可拉起 Python 策略进程    │
+│ 回放时间轴/玻璃设置/驱动   │   │ replay-record / replay-check│
+│ 只消费快照+发裁判指令     │   │ 可拉起外部策略进程        │
 └──────────┬───────────────┘   └──────────┬───────────────┘
            │  同一 MatchEngine / 同一协议    │
            ▼                               ▼
@@ -26,6 +26,11 @@
       │ Scenario / ReplayHeader                    │
       └──────────────────────────────────────────┘
 ```
+
+`Sim.Controller` 是 CLI 与 Godot 桌面端共享的外部控制器边界：每个角色/每场独立拥有
+JSONL stdio 进程、reader、超时与 fault 计数。CLI 的 `PythonBridge` 保留兼容入口，桌面端
+的 `DesktopLiveDriver` 在独立 worker 中编排固定步长和有界快照队列；这些进程、线程、文件与
+时钟能力不进入 `Sim.Core`。
 
 **单一权威**：比分、回放、AI 观测全部以 `Sim.Core` 的确定性 2D 模型为准。
 Godot 物理仅用于可视摆放与可选诊断，**不参与判分**。未来若引入 3D 权威物理，
@@ -131,11 +136,12 @@ MBri CSV（本地忽略目录, 不入库）
 - `src/Sim.Protocol/` — 版本化协议 DTO 与 JSON 校验（含 `arena-layout-v1` 布局字段与 `telemetry-v1` 遥测契约）。
 - `src/Sim.Calibration/` — 纯标定库：拟合器、分解层、mount 门控评估、报告指纹。
 - `src/Sim.VisionReplay/` — 视觉证据分线纯库：vision-replay-v1 schema、MBri 导入校验、链路质量指标、报告指纹。
-- `src/Sim.Cli/Program.cs` — 无头命令；`PythonBridge.cs` — 外部策略进程适配；`VisionCommand.cs` — `vision import/evaluate`。
+- `src/Sim.Cli/Program.cs` — 无头命令；`PythonBridge.cs` — `Sim.Controller` 兼容包装；`VisionCommand.cs` — `vision import/evaluate`。
+- `src/Sim.Controller/ExternalControllerBridge.cs` — CLI/Godot 共用的 JSONL 外部控制器进程适配、超时、request-id、zero-action 与 fault 边界。
 - `src/Sim.Cli/{BatchCommand,BatchExecutor,BatchFingerprint}.cs` — AI agent 无头批量仿真：严格预检、有界 worker pool（每场独立场景副本/引擎/控制器进程）、`sim-batch-result-v1` JSONL 与稳定指纹；并发编排全部留在 CLI 层，`Sim.Core` 不感知并行。
 - `godot/src/SnapshotView.cs` — 快照→渲染帧（无 Godot 依赖，可单测）。
 - `godot/src/MatchSession.cs` — 会话门面：固定步长实况 + 回放重构/缓存/导航（无 Godot 依赖，可单测）。
 - `godot/src/ParityCheck.cs` — 跨端一致性校验（无 Godot 依赖，可单测）。
 - `godot/src/LayoutDraft.cs` — 布局编辑模型：快照式撤销/重做 + 拖拽分组 + 校验 + 原子保存（无 Godot 依赖，可单测）。
-- `godot/src/{LayoutEditor,ArenaVisualizer,HudPanel,MatchCamera,RobotModelLoader}.cs` — 桌面壳入口、编辑交互与渲染/HUD/相机/模型导入。
+- `godot/src/{LayoutEditor,ArenaVisualizer,HudPanel,SettingsPanel,DesktopSettings,DesktopLiveDriver,MatchCamera,RobotModelLoader}.cs` — 桌面壳入口、设置/外部驱动、编辑交互与渲染/HUD/相机/模型导入。
 - `scenarios/*.json` — 固定布局回归场景；`replays/` — 回放文件；`test-data/` — 渲染层测试资产（glTF）。

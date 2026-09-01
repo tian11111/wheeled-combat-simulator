@@ -39,11 +39,19 @@ public partial class Main : Node
     private MatchCamera _camera = null!;
     private LayoutEditor _editor = null!;
     private FileDialog _fileDialog = null!;
+    private SettingsStore _settingsStore = null!;
+    private SettingsPanel _settingsPanel = null!;
+    private DesktopSettings _settings = DesktopSettings.Default;
+    private Scenario _scenarioTemplate = null!;
+    private DesktopLiveDriver? _liveDriver;
+    private Snapshot? _driverSnapshot;
+    private bool _pendingMatchSettings;
     private Dictionary<string, RobotModelConfig>? _robotModels;
     private double _replayAlphaAccumulator;
     private int _captureFramesLeft = -1;
     private string _capturePath = "";
     private string _captureStats = "";
+    private int _settingsSmokeFramesLeft = -1;
     private int _smokeExit;
     private int _visualFrameStatsLeft = -1;
     private int _visualFrameStatsCount;
@@ -67,6 +75,7 @@ public partial class Main : Node
         _hud = GetNode<HudPanel>("Hud/HudPanel");
         _camera = GetNode<MatchCamera>("Camera3D");
         SetupDefaultFont();
+        LoadDesktopSettings();
         BuildFileDialog();
 
         var userArgs = OS.GetCmdlineUserArgs();
@@ -97,6 +106,14 @@ public partial class Main : Node
             onSave: () => _editor.RequestSave(),
             onClose: () => _editor.Close());
 
+        _settingsPanel = new SettingsPanel { Name = "SettingsPanel" };
+        // The modal must be a direct CanvasLayer child. HudPanel is a layout
+        // control for the anchored cards, not the full-screen input root.
+        GetNode<CanvasLayer>("Hud").AddChild(_settingsPanel);
+        _settingsPanel.SetUiScale(_settings.UiScale);
+        _settingsPanel.Applied += ApplyDesktopSettings;
+        _hud.ConfigureSettings(OpenSettings);
+
         _hud.ConfigureTimeline(tick => _session.ReplaySeekTick(tick));
 
         var replayArgIndex = Array.IndexOf(userArgs, "--replay-path");
@@ -114,9 +131,18 @@ public partial class Main : Node
             }
         }
 
+        var settingsSmoke = Array.IndexOf(userArgs, "--settings-smoke") >= 0;
+        var smokeMode = Array.IndexOf(userArgs, "--camera-smoke") >= 0
+            || Array.IndexOf(userArgs, "--edit-smoke") >= 0
+            || settingsSmoke;
+        if (_session.Mode == SessionMode.Live && !smokeMode)
+        {
+            StartLiveDriverIfConfigured(scenario);
+        }
+
         if (string.IsNullOrEmpty(autoReplay) && Array.IndexOf(userArgs, "--auto-arm") >= 0)
         {
-            _session.Engine.Arm();
+            ArmLive();
             GD.Print("[shell] --auto-arm: 已发令进入 RUNNING");
         }
 
@@ -124,7 +150,15 @@ public partial class Main : Node
         if (captureIndex >= 0 && captureIndex + 1 < userArgs.Length)
         {
             _capturePath = Path.GetFullPath(userArgs[captureIndex + 1]);
-            if (Array.IndexOf(userArgs, "--edit-smoke") >= 0 || Array.IndexOf(userArgs, "--camera-smoke") >= 0)
+            if (settingsSmoke)
+            {
+                // The settings smoke has no asynchronous assertion routine;
+                // render the modal for the normal settling window, then save.
+                _captureFramesLeft = 30;
+                GD.Print($"[capture] 设置页渲染 30 帧后保存到 {_capturePath}");
+            }
+            else if (Array.IndexOf(userArgs, "--edit-smoke") >= 0
+                || Array.IndexOf(userArgs, "--camera-smoke") >= 0)
             {
                 // 冒烟模式自己控制截图时机 (结束后统一倒计时); 提前倒计时会把冒烟中途杀掉。
                 GD.Print($"[capture] 冒烟结束后保存视口到 {_capturePath}");
@@ -178,6 +212,19 @@ public partial class Main : Node
 
         LoadRobotModelPreferences(userArgs);
         ApplyRobotModels();
+
+        if (settingsSmoke)
+        {
+            OpenSettings();
+            if (_capturePath.Length == 0)
+            {
+                // Without --capture this remains a short UI construction smoke
+                // and does not leave a generated artifact in the repository.
+                _settingsSmokeFramesLeft = 30;
+            }
+            GD.Print("[settings-smoke] 设置面板已打开; 使用 --capture <png> 可保存真实渲染截图");
+            return;
+        }
 
         if (Array.IndexOf(userArgs, "--edit-smoke") >= 0)
         {
@@ -950,10 +997,161 @@ public partial class Main : Node
         }
     }
 
+    private void LoadDesktopSettings()
+    {
+        var path = ProjectSettings.GlobalizePath($"user://{SettingsStore.DefaultFileName}");
+        _settingsStore = new SettingsStore(path, GD.PrintErr);
+        _settings = _settingsStore.Load();
+        ApplyDisplaySettings(_settings);
+        GD.Print($"[settings] 已加载 {path}: {DisplaySettingsLine(_settings)}");
+    }
+
+    private void ApplyDesktopSettings(DesktopSettings settings)
+    {
+        var matchChanged = !MatchSettingsEqual(_settings, settings);
+        _settings = settings;
+        try
+        {
+            _settingsStore.Save(settings);
+        }
+        catch (Exception error)
+        {
+            GD.PrintErr($"[settings] 配置保存失败: {error.Message}");
+        }
+
+        ApplyDisplaySettings(settings);
+        if (matchChanged)
+        {
+            _pendingMatchSettings = true;
+            GD.Print("[settings] 仿真参数/控制器已保存，将在下一场或 F5 重置后生效");
+        }
+        else
+        {
+            GD.Print("[settings] 显示设置已应用");
+        }
+    }
+
+    private void ApplyDisplaySettings(DesktopSettings settings)
+    {
+        var window = settings.Window ?? new WindowSettings();
+        DisplayServer.WindowSetSize(new Vector2I(window.Width, window.Height));
+        if (window.Mode == DisplayModes.Fullscreen)
+        {
+            DisplayServer.WindowSetMode(DisplayServer.WindowMode.Fullscreen);
+        }
+        else
+        {
+            DisplayServer.WindowSetMode(DisplayServer.WindowMode.Windowed);
+        }
+        _hud?.SetUiScale(settings.UiScale);
+        _settingsPanel?.SetUiScale(settings.UiScale);
+    }
+
+    private void OpenSettings()
+    {
+        if (_settingsPanel is null || _settingsPanel.IsOpen)
+        {
+            return;
+        }
+        _settingsPanel.Open(_settings, _pendingMatchSettings);
+    }
+
     private Scenario BuildScenario()
-        => string.IsNullOrEmpty(ScenarioPath)
+    {
+        _scenarioTemplate = string.IsNullOrEmpty(ScenarioPath)
             ? new Scenario { Seed = Seed, Blocks = OfficialLayout.Blocks }
             : ProtocolJson.Deserialize<Scenario>(System.IO.File.ReadAllText(ScenarioPath));
+        return _settings.ApplySimulationParameters(_scenarioTemplate);
+    }
+
+    private Scenario BuildLiveScenarioFromTemplate()
+    {
+        var template = _scenarioTemplate ?? _session.Engine.Scenario;
+        return _settings.ApplySimulationParameters(template);
+    }
+
+    private void ResetLiveSession(string message)
+    {
+        StopLiveDriver();
+        var scenario = BuildLiveScenarioFromTemplate();
+        _session = new MatchSession(scenario);
+        _pendingMatchSettings = false;
+        ApplyScenarioToShell(scenario);
+        StartLiveDriverIfConfigured(scenario);
+        GD.Print(message);
+    }
+
+    private void StartLiveDriverIfConfigured(Scenario scenario)
+    {
+        if (_session.Mode != SessionMode.Live
+            || (!_settings.UsController.IsExternal && !_settings.ThemController.IsExternal))
+        {
+            return;
+        }
+        StopLiveDriver();
+        _driverSnapshot = null;
+        _liveDriver = new DesktopLiveDriver(scenario, _settings.UsController, _settings.ThemController);
+        _liveDriver.Start();
+        GD.Print("[controller] 已启动桌面后台 driver；实况渲染线程不等待外部策略");
+    }
+
+    private void StopLiveDriver()
+    {
+        if (_liveDriver is null)
+        {
+            return;
+        }
+        _liveDriver.Dispose();
+        _liveDriver = null;
+        _driverSnapshot = null;
+    }
+
+    private void ArmLive()
+    {
+        if (_liveDriver is not null)
+        {
+            _liveDriver.RequestArm();
+            return;
+        }
+        _session.Engine.Arm();
+    }
+
+    private MatchControlPhase LivePhase
+        => _liveDriver?.Status.Phase ?? _session.Engine.Phase;
+
+    private bool LivePaused
+        => _liveDriver?.Status.Paused ?? _session.Engine.Paused;
+
+    private static bool MatchSettingsEqual(DesktopSettings left, DesktopSettings right)
+        => DictionaryEqual(left.SimulationParameters, right.SimulationParameters)
+            && ControllerEqual(left.UsController, right.UsController)
+            && ControllerEqual(left.ThemController, right.ThemController);
+
+    private static bool DictionaryEqual(IReadOnlyDictionary<string, double>? left,
+        IReadOnlyDictionary<string, double>? right)
+    {
+        if (ReferenceEquals(left, right))
+        {
+            return true;
+        }
+        if (left is null || right is null || left.Count != right.Count)
+        {
+            return false;
+        }
+        return left.All(pair => right.TryGetValue(pair.Key, out var value) && value == pair.Value);
+    }
+
+    private static bool ControllerEqual(ControllerProfile? left, ControllerProfile? right)
+        => left?.Mode == right?.Mode
+            && left?.Command == right?.Command
+            && left?.TimeoutMs == right?.TimeoutMs;
+
+    private static string DisplaySettingsLine(DesktopSettings settings)
+    {
+        var window = settings.Window ?? new WindowSettings();
+        return $"{window.Width}x{window.Height} {window.Mode}, uiScale={settings.UiScale:0.##}, "
+            + $"overrides={settings.SimulationParameters?.Count ?? 0}";
+    }
 
     /// <summary>场地几何/位姿变化时刷新静态展示与相机取景 (初始加载、回放、编辑 Apply 共用)。</summary>
     private void ApplyScenarioToShell(Scenario scenario)
@@ -1068,6 +1266,17 @@ public partial class Main : Node
         TickVisualFrameStats(delta);
         HandleCommands();
 
+        if (_settingsSmokeFramesLeft > 0)
+        {
+            _settingsSmokeFramesLeft--;
+            if (_settingsSmokeFramesLeft == 0)
+            {
+                GD.Print("[settings-smoke] UI 构建冒烟通过");
+                GetTree().Quit(_smokeExit);
+                return;
+            }
+        }
+
         if (_editor.Active)
         {
             // 编辑模式: 只展示草稿预览帧, 不推进任何仿真时钟。
@@ -1076,7 +1285,17 @@ public partial class Main : Node
         }
         else if (_session.Mode == SessionMode.Live)
         {
-            if (_session.StepLive(delta, out var snapshot))
+            if (_liveDriver is not null)
+            {
+                if (_liveDriver.TryTakeLatest(out var driverSnapshot))
+                {
+                    _driverSnapshot = driverSnapshot;
+                }
+                Present(_driverSnapshot is { } latestDriver
+                    ? Project(latestDriver)
+                    : EmptyFrame());
+            }
+            else if (_session.StepLive(delta, out var snapshot))
             {
                 Present(snapshot is not null ? Project(snapshot) : EmptyFrame());
             }
@@ -1258,6 +1477,7 @@ public partial class Main : Node
             });
         _hud.UpdateEditor(_editor.Active, _editor.SelectedLabel, _editor.InspectorLine,
             _editor.StatusLine, _editor.CanApplyNow);
+        _hud.UpdateControllerStatus(_liveDriver?.Status);
     }
 
     /// <summary>
@@ -1293,6 +1513,15 @@ public partial class Main : Node
 
     private void HandleCommands()
     {
+        if (Input.IsActionJustPressed("settings_toggle"))
+        {
+            OpenSettings();
+            return;
+        }
+        if (_settingsPanel is not null && _settingsPanel.IsOpen)
+        {
+            return; // 设置模态层拥有键盘/鼠标输入，比赛状态不被快捷键误触。
+        }
         if (Input.IsActionJustPressed("editor_toggle"))
         {
             TryToggleEditor();
@@ -1328,6 +1557,11 @@ public partial class Main : Node
             GD.Print("[editor] 回放模式不能编辑布局: 按 F5 回到实况");
             return;
         }
+        if (_liveDriver is not null)
+        {
+            GD.Print("[editor] 外部控制器实况正在后台运行: 先在设置中切回内置 FSM 或按 F5 重置后编辑");
+            return;
+        }
         var engine = _session.Engine;
         // 门禁只看阶段: 实况 Prep = 比赛尚未发令。TickIndex 在 Prep 空转时也以
         // 20 Hz 递增, 用它做门禁会让人工永远进不了编辑器 (0.05 s 后即 >0)。
@@ -1344,11 +1578,23 @@ public partial class Main : Node
 
     private void ApplyLayoutScenario(Scenario scenario)
     {
-        _session = new MatchSession(scenario);
-        ApplyScenarioToShell(scenario);
+        StopLiveDriver();
+        // Layout edits change geometry/starts/blocks, while desktop parameter
+        // overrides remain a separate pending layer. Keep scenario-authored
+        // parameters as the template so selecting "自动" can really remove a
+        // desktop override on the next reset.
+        var templateParameters = _scenarioTemplate?.Parameters is null
+            ? null
+            : new Dictionary<string, double>(_scenarioTemplate.Parameters);
+        _scenarioTemplate = scenario with { Parameters = templateParameters };
+        var applied = _settings.ApplySimulationParameters(_scenarioTemplate);
+        _session = new MatchSession(applied);
+        _pendingMatchSettings = false;
+        ApplyScenarioToShell(applied);
+        StartLiveDriverIfConfigured(applied);
         _editor.Close();
-        GD.Print($"[editor] 布局已应用: pose=({scenario.Field.Pose?.X ?? 0:0.00},{scenario.Field.Pose?.Y ?? 0:0.00},{scenario.Field.Pose?.Th ?? 0:0.00}rad)"
-            + $" 能量块已冻结为固定坐标 (seed={scenario.Seed})");
+        GD.Print($"[editor] 布局已应用: pose=({applied.Field.Pose?.X ?? 0:0.00},{applied.Field.Pose?.Y ?? 0:0.00},{applied.Field.Pose?.Th ?? 0:0.00}rad)"
+            + $" 能量块已冻结为固定坐标 (seed={applied.Seed})");
     }
 
     private void RestoreShellScenario()
@@ -1361,20 +1607,34 @@ public partial class Main : Node
         var engine = _session.Engine;
         if (Input.IsActionJustPressed("ui_accept"))
         {
-            if (engine.Phase is MatchControlPhase.Prep or MatchControlPhase.Ready)
+            if (LivePhase is MatchControlPhase.Prep or MatchControlPhase.Ready)
             {
-                engine.Arm();
+                ArmLive();
             }
         }
         if (Input.IsActionJustPressed("pause_toggle"))
         {
-            if (engine.Paused)
+            if (_liveDriver is not null)
             {
-                engine.Resume();
+                if (LivePaused)
+                {
+                    _liveDriver.RequestResume();
+                }
+                else
+                {
+                    _liveDriver.RequestPause();
+                }
             }
             else
             {
-                engine.Pause("桌面端手动暂停");
+                if (engine.Paused)
+                {
+                    engine.Resume();
+                }
+                else
+                {
+                    engine.Pause("桌面端手动暂停");
+                }
             }
         }
         if (Input.IsActionJustPressed("restart_us"))
@@ -1387,10 +1647,7 @@ public partial class Main : Node
         }
         if (Input.IsActionJustPressed("reset_match"))
         {
-            _session.ResetToLive();
-            // 场景/可视化根/相机按重置后的引擎场景重建 (回放 F5 后同源)。
-            ApplyScenarioToShell(_session.Engine.Scenario);
-            GD.Print("[shell] 已重置为同 seed 新比赛");
+            ResetLiveSession("[shell] 已重置为同 seed 新比赛，应用当前设置");
         }
         if (Input.IsActionJustPressed("open_replay"))
         {
@@ -1406,6 +1663,17 @@ public partial class Main : Node
     /// </summary>
     private void TryRestartRobot(string role)
     {
+        if (_liveDriver is not null)
+        {
+            if (LivePhase is not (MatchControlPhase.Running or MatchControlPhase.Paused))
+            {
+                GD.Print("[referee] 真实重启仅在比赛进行中 (RUNNING/PAUSED) 可用: 先发令再使用");
+                return;
+            }
+            _liveDriver.RequestRestart(role);
+            GD.Print($"[referee] 已向后台 driver 投递 {(role == RoleNames.Us ? "我方" : "对手")} 重启");
+            return;
+        }
         var engine = _session.Engine;
         if (engine.Phase is not (MatchControlPhase.Running or MatchControlPhase.Paused))
         {
@@ -1455,11 +1723,7 @@ public partial class Main : Node
         }
         if (Input.IsActionJustPressed("reset_match"))
         {
-            _session.ResetToLive();
-            // 回放 → 实况: 可视化根与相机按新引擎的场景 (回放内嵌场景) 重建,
-            // 保证模拟状态、展示几何与镜头三者同步。
-            ApplyScenarioToShell(_session.Engine.Scenario);
-            GD.Print("[shell] 已重置回实况模式");
+            ResetLiveSession("[shell] 已重置回实况模式，应用当前设置");
         }
     }
 
@@ -1467,8 +1731,10 @@ public partial class Main : Node
     {
         try
         {
+            StopLiveDriver();
             var file = ProtocolJson.Deserialize<ReplayFile>(System.IO.File.ReadAllText(path));
             _session.LoadReplay(file);
+            _scenarioTemplate = file.Scenario;
             // 回放文件内嵌完整场景: 展示几何跟随它, 保证与录制端同一场地。
             ApplyScenarioToShell(file.Scenario);
             _replayAlphaAccumulator = 0;
@@ -1479,6 +1745,11 @@ public partial class Main : Node
         {
             GD.PrintErr($"[replay] 加载失败 {path}: {e.Message}");
         }
+    }
+
+    public override void _ExitTree()
+    {
+        StopLiveDriver();
     }
 
     // ---------- headless parity check ----------

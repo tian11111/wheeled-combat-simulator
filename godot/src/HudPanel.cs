@@ -9,9 +9,9 @@ namespace Sim.GodotShell;
 
 public partial class HudPanel : Control
 {
-    private static readonly Color CardColor = new(0.055f, 0.075f, 0.105f, 0.94f);
-    private static readonly Color CardColorRaised = new(0.075f, 0.095f, 0.13f, 0.97f);
-    private static readonly Color CardBorder = new(0.20f, 0.25f, 0.34f, 0.9f);
+    private static readonly Color CardColor = new(0.045f, 0.075f, 0.13f, 0.74f);
+    private static readonly Color CardColorRaised = new(0.08f, 0.12f, 0.19f, 0.82f);
+    private static readonly Color CardBorder = new(0.26f, 0.42f, 0.62f, 0.86f);
     private static readonly Color TextPrimary = new(0.91f, 0.94f, 0.98f);
     private static readonly Color TextSecondary = new(0.57f, 0.64f, 0.74f);
     private static readonly Color AccentYellow = new(0.98f, 0.72f, 0.22f);
@@ -34,6 +34,8 @@ public partial class HudPanel : Control
     private RichTextLabel? _eventsBody;
     private PanelContainer? _help;
     private Label? _helpBody;
+    private Label? _controllerStatus;
+    private Button? _settingsButton;
 
     private PanelContainer? _replayBar;
     private Label? _replayTick;
@@ -50,12 +52,27 @@ public partial class HudPanel : Control
     {
         SetAnchorsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Ignore;
+        Resized += UpdatePivot;
 
         BuildStatusCard();
         BuildEventCard();
         BuildHelpCard();
         BuildReplayBar();
         BuildEditorBar();
+        UpdatePivot();
+    }
+
+    /// <summary>Applies the user UI scale around the viewport center.</summary>
+    public void SetUiScale(double scale)
+    {
+        var clamped = Mathf.Clamp((float)scale, 0.8f, 1.4f);
+        Scale = new Vector2(clamped, clamped);
+        UpdatePivot();
+    }
+
+    private void UpdatePivot()
+    {
+        PivotOffset = Size / 2.0f;
     }
 
     private void BuildStatusCard()
@@ -139,6 +156,62 @@ public partial class HudPanel : Control
         _helpBody.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _helpBody.ClipText = true;
         _helpBody.SizeFlagsVertical = SizeFlags.ExpandFill;
+        _controllerStatus = AddLabel(vbox, "", 10, AccentGreen);
+        _controllerStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _controllerStatus.CustomMinimumSize = new Vector2(0, 30);
+        _controllerStatus.Visible = false;
+        _settingsButton = new Button
+        {
+            Text = "⚙ 设置  (F10)",
+            CustomMinimumSize = new Vector2(0, 32),
+            FocusMode = FocusModeEnum.None,
+            TooltipText = "打开桌面设置",
+        };
+        ApplyButtonTheme(_settingsButton, AccentBlue);
+        vbox.AddChild(_settingsButton);
+    }
+
+    /// <summary>Wires the glass-console settings button to the desktop shell.</summary>
+    public void ConfigureSettings(Action onOpen)
+    {
+        if (_settingsButton is not null)
+        {
+            _settingsButton.Pressed += onOpen;
+        }
+    }
+
+    /// <summary>Shows external-controller lifecycle/fault status without touching match rules.</summary>
+    public void UpdateControllerStatus(DesktopLiveStatus? status)
+    {
+        if (_controllerStatus is null)
+        {
+            return;
+        }
+        if (status is null || (!status.UsController.Configured && !status.ThemController.Configured))
+        {
+            _controllerStatus.Visible = false;
+            return;
+        }
+        _controllerStatus.Visible = true;
+        _controllerStatus.Text = $"策略  我方 {ControllerStatusLine(status.UsController)}"
+            + $"  /  对手 {ControllerStatusLine(status.ThemController)}";
+        var hasFault = status.DriverFault is not null
+            || status.UsController.Faults > 0
+            || status.ThemController.Faults > 0;
+        _controllerStatus.AddThemeColorOverride("font_color", hasFault ? AccentRed : AccentGreen);
+    }
+
+    private static string ControllerStatusLine(DesktopControllerStatus controller)
+    {
+        if (controller.Mode == ControllerModes.BuiltIn)
+        {
+            return "内置";
+        }
+        if (!controller.Running)
+        {
+            return string.IsNullOrEmpty(controller.LastFault) ? "外部·启动中" : "外部·故障";
+        }
+        return controller.Faults > 0 ? $"外部·fault {controller.Faults}" : "外部·在线";
     }
 
     /// <summary>顶栏: 布局编辑模式的选择/数值检视 + 操作按钮 (Main 在编辑器激活时刷新)。</summary>
@@ -329,6 +402,9 @@ public partial class HudPanel : Control
         {
             BgColor = CardColor,
             BorderColor = new Color(accent, 0.82f),
+            ShadowColor = new Color(0, 0, 0, 0.34f),
+            ShadowSize = 10,
+            ShadowOffset = new Vector2(0, 4),
             CornerRadiusTopLeft = 8,
             CornerRadiusTopRight = 8,
             CornerRadiusBottomLeft = 8,
@@ -339,6 +415,7 @@ public partial class HudPanel : Control
             ContentMarginBottom = 10,
         };
         style.SetBorderWidthAll(1);
+        style.BorderWidthTop = 2;
         return style;
     }
 
@@ -396,9 +473,9 @@ public partial class HudPanel : Control
         button.AddThemeColorOverride("font_pressed_color", accent);
         button.AddThemeColorOverride("font_disabled_color", new Color(TextSecondary, 0.55f));
         button.AddThemeStyleboxOverride("normal", MakeButtonStyle(CardColorRaised, CardBorder));
-        button.AddThemeStyleboxOverride("hover", MakeButtonStyle(new Color(0.11f, 0.14f, 0.19f, 1), accent));
-        button.AddThemeStyleboxOverride("pressed", MakeButtonStyle(new Color(0.13f, 0.16f, 0.22f, 1), accent));
-        button.AddThemeStyleboxOverride("disabled", MakeButtonStyle(new Color(0.045f, 0.055f, 0.075f, 0.9f), CardBorder));
+        button.AddThemeStyleboxOverride("hover", MakeButtonStyle(new Color(0.13f, 0.20f, 0.30f, 0.90f), accent));
+        button.AddThemeStyleboxOverride("pressed", MakeButtonStyle(new Color(0.16f, 0.24f, 0.35f, 0.95f), accent));
+        button.AddThemeStyleboxOverride("disabled", MakeButtonStyle(new Color(0.045f, 0.055f, 0.075f, 0.76f), CardBorder));
     }
 
     private static StyleBoxFlat MakeButtonStyle(Color background, Color border)
@@ -508,7 +585,8 @@ public partial class HudPanel : Control
             + (_editorActive ? "\nE 退出编辑" : "\nF5 重置同 seed · L 打开回放")
             + (mode == SessionMode.Replay && !_editorActive
                 ? "\n空格 播放/暂停 · ←→ 单步 · Home/End 首尾"
-                : "");
+                : "")
+            + (_editorActive ? "" : "\nF10 打开设置");
 
         if (_replayBar is not null)
         {

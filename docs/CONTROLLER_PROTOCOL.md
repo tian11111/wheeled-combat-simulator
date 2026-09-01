@@ -1,6 +1,7 @@
 # 控制器协议（decide(obs) → {v, w}）
 
-外部策略以**独立进程**运行，通过 **JSONL stdio** 与 `Sim.Cli` 通信。协议与遗留桥完全兼容。
+外部策略以**独立进程**运行，通过 **JSONL stdio** 与 `Sim.Cli` 或 Godot 桌面端通信。
+协议与遗留桥完全兼容；两端共享 `src/Sim.Controller/ExternalControllerBridge` 的校验和故障语义。
 
 ## 每帧时序
 
