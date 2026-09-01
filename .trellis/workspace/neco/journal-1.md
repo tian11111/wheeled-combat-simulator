@@ -461,3 +461,22 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 18: Trellis 收尾复核
+
+**Date**: 2026-09-01
+**Task**: Trellis 收尾复核
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+复核当前工作区和活动任务：无当前任务可归档；玻璃控制台、运行设置、自定义控制器的 3 个子任务及真机遥测任务仍处于 planning；保留其他窗口的未提交修改。
+
+### Git Commits
+
+(No commits - planning session)
+
+### Status
+
+[OK] **Completed**
