@@ -510,3 +510,25 @@ HUD 通知 + Arm 互斥;EchoController 五失败模式 8 测试全过。AC6 干�
 ### Status
 
 [OK] **Completed**
+
+## Session 20: 09-24 AC6 关闭, 任务归档
+
+**Date**: 2026-09-25
+**Task**: 09-24-mujoco-dual-physics-validation
+**Branch**: `feat/mujoco-dual-physics-validation`
+
+### Summary
+
+网络恢复后完成 AC6:self-contained win-x64 发布成功(DLL+许可入 RID 结构);隔离目录+剥离环境变量
+运行新模式 match/record/逐位 check 全过, 缺 DLL/篡改 DLL 负例 exit 1 无伪输出, 无 DLL 副本旧模式正常。
+边界如实声明: VC++ 运行库为 .NET 通用前置(应用本地部署已验证), 真·全新 OS 未实测。全套 361/361,
+工作区 obj 恢复无 RID。任务归档 → archive/2026-09/。活跃任务仅剩 08-28 真机遥测(planning)。
+
+### Git Commits
+
+- 40d7ea2 docs(task): AC6 按可行范围关闭
+- 8caeaec chore(task): archive 09-24-mujoco-dual-physics-validation
+
+### Status
+
+[OK] **Completed**
