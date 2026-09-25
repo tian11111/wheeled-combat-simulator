@@ -22,5 +22,8 @@
   "parent": null,
   "relatedFiles": [],
   "notes": "",
-  "meta": {}
+  "meta": {
+    "title": "控制器发令前预检",
+    "description": "缩范围:发令前对外部控制器命令做可执行性/协议预检并在 UI 显示;原接入主体已由归档任务交付。"
+  }
 }

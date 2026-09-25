@@ -1,12 +1,18 @@
-# 实施清单：自定义小车控制器接入
+# 实施清单:控制器发令前预检(缩范围后)
 
-1. 抽取共享 bridge，保持 CLI 的协议、fault、timeout 和每场生命周期测试通过。
-2. 新增桌面 driver 的 immutable snapshot/status 与 command channel；先覆盖 built-in/no-controller 路径不变。
-3. 接入 Arm、Pause/Resume、Restart、Reset、Replay/Close 的有序命令和取消回收。
-4. 设置面板接入双方 external profile 与启动前预检；启动失败/坏行/错配/超时/退出显示角色错误并零动作回退。
-5. 验证多个连续新场次不复用旧 bridge，窗口关闭不留子进程；CLI batch/replay 和 Godot parity 不回归。
-6. 更新协议/桌面使用说明并运行专项集成、全量测试、smoke 和 `git diff --check`。
+> 原全量接入已由归档任务 `08-31-glass-settings-custom-controller`(提交 `1053e8d`)交付;
+> 本清单只剩预检缺口。按序执行,每项以验证收尾。
+
+1. [ ] 在 `DesktopLiveDriver`(或其旁路助手)实现一次性探针:启动 → 一帧握手 → 回收,
+   失败矩阵文案与既有启动故障对齐;不触碰 `Sim.Core`。
+2. [ ] `SettingsPanel` 控制器分区加"预检"按钮与结果区(每角色),预检中禁用重复预检与
+   应用,预检与 Arm 互斥。
+3. [ ] HUD 控制器状态条复用既有显示路径呈现预检结果(不新增数据源)。
+4. [ ] EchoController 夹具扩展坏行/慢响应/立即退出变体,覆盖成功 + 全部失败路径;
+   断言预检后无孤儿进程。
+5. [ ] 全套 `dotnet test`、既有 Godot smoke/parity、`git diff --check` 全部通过;
+   CLI batch/replay 行为逐位不变。
 
 ## Stop Conditions
 
-出现 UI 主线程阻塞、孤儿进程、旧 CLI 结果变化或 replay controller 被错误启动时，停止扩展设置界面，先修复/回滚 driver 集成。
+预检引入 UI 主线程阻塞、孤儿进程、或正式比赛启动路径行为变化时,停止扩展,先修复/回滚。

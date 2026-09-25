@@ -1,17 +1,30 @@
-# 设计：自定义小车控制器接入
+# 设计:控制器发令前预检(缩范围后)
 
 ## Contract
 
-MVP 使用外部命令/脚本，不嵌入编辑器。保留既有 JSONL：observation → `{v,w,requestId}`；request-id、有限值、timeout、zero-action、fault、每场独立进程和进程树回收语义逐位沿用。
+预检 = 一次性探针:用与正式比赛完全相同的 `Sim.Controller.ExternalControllerBridge`
+语义启动命令进程 → 发送一帧 Observation → 在 profile 的 timeout 内等待一个合法
+`{v,w,requestId}` 响应 → 立即回收进程。不发明新协议、不新增参数键、不改
+`docs/CONTROLLER_PROTOCOL.md` 的任何语义;预检结果不属于比赛数据。
 
-## Shared Bridge
+## Boundary
 
-把现有 `PythonBridge` 放入最小 `Sim.Controller` 类库，CLI 与 Godot 引用同一实现；Process/线程仍在 IO 边界，`Sim.Core` 只保留 `IControllerAdapter`/`MatchEngine`。CLI 旧 match/replay-record/batch 先回归后再接桌面。
+- 预检是桌面壳能力:入口在 `SettingsPanel` 控制器分区(每角色一个"预检"按钮),
+  执行经 `DesktopLiveDriver` 已有的进程/IO 边界模式(后台执行、UI 只收结果),
+  不进入 `Sim.Core`,不触碰运行中的 `MatchEngine`/回放。
+- 命令文本取自当前设置页输入框(未保存也允许预检);profile 属用户偏好,预检
+  本身不写盘。
+- 失败矩阵与 fault 文案对齐既有语义:命令缺失/不可执行、启动即退、坏 JSONL、
+  request-id 错配、超时、握手后进程退出 —— 均映射为可定位到角色的结果文案,
+  复用 `DesktopLiveDriver` 启动故障的措辞风格。
 
-## Desktop Runtime
+## Process Hygiene
 
-因为 bridge 的 `Decide` 是同步截止时间等待，桌面 live match 使用 `DesktopLiveDriver` 后台固定步长循环：driver 独占 engine、bridges 和命令队列，主线程只投递裁判命令和消费有界 snapshot/status 队列。启动、故障、重置、回放切换和关闭均在 finally/取消路径释放 bridges；回放绝不启动 controller。
+- 探针进程持有独立生命周期:finally/取消/窗口关闭路径一律 Kill + Dispose;
+- 预检进行中禁用该角色的再次预检与"应用";预检与 Arm 互斥(预检未结束不允许发令)。
+- 不改变正式比赛的启动路径:预检通过不缓存"免检"状态,比赛仍按既有逻辑启动。
 
-## UI
+## Testing
 
-设置面板支持 us/them 各自选择内置 FSM 或 external，保存命令/脚本文本和 timeout，发令前显示预检/连接状态。路径和命令属于 user settings，不进入 Scenario/replay/fingerprint；外部程序风险由 UI 明示，不声称沙箱隔离。
+- 失败矩阵用 EchoController 夹具扩展(坏行/慢响应/立即退出变体)做自动化覆盖;
+- 预检后无孤儿进程(进程树断言);预检不影响既有全套测试与 parity(逐位不变)。
