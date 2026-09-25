@@ -140,7 +140,7 @@ public class MujocoIntegrationTests
             previous = pose;
         }
         Assert.True(highest > 0.12, $"stage was not mounted: highest centre Z={highest}; final Y={previous.Y}");
-        // 2026-09-25 登台修复(力上限 2.0 N/轮 + 底盘离地 0.08 m)后, 直接驱动必须能
+        // 2026-09-25 登台修复(力上限 3.0 N·m/轮 + 底盘离地 0.08 m)后, 直接驱动必须能
         // 四角全上台(OnStage=FullOn), 不再允许"后轮卡沿"的半登台状态。
         Assert.True(fullMountTicks > 10,
             $"car never had all four corners on the stage: full-mount ticks={fullMountTicks}; final y={previous.Y:0.###} z={previous.Z:0.###}");
@@ -168,20 +168,36 @@ public class MujocoIntegrationTests
         };
         using var engine = MatchEngineHost.Create(scenario);
         engine.Arm();
-        var mounted = false;
-        var enteredSearch = false;
+        int? firstFullOnTick = null;
+        int? firstSearchTick = null;
         Snapshot current = engine.CommitSnapshot();
-        for (var i = 0; i < 600 && !enteredSearch; i++)
+        for (var i = 0; i < 600 && firstSearchTick is null; i++)
         {
             current = engine.Tick();
             var robot = current.Robots[RoleNames.Us];
-            mounted |= robot.OnPlatform;
-            enteredSearch |= string.Equals(robot.State, "SEARCH", StringComparison.Ordinal);
+            if (robot.OnPlatform)
+            {
+                firstFullOnTick ??= i;
+            }
+            if (string.Equals(robot.State, "SEARCH", StringComparison.Ordinal))
+            {
+                firstSearchTick ??= i;
+            }
             Assert.Empty(current.Validate());
         }
-        Assert.True(mounted, $"FSM never got all four corners on the stage; final state={current.Robots[RoleNames.Us].State}");
-        Assert.True(enteredSearch,
+        Assert.True(firstFullOnTick is not null,
+            $"FSM never got all four corners on the stage; final state={current.Robots[RoleNames.Us].State}");
+        Assert.True(firstSearchTick is not null,
             $"FSM did not enter SEARCH after mounting; final state={current.Robots[RoleNames.Us].State}, y={current.Robots[RoleNames.Us].Y:0.###}");
+        // 登台须由直接倒车路径一次达成: 不得出现 倒车超时/换面重试/正冲备选。
+        var mountEvents = engine.Events.Events
+            .Where(e => e.Kind == EventKind.Mount && !e.Neutral && e.Robot.IsUs)
+            .ToList();
+        Assert.NotEmpty(mountEvents);
+        var detour = engine.Events.Events
+            .Where(e => e.Msg is not null && (e.Msg.Contains("倒车超时") || e.Msg.Contains("换面重试") || e.Msg.Contains("正冲备选")))
+            .ToList();
+        Assert.Empty(detour);
     }
 
     [Fact]
