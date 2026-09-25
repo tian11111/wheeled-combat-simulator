@@ -558,3 +558,28 @@ Sim.Mujoco 模型层: 力上限 3.0、底盘离地 +2cm、kv 0.25 + AccelK 一�
 ### Status
 
 [OK] **Completed**
+
+## Session 22: SEARCH 索敌闭环完成 + 独立验收通过
+
+**Date**: 2026-09-25
+**Task**: 09-25-mujoco-search-targeting(接手另一代理的实施)
+**Branch**: `feat/mujoco-dual-physics-validation`
+
+### Summary
+
+接手对方 score_retreat 候选并独立验收:全套 373/373;官方 seed 42、120 s 跑满
+2400 ticks,比分 8:3,我方 t=236 真实 BlockScore(+3)、无我方掉台;fresh 回放
+CLI 逐位 PASS + 真实 Godot parity PASS(对方缺的重建步骤补齐);旧 CoreVersion
+回放明确拒绝;p1=p4;32worker 32/32;diff-check 干净。AC1-AC5 全部勾选,任务归档。
+SEARCH 修复全景(两轮):一轮 = 执行器边界原地转向补偿(系数 4,受控对照选定);
+二轮 = SCORE 台沿守卫 + score_retreat(对方实施,我验收)。RL 试点任务保持
+planning(前置已满足;其 design 的 Tick 用法须按交接修正)。08-28 仍等真机。
+
+### Git Commits
+
+- 032d30a feat(mujoco): SEARCH 索敌闭环完成(接手收尾, AC1-AC5 全过)
+- (本次) 独立验收归档
+
+### Status
+
+[OK] **Completed**

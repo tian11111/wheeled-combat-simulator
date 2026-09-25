@@ -2,20 +2,20 @@
 
 ## Goal
 
-在确定性 MuJoCo SCORE_BLOCK 修复通过后，建立最小可复现的 Gymnasium 训练环境，用 Stable-Baselines3 PPO 训练并与当前确定性 FSM 基线比较。试点只评估单车推块行为，不将学习策略接入默认控制器，也不声称可用于真机。
+在确定性 MuJoCo SCORE_BLOCK 修复通过后，建立最小可复现的 Gymnasium 训练环境，用 Stable-Baselines3 PPO 训练并与当前确定性 FSM 基线比较。每集先由内置 FSM 到达 `SCORE_BLOCK`，学习策略只接管此后的推块阶段；不将其接入默认控制器，也不声称可用于真机。
 
 ## 前置条件
 
-.trellis/tasks/09-25-mujoco-search-targeting/ 的 AC4 必须先通过：官方 MuJoCo seed 42 全场由我方产生真实 BlockScore，而非 ScoreClock 等被动比分；已有掉台循环卡点须关闭。AC4 未通过时本任务保持 planning，不开始训练或策略调参。
+`.trellis/tasks/09-25-mujoco-search-targeting/report.md` 已记录 AC1–AC5 全部通过：官方 MuJoCo seed 42 全场由我方产生真实 `BlockScore`，且无我方掉台。此前置门槛现已满足；本 RL 任务仍为 `planning`，须完成规划审查和 Trellis 启动步骤后才能实施。
 
 ## Requirements
 
-- R1 提供 episode 级 reset(seed) / tick 级 step(action) 环境。每次 reset 创建全新的官方 MuJoCo 场景和 MatchEngine，调用 Arm()，一步对应场景固定 0.05 s；episode 完成后释放原生资源。复用 Sim.Cli 宿主边界，IO 留在 CLI / Python，不能把进程、文件或 Gymnasium 依赖放进 Sim.Core。
+- R1 提供 episode 级 reset(seed) / tick 级 step(action) 环境。每次 reset 创建全新的官方 MuJoCo 场景和 MatchEngine，调用 Arm()，先用内置 FSM 自动推进到我方首次进入 `SCORE_BLOCK`，再返回训练初始观测；step 的一步对应场景固定 0.05 s。若该 seed 比赛结束前未进入 `SCORE_BLOCK`，记录 `no_score_block`，该集作为零成功的终止样本，不悄悄改 seed。episode 完成后释放原生资源。复用 Sim.Cli 宿主边界，IO 留在 CLI / Python，不能把进程、文件或 Gymnasium 依赖放进 Sim.Core。
 - R2 Python 环境遵守 Gymnasium 五元组接口。动作为 Box([-1,-1],[1,1])，映射到 v = action[0] m/s、w = 2 * action[1] rad/s；观测固定为 9 个 float：目标增益块相对车体的 x/y、目标块绝对 x/y、车辆前向速度、偏航率、车辆是否在台、目标块是否在台、剩余比赛时间比例。坐标/速度按固定场景范围归一化并裁剪。
 - R3 观测中的目标块坐标来自 MatchEngine.Blocks / Observation.objects 的仿真真值，属于仿真特权状态。报告不得把该模型描述为仅用传感器、视觉或可直接部署真机；相机/传感器观测策略留待独立任务。
-- R4 每 episode 在 reset 时锁定距离我方初始位置最近的有效增益块；动作只控制我方，对手沿用内置 FSM。奖励只从事件和块位姿变化计算：我方归属的真实 BlockScore +1；目标块未得分即 BlockOff −0.5；我方 Drop −1；每步 −0.001；距离目标块到最近台沿的减少量按 0.1 倍作为 potential shaping。ScoreClock、消极、罚分和对手得分不得奖励为推块成功。目标块出界、我方掉台或比赛结束时结束 episode；单集上限为 2400 tick。
+- R4 每 episode 在进入 `SCORE_BLOCK` 时锁定该阶段的 `ScoreTarget`（若为空，按现有 FSM 的有效增益块选择规则兜底）。动作仅从此刻起控制我方，对手沿用内置 FSM。奖励只从接管后事件和块位姿变化计算：锁定目标由我方真实 `BlockScore` +1；目标块未得分即 `BlockOff` −0.5；我方 `Drop` −1；每步 −0.001；距离目标块到最近台沿的减少量按 0.1 倍作为 potential shaping。`ScoreClock`、消极、罚分和对手得分不得奖励为推块成功。目标块出界、我方掉台或比赛结束时结束 episode；单集上限为 2400 个策略 tick。
 - R5 只训练一个 Stable-Baselines3 PPO MlpPolicy 连续动作策略，使用 Gymnasium API；训练和评测 seed 严格分离。策略以 deterministic mode 评测，并写出模型、依赖版本、随机种子、训练步数、回报日志和逐场事件指标到用户指定的输出目录。
-- R6 在至少 10 个预先固定、且未参与训练的 seed 上，将学习策略与同场景、同 seed、默认内置 FSM 比较。指标区分我方真实 BlockScore 数、产生至少一次我方 BlockScore 的场次数、我方 Drop 数、无归属的 BlockOff、控制器 fault 和最终比分；被动比分不得计入推块成功。
+- R6 在至少 10 个预先固定、且未参与训练的 seed 上，将学习策略与同场景、同 seed、默认内置 FSM 比较。两者从同一首次 `SCORE_BLOCK` 进入帧开始计推块指标；未进入该阶段的 seed 也保留为零成功样本。指标区分锁定目标的我方真实 `BlockScore` 数、成功场次数、我方 `Drop` 数、无归属的 `BlockOff`、控制器 fault 和最终比分；被动比分不得计入推块成功。
 
 ## Constraints
 
@@ -26,10 +26,10 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1 前置 SEARCH 任务 AC4 通过；任务报告能定位到官方 seed 42 我方真实 BlockScore，且无重复掉台循环。未满足时停止并保持本任务 planning。
-- [ ] AC2 reset/step 符合 Gymnasium API；固定 seed 重置结果和相同动作序列可复现；MuJoCo 缺失/初始化失败时显式报错；连续 reset/close 后无未释放引擎或原生句柄。
+- [x] AC1 前置 SEARCH 任务 AC4 通过；其报告记录官方 seed 42 我方真实 `BlockScore`，且无我方掉台。此项仅解除规划前置条件，不表示 RL 任务已经启动或训练通过。
+- [ ] AC2 reset/step 符合 Gymnasium API；固定 seed 的 FSM 预推进终点与相同策略动作序列可复现，策略动作只在首次 `SCORE_BLOCK` 后生效；未进入阶段的 seed 有明确终止结果；MuJoCo 缺失/初始化失败时显式报错；连续 reset/close 后无未释放引擎或原生句柄。
 - [ ] AC3 PPO 训练可从干净环境按文档命令完成，确定性评测能重新加载模型；输出包含实际依赖版本、seed、timesteps、逐场事件计数和回报统计。训练 seed 与 10 个留出 seed 不相交。
-- [ ] AC4 留出集上策略至少产生一次可追溯的我方真实 BlockScore；累计我方 BlockScore 数不低于同一留出集的 FSM 基线，且我方 Drop 数不高于基线。事件、台上位姿/块位移和得分归属吻合；若未达标如实判失败，不调裁判、不排除坏 seed、不以比分非零代替。
+- [ ] AC4 留出集上策略至少产生一次可追溯的锁定目标我方真实 `BlockScore`；从相同阶段入口开始，累计我方该目标 `BlockScore` 数不低于同一留出集的 FSM 基线，且我方 `Drop` 数不高于基线。事件、台上位姿/块位移和得分归属吻合；若未达标如实判失败，不调裁判、不排除坏 seed、不以比分非零代替。
 - [ ] AC5 运行定向环境检查、现有 Sim.Tests 和 MuJoCo 官方回放检查；legacy 回放逐位不变。策略只在独立评测命令中运行，默认 FSM、既有外部 JSONL 协议和默认场景不变。
 
 ## Out of Scope

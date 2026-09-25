@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": ["src/Sim.Cli/MatchRunner.cs", "src/Sim.Core/MatchEngine.cs", "src/Sim.Protocol/Observation.cs", "docs/CONTROLLER_PROTOCOL.md", ".trellis/tasks/09-25-mujoco-search-targeting/report.md"],
-  "notes": "实施前置条件：09-25-mujoco-search-targeting AC4 通过，证据含官方 seed 42 真实我方 BlockScore；否则不得启动训练。",
+  "notes": "前置 SEARCH 任务 AC1–AC5 已在 report.md 标记通过；RL 任务仍处 planning。reset 先由内置 FSM 到首次 SCORE_BLOCK，策略只接管之后的推块阶段。",
   "meta": {}
 }
