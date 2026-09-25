@@ -1,0 +1,12 @@
+# 执行清单：MuJoCo 登台修复验收
+
+> 本文是后续验收工程师的执行计划；当前任务保持 `planning`，本轮不运行验收或修改产品代码。Windows PowerShell 中逐条执行命令，不使用 Bash 续行语法。
+
+1. [ ] **冻结对象与环境**：记录 `git rev-parse HEAD`、`git status --short`、Windows/.NET/Godot 版本；确认包含 `fd84852`，保留已有未提交改动。读取父任务 `prd.md`、`report.md` 和本任务 `design.md`。建立 `$qaDir = Join-Path $env:TEMP 'robot-simulator-mujoco-mount-acceptance'`，临时回放、JSONL 和画面写入其下。
+2. [ ] **补齐机器判定**：在 `src/Sim.Tests/MujocoIntegrationTests.cs` 的现有 FSM 测试中记录首次 FullOn/SEARCH tick、我方非中立 Mount 事件，断言首次 FullOn 在倒车阶段且未先触发“倒车超时/换面/正冲备选”；逐 tick 检查三维位置连续、`Snapshot.Validate()`。保留直接驱动测试的 FullOn >10 ticks 和 <0.15 m 门槛。只修正该文件已过时的“力上限 2.0”注释；不改 FSM 或物理以迎合断言。
+3. [ ] **先跑定向再跑全套**：`dotnet restore RobotSimulator.sln`；`dotnet test src/Sim.Tests/Sim.Tests.csproj -m:1 --filter "FullyQualifiedName~MujocoIntegrationTests.NativeMode_FsmMountsFromOfficialSpawn|FullyQualifiedName~MujocoIntegrationTests.NativeMode_MountsTheSixCentimetreStageContinuously"`；`dotnet test RobotSimulator.sln -m:1`。记录通过数、失败和环境错误。检查 `MountGateParameterTests`、`MatchEngineTests.Arm_MountsPlatform_AndEntersSearch`、重启/场地变换测试包含在全套结果中。
+4. [ ] **旧回放回归**：`dotnet run --project src/Sim.Cli -- replay-check replays/seed-42.json`，再枚举 `replays/*.json` 对每个运行 `replay-check` 并记录文件、退出码和指纹结果。若 `rotated-seed42.json` 失败，用归档双物理任务 `validation-report.md` §2 的修复前对照核查；报告不得写“全量 PASS”，父任务 AC 保持未关闭，直到该差异被修复或明确处置。
+5. [ ] **真实新模式行为与回放**：`dotnet run --project src/Sim.Cli -- match --seed 42 --duration 30 --scenario scenarios/wushu-ring-2026-mujoco.json --events`，保存事件并检查倒车登台→Mount→SEARCH 的顺序；不以 0:0 比分判断登台失败。随后 `dotnet run --project src/Sim.Cli -- replay-record --seed 42 --duration 30 --scenario scenarios/wushu-ring-2026-mujoco.json --out <qaDir内新回放.json>`，再 `replay-check <同文件>`。不复用旧模型哈希的回放。
+6. [ ] **确定性与资源**：对 `--scenario scenarios/wushu-ring-2026-mujoco.json --seeds 1,2,3,4 --duration 5` 各跑 `batch --parallelism 1` 和 `4`，分别 `--out` 到 `$qaDir`；去掉 `createdAt` 后按 seed 比较整行稳定字段。`$seedList = (1..32) -join ','`，以 `--seeds $seedList --duration 5 --parallelism 32` 再跑一次；核对 32 行、32/32 `completed`、各 100 ticks、无异常退出。
+7. [ ] **Godot 双重核对**：先确认真实 Godot 4.7.2 Mono EXE 路径存在（不可用 WinGet `Links\godot.exe` 替代），运行 `& $godotExe --headless --path godot -- --parity-check <新回放>`，保存退出码、ticks/事件指纹。再以 `--scenario-path scenarios/wushu-ring-2026-mujoco.json --auto-arm` 开实况或临时动态捕获，查看出生点至约 6.2 s 的连续倒车/上台画面，记录帧范围与观察结论；只靠 headless parity 不算画面验收。
+8. [ ] **交付判定**：在本任务目录写 `acceptance-report.md`，按 AC1–AC5 填命令、版本、commit、结果、文本证据和未通过原因；更新 `docs/CLI.md` 的过时登台说明。运行 `git diff --check` 并核对改动范围。明确“登台修复”与“父任务整体关闭”两个结论；任何未完成项保持未勾选，不归档父任务、不晋升 `fidelity.json`。
