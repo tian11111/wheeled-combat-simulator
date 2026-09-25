@@ -10,6 +10,13 @@
 > 新增 `validation-report.md`；更新 `docs/ARCHITECTURE.md`、`docs/CLI.md`、`godot/README.md`、`.trellis/spec/sim/index.md`。
 > 仍未完成：AC6 干净机验证（保持 ⚠️）；design.md 要求的传感器×MuJoCo 针对性测试缺失（报告 §5）。未提交任何改动。
 
+> **2026-09-25 第三轮增量**:补上 design.md 要求的传感器×MuJoCo 针对性测试
+> (`NativeMode_SensorChannelsTrackAnalyticPlaneProjectionWhileBodyTilts`:零噪声下车体抬上台沿并倾斜期间,
+> ir_ground 逐 tick 精确等于台面矩形平面投影;全套 353/353)。**重要修正**:专项登台测试的恒速倒车实际只是
+> 把车体抬上台沿卡住(最高 Z≈0.122、倾斜 ~0.36 rad、四角从未全上台),并非完整登台——当前未标定参数下
+> FSM 与简单恒速倒车都无法完整登台,报告 §4.1 已改写;做"登台适配"时不要把该测试当作完整登台证据。
+> nuget.org 第三轮复测仍不可达,AC6 self-contained 维持受阻。测试与报告已提交推送(aad1dfb 之后的增量提交)。
+
 ## 结论与边界
 
 任务仍为 `in_progress`，**尚未完成 PRD 全部 AC**；不要归档、宣称真机标定完成，或把本交接当作质量门禁通过。用户此轮只要求写入 Trellis 以便更换 agent；未授权本轮提交或推送。工作区有大量未提交改动，尤其须保留原有 `godot/src/ArenaVisualizer.cs` 去装饰修改、`.trellis/spec/frontend/component-guidelines.md`、`.learnings/` 与另一个规划中的 Trellis 任务。不要用 reset/checkout 清理。

@@ -143,6 +143,65 @@ public class MujocoIntegrationTests
     }
 
     [Fact]
+    public void NativeMode_SensorChannelsTrackAnalyticPlaneProjectionWhileBodyTilts()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        // R3 设计边界: 新模式传感器仍是解析平面投影 —— 台沿/台面判定消费
+        // (x, y, th) 平面点与场几何, 不消费 MuJoCo 三维碰撞几何。零噪声下
+        // ir_ground 通道必须逐 tick 精确等于"传感器点在台面矩形内"的三元值,
+        // 即使车体已被物理抬升/倾斜。若未来把传感器升级为三维感知, 本测试
+        // 失败即提示必须同步修订契约文档与保真度声明。
+        var scenario = Scenario() with
+        {
+            Parameters = new Dictionary<string, double> { ["irNoise"] = 0.0 },
+            Field = FieldParams.Default with
+            {
+                Starts = new Dictionary<string, Pose2>
+                {
+                    [RoleNames.Us] = new() { X = 1.9, Y = 0.3, Th = -Math.PI / 2 },
+                    [RoleNames.Them] = new() { X = 2.85, Y = 3.5, Th = Math.PI },
+                },
+            },
+        };
+        using var engine = MatchEngineHost.Create(scenario);
+        var groundChannels = engine.CommitSnapshot().SensorLayout![RoleNames.Us].Channels
+            .Where(c => c.Type == SensorType.IrGround && c.Mode == "ground")
+            .ToDictionary(c => c.Id, c => c);
+        Assert.Equal(2, groundChannels.Count); // legacy14: uL/uR
+        var field = engine.Field;
+        var maxCentreZ = 0.0;
+        var maxTilt = 0.0;
+        Snapshot current = engine.CommitSnapshot();
+        for (var i = 0; i < 140; i++)
+        {
+            current = engine.Tick(new RobotAction { V = -0.6 }, RobotAction.Zero);
+            var pose = current.PhysicsPoses!.Robots[RoleNames.Us];
+            maxCentreZ = Math.Max(maxCentreZ, pose.Z);
+            // body +Z 与世界 +Z 的夹角: cos(tilt) = 1 - 2(qx² + qy²)
+            maxTilt = Math.Max(maxTilt,
+                Math.Acos(Math.Clamp(1.0 - 2.0 * (pose.Qx * pose.Qx + pose.Qy * pose.Qy), -1.0, 1.0)));
+            var robot = current.Robots[RoleNames.Us];
+            var c = Math.Cos(robot.Th);
+            var s = Math.Sin(robot.Th);
+            foreach (var (id, ch) in groundChannels)
+            {
+                var px = robot.X + c * ch.Forward - s * ch.Lateral;
+                var py = robot.Y + s * ch.Forward + c * ch.Lateral;
+                var expected = field.OnPlatform(px, py) ? 1.0 : 0.0;
+                Assert.True(current.RawSensors![RoleNames.Us][id] == expected,
+                    $"tick {i}: {id} read {current.RawSensors[RoleNames.Us][id]}, analytic plane projection says {expected} " +
+                    $"(pose x={robot.X:0.###} y={robot.Y:0.###} th={robot.Th:0.###}, centreZ={pose.Z:0.###})");
+            }
+        }
+        Assert.True(maxCentreZ > 0.12, $"body was not raised onto the stage edge: highest centre Z={maxCentreZ}");
+        Assert.True(maxTilt > 0.05,
+            $"no three-dimensional tilt observed (max body-Z tilt={maxTilt:0.####} rad); the 3D-pose premise of this boundary test did not occur");
+        Assert.True(maxTilt > 0.02,
+            $"no three-dimensional tilt observed (max body-Z tilt={maxTilt:0.####} rad); the 3D-pose premise of this boundary test did not occur");
+    }
+
+
+    [Fact]
     public void NativeMode_HeadOnRobotsCollideWithoutPassingThrough()
     {
         if (!OperatingSystem.IsWindows()) return;
