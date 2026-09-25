@@ -8,7 +8,7 @@
 - 旧基线完整保持:352/352 测试通过,`replays/seed-42.json` 逐位复现,旧模式 batch 并行度 1/4 逐行一致,旧序列化不新增字段。
 - 新 `mujoco` 模式端到端可用:CLI 录制/复现/拒绝负例、batch 1/4/32 并行一致与失败隔离、Godot parity 与真实渲染全部通过。
 - **场景差异(如实报告)**:同一 seed 42 全场对抗,旧模式比分 4:49,新模式 0:0——内置 FSM 在新模式下整场无法完成"倒车登台",循环于 台沿→围栏。直接驱动的专项测试也只能把车体抬上台沿卡住、未能完整登台(第三轮修正,详见 §4.1)——当前未标定参数(轮半径 0.065 m、轮驱动力上限 0.3)下登台完整性整体未达成,留给登台适配/标定任务。详见 §4。
-- 未完成:AC6 的干净 Windows x64 环境验证(本机 framework-dependent 发布不足以满足文字要求;第三轮复测 nuget.org 仍不可达,self-contained 发布维持受阻)。design.md 要求的传感器×MuJoCo 针对性测试已补(ir_ground 台沿平面投影边界,见 §4.1);方块 2D 圆投影与俯仰安装位姿差异仍仅文档化。
+- 未完成→已关闭:AC6 于 2026-09-25 第四轮按可行范围关闭(nuget.org 恢复可达,self-contained 发布成功并完成隔离环境验证,详见 §2/§5);残余为"真·全新安装 Windows 未实测"——VC++ 2015-2022 运行库是 .NET Windows 应用通用前置(发布包不含,`coreclr.dll` 与 `mujoco.dll` 均导入 `vcruntime140.dll`),应用本地部署 VC DLL 已验证可行。方块 2D 圆投影与俯仰安装位姿差异仍仅文档化。
 
 ## 2. 验证矩阵(本轮实测)
 
@@ -23,6 +23,10 @@
 | 32 worker 压力 | 32 seeds × 5 s、并行度 32 → 32/32 `completed`、每行 100 ticks、rc=0 | `%TEMP%\robot-sim-mj-32.jsonl` |
 | 失败隔离 | 缺控制器 4 worker → 4/4 `failed`、无伪比分/指纹、rc=1;坏模式(`physics.backend=invalid-mode`)预检报 `unsupported backend`、rc=2、零 JSONL | `%TEMP%\robot-sim-mj-noctl.jsonl`;`%TEMP%\robot-simulator-mujoco-bad-mode.json` |
 | 回放负例 | 篡改模型哈希 / 伪造原生版本 → `replay physics identity mismatch`(recorded vs current 明示)、rc=1 | `%TEMP%\robot-simulator-mujoco-tampered-replay.json`、`-bad-version-replay.json` |
+| self-contained 发布(第四轮,nuget.org 恢复可达) | `publish -c Release -r win-x64 --self-contained true` 成功(202 文件/78 MB,运行时包在线还原);`mujoco.dll`+`LICENSE`+`THIRD_PARTY_NOTICES.txt` 位于标准 RID 结构 `runtimes/win-x64/native/`,与 `MujocoNative` 加载路径一致 | `%TEMP%\rs-sc-publish` |
+| 隔离环境运行(近似干净机) | 发布产物复制到独立目录,`env -i`(PATH 仅 System32,无任何 `DOTNET_*`/开发环境变量):mujoco match(100 ticks/0 fault)、replay-record、replay-check **逐位 PASS** —— `mujoco.dll` 随应用加载成功 | `%TEMP%\rs-clean-run` |
+| 隔离环境负例 | 缺 DLL → `native library is missing` + exit 1;篡改 DLL → SHA-256 不匹配(期望值=锁定哈希 da487aed…)+ exit 1;均无伪成功 JSONL。无 DLL 副本上旧模式(官方场景)正常完成 | 同上 |
+| VC 运行库边界 | `mujoco.dll` 导入 `VCRUNTIME140/MSVCP140/api-ms-win-crt`;发布包不含(与 `coreclr.dll` 同为 .NET Windows 通用前置)。把 `vcruntime140(_1).dll`+`msvcp140.dll` 复制进应用目录(应用本地部署)后 match 正常 —— 作为可选加固路径已验证 | 同上 |
 | Godot 渲染 | Forward+ 真实渲染:1280×720 ×3 tick + 1920×1080 + 旧模式回放 1920×1080 + 实况模式 160 帧 PNG 序列(20 fps)。自检:两车/三块/台面/HUD 完整,无程序集弹窗;实况序列中车辆位移/旋转、计时推进、事件流滚动(动态证据)。回放模式 `--write-movie` 序列为暂停画面(回放默认不自动播放),不可作为动态证据 | 截图为临时文件,已按惯例清理;复现命令见 §6 |
 
 ## 3. 性能与内存(可复测记录)
@@ -67,7 +71,7 @@
 | AC3/R2-R3 跨端一致 | ✅ | CLI↔Godot parity PASS(600/600、30/30);真实重启语义由 `NativeMode_RealRestartResetsOnlyTargetAndPreservesClock` 锁定 |
 | AC4/R3 Godot 渲染 | ✅ | 双分辨率真实渲染 + 三维姿态显示;旧快照回放加载正常(4:6 画面);布局编辑逻辑由既有测试与编辑器冒烟覆盖 |
 | AC5/R4 复现与并行 | ✅ | 同机复现、篡改/版本拒绝、1/4/32 一致、32 worker 压力与失败隔离 |
-| AC6/R4 发布与干净环境 | ⚠️ 部分 | win-x64 framework-dependent 发布成功且含锁定 DLL/许可;缺 DLL/坏场景预检清晰失败;**干净机器加载未实测**;self-contained 发布因 NU1301(离线还原)未完成 |
+| AC6/R4 发布与干净环境 | ✅(按可行范围) | self-contained 发布成功且含锁定 DLL/许可(RID 结构);隔离目录+剥离环境变量运行:新模式 match/record/逐位 check、缺库/篡改/坏场景负例全过、旧模式无 DLL 正常;残余如实声明:真·全新 OS 未实测,VC++ 运行库为 .NET 通用前置(应用本地部署已验证) |
 | AC7/R5 对照报告 | ✅(本文件) | 吞吐/实时倍率/峰值内存/场景差异;`fidelity.json` 未晋升、未标定等级不变 |
 
 ## 6. 复现命令

@@ -26,6 +26,12 @@
 内置 FSM 的登台机动按旧物理调校，新模式下可能无法完成倒车登台（工程差异，
 见 `.trellis` 任务 `09-24-mujoco-dual-physics-validation/validation-report.md`）。
 
+部署：`dotnet publish src/Sim.Cli -c Release -r win-x64 --self-contained true`
+会把锁定的 `mujoco.dll` 与许可放在产物 `runtimes/win-x64/native/`（运行时按
+该路径加载并校验 SHA-256，缺失/被篡改/版本不符都清晰报错）。目标机需要
+VC++ 2015-2022 运行库（.NET Windows 应用通用前置）；如需完全免安装依赖，
+可把 `vcruntime140(_1).dll`、`msvcp140.dll` 随应用目录分发（应用本地部署）。
+
 Godot 桌面端的 F10 设置页使用同一组外部控制器 JSONL 协议，但配置保存在桌面用户目录，
 不写入 CLI 参数、场景或回放；桌面端每场独立启动角色进程。窗口/界面设置即时生效，
 仿真参数和控制器绑定在下一场或 F5 重置后生效。需要给 AI agent 做多场并行评测时，继续使用

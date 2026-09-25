@@ -1,5 +1,12 @@
 # MuJoCo 双物理后端：2026-09-25 交接
 
+> **2026-09-25 第四轮(AC6 关闭,任务归档)**:nuget.org 恢复可达,`-r win-x64 --self-contained true`
+> 发布成功(此前 NU1301 纯因离线);`mujoco.dll`+许可在发布包 `runtimes/win-x64/native/`(与
+> `MujocoNative` 加载路径一致);隔离目录+`env -i` 剥离开发变量后新模式 match/record/**逐位 check**
+> 全过、缺 DLL/篡改 DLL 负例清晰失败 exit 1、无 DLL 副本旧模式正常。边界如实声明:VC++ 2015-2022
+> 运行库是 .NET Windows 通用前置(发布不含,`coreclr.dll` 同样依赖);应用本地部署 VC DLL 已验证;
+> 真·全新 OS 未实测。AC6 按可行范围 ✅,详见 validation-report.md §2/§5。工作区 obj 已恢复无 RID 状态。
+
 > **2026-09-25 第二轮（trellis-continue）已完成的增量**：
 > 修复被 self-contained 发布失败污染的 `obj/project.assets.json`（无 RID 还原）；在最终源码上重跑全套 352/352、
 > `replays/seed-42.json` 逐位 PASS、旧 batch 1v4 一致；新回放复现/篡改拒绝/版本拒绝/p1=p4/32 worker/坏模式预检/缺控制器隔离全部通过；
