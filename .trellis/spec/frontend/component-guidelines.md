@@ -38,7 +38,7 @@ never let it become a Glow source; A/B captures must check the gray reading.
 Glow/TAA are separate decisions: Glow is currently low-intensity and gated at
 HDR threshold 1.2, while TAA remains off because it can leave motion trails.
 Decorative nodes (robot detail parts, team strips, contact-shadow discs,
-start-zone outlines, center ring) are tagged or kept in the visualizer layer,
+start-zone outlines) are tagged or kept in the visualizer layer,
 derived from `Scenario.Field` geometry, and never participate in
 collision/rules/sensors.
 Z-order gotcha: the platform top plane sits at `PlatformHeight + 0.001` — any

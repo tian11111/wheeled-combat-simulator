@@ -532,3 +532,29 @@ HUD 通知 + Arm 互斥;EchoController 五失败模式 8 测试全过。AC6 干�
 ### Status
 
 [OK] **Completed**
+
+## Session 21: 接手 09-25 登台修复, MuJoCo 模式全场对抗复活
+
+**Date**: 2026-09-25
+**Task**: 09-25-mujoco-fsm-reverse-mount
+**Branch**: `feat/mujoco-dual-physics-validation`
+
+### Summary
+
+用户改派本会话接手登台适配(原外部 agent 未实质开工, 工作树由用户停用)。四层根因逐层实证:
+力矩不足(0.3 N·m/轮 < pivot 所需 0.36)→ 底盘腹部与台面齐平 → 指令阶跃变扭矩阶跃致整车
+弹跳(kv=1.0 伺服)→ 刚体圆柱轮咬不住直角台沿(接触对 dump 实证与扭矩无关)。修复全在
+Sim.Mujoco 模型层: 力上限 3.0、底盘离地 +2cm、kv 0.25 + AccelK 一阶 v 斜坡、台沿 20° 倒角、
+宽软轮。FSM 零改动即从官方出生点 ~62 ticks 登台进入 SEARCH(新增 E2E 测试锁定)。全套 362/362,
+旧回放 5/6(rotated 为先前定位的分支陈旧基线), p1=p4, Godot parity PASS, 32worker 32/32。
+新发现如实记录: SEARCH 索敌不收敛(发现目标→3s 丢失循环, 比分 0:0), 与登台无关, 建议独立任务。
+调校教训沉淀进 sim spec(力矩口径/伺服弹跳/直角台阶/底盘高度/传感器一帧滞后)。
+
+### Git Commits
+
+- fd84852 fix(mujoco): 内置 FSM 从官方出生点完成倒车登台(FSM 零改动, 全在模型层)
+- (本次) spec 沉淀 + 归档
+
+### Status
+
+[OK] **Completed**
