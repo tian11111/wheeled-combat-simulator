@@ -23,8 +23,10 @@
 `unsupported backend`（batch 零 JSONL、exit 2）。新模式回放头部携带
 `mujoco/<原生版本>/<模型内容哈希>` 身份，`replay-check` 在版本/模型不匹配时
 明确拒绝；`batch` 结果行加性携带 `physicsBackend`/`physicsModelSha256`。
-内置 FSM 的登台机动按旧物理调校，新模式下可能无法完成倒车登台（工程差异，
-见 `.trellis` 任务 `09-24-mujoco-dual-physics-validation/validation-report.md`）。
+内置 FSM 从官方出生位姿可在新模式完成倒车登台并进入 SEARCH（2026-09-25 模型层
+修复：轮驱动力矩、底盘离地、台沿倒角、驱动斜坡；见 `.trellis` 任务
+`09-25-mujoco-fsm-reverse-mount/report.md`）。已知后续边界：登台后的
+SEARCH 索敌在新模式下尚不收敛（发现目标→丢失循环，未进入推块），与登台机动无关。
 
 部署：`dotnet publish src/Sim.Cli -c Release -r win-x64 --self-contained true`
 会把锁定的 `mujoco.dll` 与许可放在产物 `runtimes/win-x64/native/`（运行时按
