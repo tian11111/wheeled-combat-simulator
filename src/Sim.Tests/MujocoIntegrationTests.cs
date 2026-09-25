@@ -121,12 +121,14 @@ public class MujocoIntegrationTests
         var largestJumpTick = -1;
         PhysicsPose3? jumpFrom = null;
         PhysicsPose3? jumpTo = null;
+        var fullMountTicks = 0;
         Snapshot current = engine.CommitSnapshot();
         for (var i = 0; i < 120; i++)
         {
             current = engine.Tick(new RobotAction { V = -0.6 }, RobotAction.Zero);
             var pose = current.PhysicsPoses!.Robots[RoleNames.Us];
             highest = Math.Max(highest, pose.Z);
+            if (current.Robots[RoleNames.Us].OnPlatform) fullMountTicks++;
             var jump = Math.Sqrt(Math.Pow(pose.X - previous.X, 2) + Math.Pow(pose.Y - previous.Y, 2) + Math.Pow(pose.Z - previous.Z, 2));
             if (jump > largestJump)
             {
@@ -138,8 +140,48 @@ public class MujocoIntegrationTests
             previous = pose;
         }
         Assert.True(highest > 0.12, $"stage was not mounted: highest centre Z={highest}; final Y={previous.Y}");
+        // 2026-09-25 登台修复(力上限 2.0 N/轮 + 底盘离地 0.08 m)后, 直接驱动必须能
+        // 四角全上台(OnStage=FullOn), 不再允许"后轮卡沿"的半登台状态。
+        Assert.True(fullMountTicks > 10,
+            $"car never had all four corners on the stage: full-mount ticks={fullMountTicks}; final y={previous.Y:0.###} z={previous.Z:0.###}");
         Assert.True(largestJump < 0.15,
             $"physical pose jumped {largestJump} metres in tick {largestJumpTick}: {jumpFrom} -> {jumpTo}; highestZ={highest}");
+    }
+
+    [Fact]
+    public void NativeMode_FsmMountsFromOfficialSpawn()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        // 2026-09-25 登台修复验收: 内置 FSM 从官方出生点 (0.95, 0.3) 发令后,
+        // 必须在比赛时间内完成倒车登台(四角全上台)并进入 SEARCH。
+        var scenario = Scenario() with
+        {
+            Field = FieldParams.Default with
+            {
+                Starts = new Dictionary<string, Pose2>
+                {
+                    // 官方出生位姿(Scenario 默认): 尾朝 y=0.7 台沿, 倒车登台。
+                    [RoleNames.Us] = new() { X = 0.95, Y = 0.3, Th = -Math.PI / 2 },
+                    [RoleNames.Them] = new() { X = 2.85, Y = 3.5, Th = Math.PI / 2 },
+                },
+            },
+        };
+        using var engine = MatchEngineHost.Create(scenario);
+        engine.Arm();
+        var mounted = false;
+        var enteredSearch = false;
+        Snapshot current = engine.CommitSnapshot();
+        for (var i = 0; i < 600 && !enteredSearch; i++)
+        {
+            current = engine.Tick();
+            var robot = current.Robots[RoleNames.Us];
+            mounted |= robot.OnPlatform;
+            enteredSearch |= string.Equals(robot.State, "SEARCH", StringComparison.Ordinal);
+            Assert.Empty(current.Validate());
+        }
+        Assert.True(mounted, $"FSM never got all four corners on the stage; final state={current.Robots[RoleNames.Us].State}");
+        Assert.True(enteredSearch,
+            $"FSM did not enter SEARCH after mounting; final state={current.Robots[RoleNames.Us].State}, y={current.Robots[RoleNames.Us].Y:0.###}");
     }
 
     [Fact]
@@ -172,6 +214,7 @@ public class MujocoIntegrationTests
         var maxCentreZ = 0.0;
         var maxTilt = 0.0;
         Snapshot current = engine.CommitSnapshot();
+        var previousRobot = current.Robots[RoleNames.Us];
         for (var i = 0; i < 140; i++)
         {
             current = engine.Tick(new RobotAction { V = -0.6 }, RobotAction.Zero);
@@ -180,7 +223,9 @@ public class MujocoIntegrationTests
             // body +Z 与世界 +Z 的夹角: cos(tilt) = 1 - 2(qx² + qy²)
             maxTilt = Math.Max(maxTilt,
                 Math.Acos(Math.Clamp(1.0 - 2.0 * (pose.Qx * pose.Qx + pose.Qy * pose.Qy), -1.0, 1.0)));
-            var robot = current.Robots[RoleNames.Us];
+            // 传感器在物理步进前采样(读取上一提交帧) —— 期望值必须用上一帧平面位姿,
+            // 否则车辆快速越过台沿边界时一帧位移就会造成假性偏差。
+            var robot = previousRobot;
             var c = Math.Cos(robot.Th);
             var s = Math.Sin(robot.Th);
             foreach (var (id, ch) in groundChannels)
@@ -192,6 +237,7 @@ public class MujocoIntegrationTests
                     $"tick {i}: {id} read {current.RawSensors[RoleNames.Us][id]}, analytic plane projection says {expected} " +
                     $"(pose x={robot.X:0.###} y={robot.Y:0.###} th={robot.Th:0.###}, centreZ={pose.Z:0.###})");
             }
+            previousRobot = current.Robots[RoleNames.Us];
         }
         Assert.True(maxCentreZ > 0.12, $"body was not raised onto the stage edge: highest centre Z={maxCentreZ}");
         Assert.True(maxTilt > 0.05,
@@ -309,7 +355,8 @@ public class MujocoIntegrationTests
             Assert.Empty(current.Validate());
         }
         Assert.True(farthestX > scenario.Field.Platform.MaxX, $"robot never left stage: farthest X={farthestX}");
-        Assert.True(lowest < 0.12, $"robot did not physically descend: lowest centre Z={lowest}");
+        // 2026-09-25 底盘离地抬高后, 地面静止中心 Z 从 0.105 变为 0.125。
+        Assert.True(lowest < 0.135, $"robot did not physically descend: lowest centre Z={lowest}");
         Assert.True(largestJump < 0.15, $"robot position jumped during drop: {largestJump}");
     }
 }

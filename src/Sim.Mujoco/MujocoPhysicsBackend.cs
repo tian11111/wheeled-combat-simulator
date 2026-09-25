@@ -10,6 +10,7 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     private readonly HashSet<int> _usGeoms = [];
     private readonly HashSet<int> _themGeoms = [];
     private readonly Dictionary<int, BlockRuntime> _blockGeoms = [];
+    private readonly Dictionary<string, double> _driveV = [];
     private IntPtr _model;
     private IntPtr _data;
     private bool _disposed;
@@ -114,24 +115,38 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     private void ApplyCommandLatency(RobotRuntime robot)
     {
         var frames = (int)Math.Max(0, Math.Floor(_context.Parameters.CmdLatencyFrames));
+        double targetV;
+        double targetW;
         if (frames == 0)
         {
-            robot.CmdV = robot.V;
-            robot.CmdW = robot.W;
-            return;
-        }
-        robot.CmdQueue.Enqueue((robot.V, robot.W));
-        if (robot.CmdQueue.Count > frames)
-        {
-            var command = robot.CmdQueue.Dequeue();
-            robot.CmdV = command.V;
-            robot.CmdW = command.W;
+            targetV = robot.V;
+            targetW = robot.W;
         }
         else
         {
-            robot.CmdV = 0;
-            robot.CmdW = 0;
+            robot.CmdQueue.Enqueue((robot.V, robot.W));
+            if (robot.CmdQueue.Count > frames)
+            {
+                var command = robot.CmdQueue.Dequeue();
+                targetV = command.V;
+                targetW = command.W;
+            }
+            else
+            {
+                targetV = 0;
+                targetW = 0;
+            }
         }
+        // 2026-09-25 登台修复配套: 力上限提高后, 指令阶跃的第一帧就会打满伺服力上限,
+        // 造成整车抬头-砸地弹跳。镜像 legacy Physics 的一阶加速(AccelK, 只滤纵向 v,
+        // w 保持瞬时响应), 在执行器边界把驱动指令斜坡化; 稳态误差不衰减, 倒车登台
+        // 顶住台沿时爬升扭矩仍可达力上限。
+        var dt = _context.Scenario.Field.TickSeconds;
+        var k = 1 - Math.Exp(-(robot.Vehicle.AccelK != 0 ? robot.Vehicle.AccelK : 12) * dt);
+        _driveV[robot.Role] = (_driveV.TryGetValue(robot.Role, out var smoothed) ? smoothed : 0)
+            + (targetV - (_driveV.TryGetValue(robot.Role, out var v0) ? v0 : 0)) * k;
+        robot.CmdV = _driveV[robot.Role];
+        robot.CmdW = targetW;
     }
 
     private void UpdateStall(RobotRuntime robot, double dt)
