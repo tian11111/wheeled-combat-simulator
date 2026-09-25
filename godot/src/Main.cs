@@ -114,6 +114,8 @@ public partial class Main : Node
         GetNode<CanvasLayer>("Hud").AddChild(_settingsPanel);
         _settingsPanel.SetUiScale(_settings.UiScale);
         _settingsPanel.Applied += ApplyDesktopSettings;
+        _settingsPanel.PreflightCompleted += (role, ok, message)
+            => _hud.ShowPreflightNotice(role, ok, message);
         _hud.ConfigureSettings(OpenSettings);
 
         _hud.ConfigureTimeline(tick => _session.ReplaySeekTick(tick));
@@ -1110,6 +1112,11 @@ public partial class Main : Node
 
     private void ArmLive()
     {
+        if (_settingsPanel.PreflightInProgress)
+        {
+            GD.Print("[arm] 控制器预检进行中, 完成后再发令");
+            return;
+        }
         if (_liveDriver is not null)
         {
             _liveDriver.RequestArm();

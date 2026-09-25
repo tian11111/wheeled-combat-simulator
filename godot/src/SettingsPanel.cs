@@ -34,16 +34,28 @@ public partial class SettingsPanel : Control
     private OptionButton? _usMode;
     private LineEdit? _usCommand;
     private SpinBox? _usTimeout;
+    private Button? _usPreflight;
+    private Label? _usPreflightResult;
     private OptionButton? _themMode;
     private LineEdit? _themCommand;
     private SpinBox? _themTimeout;
+    private Button? _themPreflight;
+    private Label? _themPreflightResult;
+    private Button? _restore;
     private DesktopSettings _settings = DesktopSettings.Default;
+    private int _preflightBusy;
 
     public event Action<DesktopSettings>? Applied;
 
     public event Action? Cancelled;
 
+    /// <summary>Raised on the main thread when a role's preflight probe settles.</summary>
+    public event Action<string, bool, string>? PreflightCompleted;
+
     public bool IsOpen => Visible;
+
+    /// <summary>True while a preflight probe is in flight; Arm must wait for it.</summary>
+    public bool PreflightInProgress => Volatile.Read(ref _preflightBusy) != 0;
 
     public override void _Ready()
     {
@@ -175,9 +187,9 @@ public partial class SettingsPanel : Control
         _error.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _error.CustomMinimumSize = new Vector2(0, 36);
 
-        var restore = MakeButton("恢复默认", Secondary, new Vector2(108, 38));
-        restore.Pressed += RestoreDefaults;
-        footer.AddChild(restore);
+        _restore = MakeButton("恢复默认", Secondary, new Vector2(108, 38));
+        _restore.Pressed += RestoreDefaults;
+        footer.AddChild(_restore);
         var cancel = MakeButton("取消", Secondary, new Vector2(88, 38));
         cancel.Pressed += Cancel;
         footer.AddChild(cancel);
@@ -301,19 +313,88 @@ public partial class SettingsPanel : Control
         ApplyLineEditTheme(command);
         root.AddChild(command);
 
+        // 发令前预检: 用正式比赛相同的桥语义做一次启动+握手+回收,
+        // 让"命令不可执行/不应答"在开赛前暴露, 而不是赛后 fault。
+        var preflightRow = new HBoxContainer();
+        preflightRow.AddThemeConstantOverride("separation", 8);
+        root.AddChild(preflightRow);
+        var preflight = MakeButton("预检", Blue, new Vector2(72, 30));
+        preflight.TooltipText = "启动一次外部控制器并等待单帧应答, 校验命令与协议; 预检进程随即回收";
+        preflightRow.AddChild(preflight);
+        var preflightResult = new Label
+        {
+            Text = "",
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(0, 26),
+        };
+        preflightResult.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        preflightRow.AddChild(preflightResult);
+        preflight.Pressed += () => RequestPreflight(role, mode, command, timeout);
+
         if (role == RoleNames.Us)
         {
             _usMode = mode;
             _usCommand = command;
             _usTimeout = timeout;
+            _usPreflight = preflight;
+            _usPreflightResult = preflightResult;
         }
         else
         {
             _themMode = mode;
             _themCommand = command;
             _themTimeout = timeout;
+            _themPreflight = preflight;
+            _themPreflightResult = preflightResult;
         }
         return panel;
+    }
+
+    private void RequestPreflight(string role, OptionButton mode, LineEdit command, SpinBox timeout)
+    {
+        if (Interlocked.CompareExchange(ref _preflightBusy, 1, 0) != 0)
+        {
+            return;
+        }
+        var profile = new ControllerProfile
+        {
+            Mode = mode.Selected == 1 ? ControllerModes.External : ControllerModes.BuiltIn,
+            Command = command.Text.Trim(),
+            TimeoutMs = timeout.Value,
+        };
+        SetPreflightBusy(true);
+        var result = role == RoleNames.Us ? _usPreflightResult : _themPreflightResult;
+        if (result is not null)
+        {
+            result.Text = "预检中…";
+            result.AddThemeColorOverride("font_color", Yellow);
+        }
+        Task.Run(() =>
+        {
+            var outcome = ControllerPreflight.Run(profile);
+            CallDeferred(nameof(FinishPreflight), role, outcome.Ok, outcome.Message);
+        });
+    }
+
+    private void FinishPreflight(string role, bool ok, string message)
+    {
+        Volatile.Write(ref _preflightBusy, 0);
+        SetPreflightBusy(false);
+        var result = role == RoleNames.Us ? _usPreflightResult : _themPreflightResult;
+        if (result is not null)
+        {
+            result.Text = $"{(ok ? "✓ " : "✗ ")}{message}";
+            result.AddThemeColorOverride("font_color", ok ? Green : Red);
+        }
+        PreflightCompleted?.Invoke(role, ok, message);
+    }
+
+    private void SetPreflightBusy(bool busy)
+    {
+        if (_usPreflight is not null) _usPreflight.Disabled = busy;
+        if (_themPreflight is not null) _themPreflight.Disabled = busy;
+        if (_apply is not null) _apply.Disabled = busy;
+        if (_restore is not null) _restore.Disabled = busy;
     }
 
     private void AddParameterGroup(VBoxContainer parent, string group, string description, Color accent)

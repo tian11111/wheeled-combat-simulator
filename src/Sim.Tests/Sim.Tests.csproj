@@ -35,6 +35,7 @@
     <Compile Include="..\..\godot\src\FieldGrayTextureMap.cs" Link="godot\FieldGrayTextureMap.cs" />
     <Compile Include="..\..\godot\src\DesktopSettings.cs" Link="godot\DesktopSettings.cs" />
     <Compile Include="..\..\godot\src\DesktopLiveDriver.cs" Link="godot\DesktopLiveDriver.cs" />
+    <Compile Include="..\..\godot\src\ControllerPreflight.cs" Link="godot\ControllerPreflight.cs" />
   </ItemGroup>
 
   <ItemGroup>

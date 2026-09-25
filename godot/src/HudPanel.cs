@@ -180,6 +180,23 @@ public partial class HudPanel : Control
         }
     }
 
+    /// <summary>
+    /// Surfaces a settings-panel preflight outcome on the existing controller
+    /// status line. Presentation only; the next driver status update naturally
+    /// replaces it once a match starts.
+    /// </summary>
+    public void ShowPreflightNotice(string role, bool ok, string message)
+    {
+        if (_controllerStatus is null)
+        {
+            return;
+        }
+        var roleLabel = role == RoleNames.Us ? "我方" : "对手";
+        _controllerStatus.Visible = true;
+        _controllerStatus.Text = $"预检 {roleLabel} {(ok ? "通过" : "失败")} · {message}";
+        _controllerStatus.AddThemeColorOverride("font_color", ok ? AccentGreen : AccentRed);
+    }
+
     /// <summary>Shows external-controller lifecycle/fault status without touching match rules.</summary>
     public void UpdateControllerStatus(DesktopLiveStatus? status)
     {

@@ -3,7 +3,7 @@
   "name": "custom-vehicle-controller",
   "title": "自定义小车控制器接入",
   "description": "在桌面端接入用户自定义小车控制器配置，复用既有外部进程 JSONL 协议并提供启动、失败回退和状态反馈。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
