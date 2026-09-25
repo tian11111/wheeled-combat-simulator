@@ -480,3 +480,33 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+## Session 19: MuJoCo 双物理验证收口 + 三任务治理 + 控制器预检
+
+**Date**: 2026-09-25
+**Task**: 09-24-mujoco-dual-physics-validation / 08-31-custom-vehicle-controller
+**Branch**: `feat/mujoco-dual-physics-validation`
+
+### Summary
+
+按 handoff 完成 MuJoCo 验证三轮:修复被 self-contained 发布污染的还原状态;全套测试(最终 361/361)、
+旧基线(Seed42 逐位/batch 1v4)、新模式复现/负例/1v4/32worker/长稳(32×120s×2, 重复指纹一致)全部通过;
+真实 Godot parity + 双分辨率渲染 + 实况动态序列;性能可复测记录(i9-14900HX, 中位 253ms vs 379ms @32×5s p32)。
+两项诚实发现:FSM 在新模式整场无法登台(专项测试实为台沿卡位, 报告 §4.1 已修正——登台适配任务的关键输入);
+rotated-seed42 为分支陈旧基线(反僵局提交后未再生, 与本任务无关)。新增传感器平面投影边界测试。
+产物:validation-report.md + ARCHITECTURE/CLI/godot README 更新 + sim spec 物理后端契约。
+治理:归档 glass-console-ui 与 runtime-settings-panel(已由 1053e8d 覆盖), custom-vehicle-controller
+缩范围为发令前预检。实现预检:ControllerPreflight 探针(复用桥语义, 一帧握手)+ 设置页按钮 +
+HUD 通知 + Arm 互斥;EchoController 五失败模式 8 测试全过。AC6 干净机项维持阻塞(nuget.org 不可达)。
+协同:为登台适配 agent 的工作树同步第三轮增量;开 PR #3(叠 feat/godot-3d-visual)。
+
+### Git Commits
+
+- aad1dfb feat(sim): MuJoCo 双物理后端工程验证(可选 mujoco 模式, Windows x64)
+- fe7b252 test(sim): 锁定新模式传感器平面投影边界; 修正登台测试语义的报告表述
+- a8514ba docs(task): 缩范围 08-31-custom-vehicle-controller 为发令前预检
+- f6b3a62 feat(godot): 外部控制器发令前预检(设置页按钮 + 握手探针 + HUD 通知)
+
+### Status
+
+[OK] **Completed**
