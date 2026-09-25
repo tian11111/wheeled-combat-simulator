@@ -6,10 +6,10 @@
 
 ## Confirmed baseline
 
-- 父任务当前为 `in_progress`；修复提交为 `fd84852`，宣称 FSM 零改动、模型层修复。父任务 `report.md` 记录 t≈6.2 s 登台，但该记录不能代替本任务的独立验收。
-- `src/Sim.Tests/MujocoIntegrationTests.cs` 已有直接驱动与官方出生点 FSM 测试；目前 FSM 测试只断言曾经 `OnPlatform` 且进入 SEARCH，尚未锁定 Mount 事件、倒车路径及该路径的连续性。`MujocoPhysicsBackend.OnStage/FullOn` 都要求车体四角投影在台面内。
+- 父任务已归档；修复提交为 `fd84852`，宣称 FSM 零改动、模型层修复。父任务 `report.md` 记录 t≈6.2 s 登台，但该记录不能代替本任务的独立验收。
+- `src/Sim.Tests/MujocoIntegrationTests.cs` 已有直接驱动与官方出生点 FSM 测试；验收补充了 Mount 事件、倒车路径及逐帧连续性断言。`MujocoPhysicsBackend.OnStage/FullOn` 都要求车体四角投影在台面内。
 - 父任务报告同时写有“旧回放全量 PASS”与 `rotated-seed42.json` 失败 5/6；此前双物理验证报告将其定位为修复前已存在的分支陈旧基线。本任务必须把这个矛盾列为独立核查项，不得据此写“全量通过”。
-- `docs/CLI.md` 仍写新模式内置 FSM 可能无法倒车登台；该说明和修复后的行为需要对齐。
+- `docs/CLI.md` 的过时登台说明已由 `a362a00` 修正；验收报告仍须检查其与当前结果一致。
 
 ## Requirements
 
