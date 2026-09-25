@@ -171,10 +171,18 @@ public class MujocoIntegrationTests
         int? firstFullOnTick = null;
         int? firstSearchTick = null;
         Snapshot current = engine.CommitSnapshot();
+        var previousPose = current.PhysicsPoses!.Robots[RoleNames.Us];
+        var largestJump = 0.0;
         for (var i = 0; i < 600 && firstSearchTick is null; i++)
         {
             current = engine.Tick();
             var robot = current.Robots[RoleNames.Us];
+            var pose = current.PhysicsPoses!.Robots[RoleNames.Us];
+            var jump = Math.Sqrt(Math.Pow(pose.X - previousPose.X, 2)
+                + Math.Pow(pose.Y - previousPose.Y, 2)
+                + Math.Pow(pose.Z - previousPose.Z, 2));
+            largestJump = Math.Max(largestJump, jump);
+            previousPose = pose;
             if (robot.OnPlatform)
             {
                 firstFullOnTick ??= i;
@@ -189,13 +197,21 @@ public class MujocoIntegrationTests
             $"FSM never got all four corners on the stage; final state={current.Robots[RoleNames.Us].State}");
         Assert.True(firstSearchTick is not null,
             $"FSM did not enter SEARCH after mounting; final state={current.Robots[RoleNames.Us].State}, y={current.Robots[RoleNames.Us].Y:0.###}");
+        Assert.True(firstFullOnTick <= firstSearchTick,
+            $"SEARCH preceded full mount: full-on tick={firstFullOnTick}, search tick={firstSearchTick}");
+        Assert.True(largestJump < 0.15, $"FSM physical pose jumped {largestJump} metres per tick");
         // 登台须由直接倒车路径一次达成: 不得出现 倒车超时/换面重试/正冲备选。
+        var reverseEvent = engine.Events.Events
+            .FirstOrDefault(e => e.Robot.IsUs && e.Msg.Contains("摆正完成 → 倒车登台"));
+        Assert.NotNull(reverseEvent);
         var mountEvents = engine.Events.Events
             .Where(e => e.Kind == EventKind.Mount && !e.Neutral && e.Robot.IsUs)
             .ToList();
         Assert.NotEmpty(mountEvents);
+        Assert.True(reverseEvent!.Seq < mountEvents[0].Seq, "mount event preceded reverse phase");
+        Assert.Contains(mountEvents, e => e.Msg.Contains("on_stage"));
         var detour = engine.Events.Events
-            .Where(e => e.Msg is not null && (e.Msg.Contains("倒车超时") || e.Msg.Contains("换面重试") || e.Msg.Contains("正冲备选")))
+            .Where(e => e.Robot.IsUs && (e.Msg.Contains("倒车超时") || e.Msg.Contains("换面重试") || e.Msg.Contains("正冲备选")))
             .ToList();
         Assert.Empty(detour);
     }

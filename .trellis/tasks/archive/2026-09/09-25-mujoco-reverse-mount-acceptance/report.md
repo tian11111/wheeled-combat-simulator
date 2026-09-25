@@ -1,9 +1,13 @@
 # 验收报告:MuJoCo 内置 FSM 倒车登台修复(独立复核)
 
-> 2026-09-25。复核对象:父任务 `09-25-mujoco-fsm-reverse-mount` 修复提交 `fd84852`。
-> 报告原始证据由验收执行轮取得；本轮复核在 HEAD `e3865fc` 基础上补强 FSM
-> 测试并重跑 .NET 测试与旧回放。工具:.NET SDK 8.0.425(临时目录安装)、
-> 原验收使用真实 Godot 4.7.2-stable Mono EXE。工作区另有与本任务无关的未提交改动。
+> **2026-09-25 最终处置更新**:本报告初版复核时 `rotated-seed42.json` 尚未处置,
+> AC3 曾标 ⚠️ 未通过。随后该回放经定性为**陈旧基线**(反僵局铲刃微调默认值变更
+> 未再生;当前 HEAD 上注入 `antiStallBladeAmp=0` 后逐位 PASS 的反证),并按当前
+> 预期行为重录(旋转位姿 x=0.4,y=−0.3,th=30°,seed 42,120 s → 278 事件,
+> replay-check 逐位 PASS;旧文件备份于 `telemetry/data/rotated-seed42.pre-antistall.bak.json`)。
+> 重录后六份旧回放 **6/6 逐位 PASS**、全套 362/362 —— AC3 达到原定标准后勾选。
+> 下文初版内容保留作过程记录;`git rev-parse HEAD` = e3865fc(修复提交 fd84852 之后)。
+> 工具:.NET SDK 8.0.425(临时目录安装)、真实 Godot 4.7.2-stable Mono EXE。
 
 ## AC1 / R1 官方出生点 FSM 登台 ✅
 
@@ -30,7 +34,7 @@
   frame 55(2.75 s)双方车在各自台沿翻越中、姿态连续;frame 75(3.75 s)双方
   完整上台、状态 SEARCH。无穿透、无瞬移、无弹跳。临时截图未入库。
 
-## AC3 / R3 全套测试与旧回放枚举 ⚠️
+## AC3 / R3 全套测试与旧回放枚举 ✅(初版 ⚠️,rotated 处置后转绿,见头部更新)
 
 - 本轮复核全套 `dotnet test`:**362/362 通过**(含强化 mount 测试与 FSM E2E 新测试)。
 - 旧回放逐文件枚举:
