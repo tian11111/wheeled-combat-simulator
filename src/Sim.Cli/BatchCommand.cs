@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Sim.Core;
+using Sim.Hosting;
 using Sim.Protocol;
 
 namespace Sim.Cli;
@@ -52,11 +53,16 @@ internal static class BatchCommand
         try
         {
             canonicalScenario = BuildCanonicalScenario(settings);
+            using (MatchEngineHost.Create(ProtocolJson.Deserialize<Scenario>(canonicalScenario))) { }
             outPath = PreflightOutputPath(settings.Out);
         }
         catch (BatchUsageException ex)
         {
             preflightError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            preflightError = $"physics preflight failed: {ex.Message}";
         }
         if (preflightError is not null)
         {
@@ -131,7 +137,10 @@ internal static class BatchCommand
             EventFingerprint = BatchFingerprint.EventFingerprint(result.EventFingerprints),
             ResultFingerprint = BatchFingerprint.ResultFingerprint(
                 result.Seed, result.Ticks, result.Scores, result.Penalties,
-                result.DoneReason ?? "", result.EventFingerprints),
+                result.DoneReason ?? "", result.EventFingerprints,
+                result.Header.PhysicsBackend, result.Header.PhysicsModelSha256),
+            PhysicsBackend = result.Header.PhysicsBackend,
+            PhysicsModelSha256 = result.Header.PhysicsModelSha256,
         };
 
     private static BatchMatchResult FailedRow(int index, long seed, string kind, string message)

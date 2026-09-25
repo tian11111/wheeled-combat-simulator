@@ -5,6 +5,7 @@
 
 using Godot;
 using Sim.Core;
+using Sim.Hosting;
 using Sim.Protocol;
 
 namespace Sim.GodotShell;
@@ -156,7 +157,7 @@ public partial class LayoutEditor : Node3D
         var errors = scenario.Validate().ToList();
         try
         {
-            var engine = new MatchEngine(scenario);
+            using var engine = MatchEngineHost.Create(scenario);
             var snap = engine.CommitSnapshot();
             _previewFrame = SnapshotView.From(snap, scenario.Field.PlatformHeight);
             if (errors.Count == 0)

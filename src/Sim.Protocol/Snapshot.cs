@@ -56,6 +56,9 @@ public sealed record Snapshot : IProtocolMessage
     /// <summary>Energy blocks in play.</summary>
     public ObjectSet? Objects { get; init; }
 
+    /// <summary>Optional world-space 3D poses from the MuJoCo backend, for rendering only.</summary>
+    public PhysicsPoses? PhysicsPoses { get; init; }
+
     /// <summary>Events committed since the previous snapshot (monotonic seq).</summary>
     public List<Event>? Events { get; init; }
 
@@ -125,6 +128,14 @@ public sealed record Snapshot : IProtocolMessage
             }
         }
 
+        if (PhysicsPoses is not null)
+        {
+            foreach (var error in PhysicsPoses.Validate())
+            {
+                yield return $"snapshot: {error}";
+            }
+        }
+
         if (Events is { Count: > 0 })
         {
             var previousSeq = 0L;
@@ -144,6 +155,95 @@ public sealed record Snapshot : IProtocolMessage
                     yield return $"snapshot: event seq must be strictly increasing, got {evt.Seq} after {previousSeq}.";
                 }
                 previousSeq = evt.Seq;
+            }
+        }
+    }
+}
+
+/// <summary>World-space position in metres and quaternion in x/y/z/w order.</summary>
+public sealed record PhysicsPose3
+{
+    public double X { get; init; }
+    public double Y { get; init; }
+    public double Z { get; init; }
+    public double Qx { get; init; }
+    public double Qy { get; init; }
+    public double Qz { get; init; }
+    public double Qw { get; init; } = 1;
+
+    public IEnumerable<string> Validate()
+    {
+        if (!double.IsFinite(X) || !double.IsFinite(Y) || !double.IsFinite(Z))
+        {
+            yield return "position x/y/z must be finite.";
+        }
+        if (!double.IsFinite(Qx) || !double.IsFinite(Qy) || !double.IsFinite(Qz) || !double.IsFinite(Qw)
+            || Qx * Qx + Qy * Qy + Qz * Qz + Qw * Qw < 1e-12)
+        {
+            yield return "quaternion qx/qy/qz/qw must be finite and nonzero.";
+        }
+    }
+}
+
+/// <summary>Robot poses by role and block poses in the same order as ObjectSet.</summary>
+public sealed record PhysicsPoses
+{
+    public Dictionary<string, PhysicsPose3> Robots { get; init; } = new();
+    public List<PhysicsPose3> Buffs { get; init; } = [];
+    public PhysicsPose3? Debuff { get; init; }
+
+    public IEnumerable<string> Validate()
+    {
+        if (Robots is null)
+        {
+            yield return "physicsPoses.robots must be present.";
+        }
+        else
+        {
+            foreach (var role in new[] { RoleNames.Us, RoleNames.Them })
+            {
+                if (!Robots.ContainsKey(role))
+                {
+                    yield return $"physicsPoses.robots must contain '{role}'.";
+                }
+            }
+            foreach (var (role, pose) in Robots)
+            {
+                if (!RoleNames.IsKnownRole(role) || pose is null)
+                {
+                    yield return $"physicsPoses.robots['{role}'] is invalid.";
+                    continue;
+                }
+                foreach (var error in pose.Validate())
+                {
+                    yield return $"physicsPoses.robots['{role}']: {error}";
+                }
+            }
+        }
+        if (Buffs is null)
+        {
+            yield return "physicsPoses.buffs must be present.";
+        }
+        else
+        {
+            for (var i = 0; i < Buffs.Count; i++)
+            {
+                if (Buffs[i] is null)
+                {
+                    yield return $"physicsPoses.buffs[{i}] must not be null.";
+                    continue;
+                }
+                foreach (var error in Buffs[i].Validate())
+                {
+                    yield return $"physicsPoses.buffs[{i}]: {error}";
+                }
+            }
+        }
+        if (Debuff is not null)
+        {
+            foreach (var error in Debuff.Validate())
+            {
+                yield return $"physicsPoses.debuff: {error}";
             }
         }
     }

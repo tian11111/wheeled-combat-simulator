@@ -31,7 +31,7 @@ public enum MatchControlPhase
 /// fixed tick length (scenario <c>tickSeconds</c>, default 0.05 s). Same seed
 /// and same accepted action sequence produce bit-identical events and scores.
 /// </summary>
-public sealed class MatchEngine
+public sealed class MatchEngine : IDisposable
 {
     /// <summary>Version stamped into replay headers produced by this core.</summary>
     public const string CoreVersion = "sim-core-1.0.0";
@@ -44,7 +44,7 @@ public sealed class MatchEngine
     private readonly RobotRuntime _them;
     private readonly List<BlockRuntime> _blocks;
     private readonly EventBus _events;
-    private readonly PhysicsWorld _physics;
+    private readonly IPhysicsBackend _physics;
     private readonly SensorSampler _sensors;
     private readonly FsmController _fsm;
     private readonly IVisionAdapter _vision;
@@ -81,7 +81,14 @@ public sealed class MatchEngine
     /// path must stay bit-identical (rng draw order, events, scores).
     /// </summary>
     public MatchEngine(Scenario scenario, IVisionAdapter? visionAdapter)
+        : this(scenario, visionAdapter, null)
     {
+    }
+
+    /// <summary>Creates the selected backend after the runtime entities exist.</summary>
+    public MatchEngine(Scenario scenario, IVisionAdapter? visionAdapter, IPhysicsBackendFactory? physicsFactory)
+    {
+        ArgumentNullException.ThrowIfNull(scenario);
         var errors = scenario.Validate().ToList();
         if (errors.Count > 0)
         {
@@ -109,8 +116,28 @@ public sealed class MatchEngine
         _them.Fsm.Timer = matchDuration;
 
         _events = new EventBus();
-        _physics = new PhysicsWorld(_field, _params, _us, _them, _blocks, _events,
+        var context = new PhysicsBackendContext(scenario, _field, _params, _us, _them, _blocks, _events,
             AntiStallPhase(scenario.Seed, RoleNames.Us), AntiStallPhase(scenario.Seed, RoleNames.Them));
+        if (scenario.Physics?.Backend == PhysicsSpec.Mujoco)
+        {
+            if (physicsFactory is null)
+            {
+                throw new InvalidOperationException("MuJoCo physics requires an injected physics backend factory.");
+            }
+            _physics = physicsFactory.Create(context)
+                ?? throw new InvalidOperationException("The MuJoCo physics backend factory returned null.");
+            var backendId = _physics.BackendId;
+            if (backendId != PhysicsSpec.Mujoco)
+            {
+                _physics.Dispose();
+                throw new InvalidOperationException($"The physics backend factory returned '{backendId}' for a MuJoCo scenario.");
+            }
+        }
+        else
+        {
+            _physics = new PhysicsWorld(_field, _params, _us, _them, _blocks, _events,
+                context.AntiStallPhaseUs, context.AntiStallPhaseThem);
+        }
         _sensors = new SensorSampler(_field, _params, _us, _them, _blocks, scenario.Seed, () => SimStepIndex);
         _fsm = new FsmController(_field, _physics, _params, () => _rng.Next(), _us, _them, _blocks, _events,
             _vision, OnBothDone);
@@ -227,7 +254,13 @@ public sealed class MatchEngine
     public FieldModel Field => _field;
 
     /// <summary>物理世界只读诊断入口 (反僵局微调参数/初相等, 供测试与诊断; 不开放写路径)。</summary>
-    public PhysicsWorld Physics => _physics;
+    public PhysicsWorld Physics => _physics as PhysicsWorld
+        ?? throw new InvalidOperationException("PhysicsWorld diagnostics are available only with legacy physics.");
+
+    /// <summary>Selected physics backend identity and model metadata.</summary>
+    public IPhysicsBackend PhysicsBackend => _physics;
+
+    public void Dispose() => _physics.Dispose();
 
     public RobotRuntime Us => _us;
 
@@ -438,6 +471,7 @@ public sealed class MatchEngine
             State = FsmState.MountRing,
             Mount = new MountState(),
         };
+        _physics.ResetRobot(r);
         // resetAll tail: refresh sensors once so paused/pre-commit views show
         // real data at the new pose (pure recomputation, no rng draws).
         _sensors.SampleSensorsFor(r);
@@ -957,6 +991,7 @@ public sealed class MatchEngine
         },
         Perception = BuildPerception(),
         Objects = BuildObjectSet(),
+        PhysicsPoses = _physics.BuildPhysicsPoses(),
         Events = events,
         Reward = reward,
         ScoreBreakdown = new Dictionary<string, Dictionary<string, double>>
@@ -1030,6 +1065,9 @@ public sealed class MatchEngine
         VisionMode = _vision is VisionReplayAdapter ? VisionReplayAdapter.ModeName : "default",
         VisionEvidenceId = _vision is VisionReplayAdapter evidence ? evidence.EvidenceId : null,
         VisionEvidenceSha256 = _vision is VisionReplayAdapter sha ? sha.EvidenceSha256 : null,
+        PhysicsBackend = _physics.BackendId == PhysicsSpec.Mujoco ? _physics.BackendId : null,
+        PhysicsEngineVersion = _physics.BackendId == PhysicsSpec.Mujoco ? _physics.EngineVersion : null,
+        PhysicsModelSha256 = _physics.BackendId == PhysicsSpec.Mujoco ? _physics.ModelSha256 : null,
         Parameters = _scenario.Parameters is null ? null : new Dictionary<string, double>(_scenario.Parameters),
         Vehicles = new Dictionary<string, VehicleProfile>
         {

@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using Sim.Controller;
 using Sim.Core;
+using Sim.Hosting;
 using Sim.Protocol;
 
 namespace Sim.GodotShell;
@@ -149,7 +150,7 @@ public sealed class DesktopLiveDriver : IDisposable
     {
         try
         {
-            _engine = new MatchEngine(_scenario);
+            _engine = MatchEngineHost.Create(_scenario);
             _usBridge = StartBridge(_usProfile, RoleNames.Us);
             _themBridge = StartBridge(_themProfile, RoleNames.Them);
             PublishStatus();
@@ -200,6 +201,8 @@ public sealed class DesktopLiveDriver : IDisposable
             _themBridge?.Dispose();
             _usBridge = null;
             _themBridge = null;
+            _engine?.Dispose();
+            _engine = null;
         }
     }
 

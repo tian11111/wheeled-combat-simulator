@@ -7,8 +7,18 @@ namespace Sim.Core;
 /// CORE (motionFor / stageWall / swept contacts / robot pair / block chain).
 /// This model is authoritative for scores, replay and observations.
 /// </summary>
-public sealed class PhysicsWorld
+public sealed class PhysicsWorld : IPhysicsBackend
 {
+    public string BackendId => PhysicsSpec.Legacy;
+    public string? EngineVersion => null;
+    public string? ModelSha256 => null;
+
+    public PhysicsPoses? BuildPhysicsPoses() => null;
+
+    // The legacy solver keeps no separate mutable state outside RobotRuntime.
+    public void ResetRobot(RobotRuntime robot) { }
+
+    public void Dispose() { }
     // 登台门控阈值来自 SimParameters (MOUNT_V_MIN/MOUNT_ANGLE_MAX, 默认 0.3/0.26),
     // 供离线标定工具按真机登台试验调整; 默认值与原私有常量逐位一致。
     /// <summary>Standard gravity (m/s^2) used by the block Coulomb friction step;

@@ -96,6 +96,15 @@ public sealed record ReplayHeader : IProtocolMessage
     /// <summary>SHA-256 of the vision evidence package (additive; null on the default path).</summary>
     public string? VisionEvidenceSha256 { get; init; }
 
+    /// <summary>Physics backend identity; null denotes an older legacy replay.</summary>
+    public string? PhysicsBackend { get; init; }
+
+    /// <summary>Native engine version used by a MuJoCo replay.</summary>
+    public string? PhysicsEngineVersion { get; init; }
+
+    /// <summary>SHA-256 of the exact generated MuJoCo model.</summary>
+    public string? PhysicsModelSha256 { get; init; }
+
     /// <summary>Number of recorded ticks.</summary>
     [JsonIgnore]
     public int TickCount => Ticks.Count;
@@ -138,6 +147,26 @@ public sealed record ReplayHeader : IProtocolMessage
         if ((VisionEvidenceId is null) != (VisionEvidenceSha256 is null))
         {
             yield return "replay header: visionEvidenceId and visionEvidenceSha256 must be set together.";
+        }
+        if (PhysicsBackend is not null && PhysicsBackend != PhysicsSpec.Legacy && PhysicsBackend != PhysicsSpec.Mujoco)
+        {
+            yield return $"replay header: unsupported physicsBackend '{PhysicsBackend}'.";
+        }
+        if (PhysicsBackend == PhysicsSpec.Mujoco)
+        {
+            if (string.IsNullOrWhiteSpace(PhysicsEngineVersion))
+            {
+                yield return "replay header: mujoco requires physicsEngineVersion.";
+            }
+            if (PhysicsModelSha256 is null || PhysicsModelSha256.Length != 64
+                || !PhysicsModelSha256.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f'))
+            {
+                yield return "replay header: mujoco requires lowercase sha-256 physicsModelSha256.";
+            }
+        }
+        else if (PhysicsEngineVersion is not null || PhysicsModelSha256 is not null)
+        {
+            yield return "replay header: physicsEngineVersion and physicsModelSha256 require physicsBackend 'mujoco'.";
         }
         if (FieldGray is null)
         {

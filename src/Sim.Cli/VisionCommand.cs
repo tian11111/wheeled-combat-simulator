@@ -288,7 +288,7 @@ public static class VisionCommand
             importReport.EvidenceId ?? VisionReplayIO.EvidenceId(evidenceSha256),
             evidenceSha256,
             maxAgeMs);
-        var engine = new MatchEngine(scenario, adapter);
+        using var engine = Sim.Hosting.MatchEngineHost.Create(scenario, adapter);
         var fingerprints = new List<string>();
         var transitions = new List<string>();
         var previousStates = new Dictionary<string, string>();

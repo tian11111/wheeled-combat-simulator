@@ -92,6 +92,12 @@ public sealed record BatchMatchResult
     /// <summary>SHA-256 over seed/ticks/scores/penalties/doneReason plus the event lines (null on failed rows).</summary>
     public string? ResultFingerprint { get; init; }
 
+    /// <summary>Physics backend identity on a MuJoCo completed row; null on legacy rows.</summary>
+    public string? PhysicsBackend { get; init; }
+
+    /// <summary>SHA-256 of the generated MuJoCo model; null on legacy rows.</summary>
+    public string? PhysicsModelSha256 { get; init; }
+
     /// <summary>Failure details; null on completed rows.</summary>
     public BatchFailure? Failure { get; init; }
 
@@ -112,6 +118,21 @@ public sealed record BatchMatchResult
         if (Status != StatusCompleted && Status != StatusFailed)
         {
             yield return $"batch result: status must be '{StatusCompleted}' or '{StatusFailed}', got '{Status}'.";
+        }
+        if (Status == StatusCompleted && PhysicsBackend is not null)
+        {
+            if (PhysicsBackend != PhysicsSpec.Mujoco)
+            {
+                yield return "batch result: physicsBackend must be 'mujoco' when present.";
+            }
+            if (PhysicsModelSha256 is null || !IsSha256Hex(PhysicsModelSha256))
+            {
+                yield return "batch result: mujoco requires lowercase sha-256 physicsModelSha256.";
+            }
+        }
+        else if (PhysicsModelSha256 is not null)
+        {
+            yield return "batch result: physicsModelSha256 requires completed mujoco physicsBackend.";
         }
         if (Faults is null)
         {
@@ -163,7 +184,8 @@ public sealed record BatchMatchResult
                 yield return "batch result: failed rows require failure.kind and failure.message.";
             }
             if (Ticks is not null || Scores is not null || Penalties is not null || DoneReason is not null
-                || EventCount is not null || EventFingerprint is not null || ResultFingerprint is not null)
+                || EventCount is not null || EventFingerprint is not null || ResultFingerprint is not null
+                || PhysicsBackend is not null || PhysicsModelSha256 is not null)
             {
                 yield return "batch result: failed rows must not carry partial match results (ticks/scores/penalties/doneReason/fingerprints stay null).";
             }

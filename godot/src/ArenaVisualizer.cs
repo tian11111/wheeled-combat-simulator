@@ -530,15 +530,21 @@ public partial class ArenaVisualizer : Node3D
             // to the actual visual support plane so the sticker cube cannot read
             // as suspended when the top plane is lifted for z-fighting safety.
             var baseHeight = block.OnPlatform ? _platformTop : 0f;
-            // Blocks are world-space, axis-aligned cubes.  They are not billboards
-            // and must never inherit a view/editor rotation or scale.
-            node.Rotation = Vector3.Zero;
+            // Physical poses are world-space centres; legacy views retain the
+            // support-plane projection and an upright cube.
+            if (block.Rotation is { } blockRotation)
+                node.Quaternion = ToGodotQuaternion(blockRotation);
+            else
+                node.Rotation = Vector3.Zero;
             node.Scale = Vector3.One;
             node.Position = new Vector3(
                 (float)block.Position.X,
-                baseHeight + _blockSize / 2,
+                block.HasPhysicsPose ? (float)block.Position.Up : baseHeight + _blockSize / 2,
                 (float)block.Position.Z);
-            PositionBlockContactShadow(node, _blockSize);
+            if (node.GetNodeOrNull<MeshInstance3D>("ContactShadow") is { } shadow)
+                shadow.Visible = !block.HasPhysicsPose;
+            if (!block.HasPhysicsPose)
+                PositionBlockContactShadow(node, _blockSize);
             node.Visible = true;
             // 能量块: 每个面使用同一张赛事风格标识贴图，避免只能靠纯色猜类别；
             // 材质在 EnsureBlockNodes 中缓存，不在 50 Hz 快照
@@ -558,7 +564,10 @@ public partial class ArenaVisualizer : Node3D
         }
         // 仿真 (x, y) → 世界 (x, 高度, y=z); 车头沿 +Z, 旋转 y = π/2 - th。
         root.Position = new Vector3((float)robot.Position.X, (float)robot.Position.Up, (float)robot.Position.Z);
-        root.Rotation = new Vector3(0, (float)(Math.PI / 2 - robot.Yaw), 0);
+        if (robot.Rotation is { } rotation)
+            root.Quaternion = ToGodotQuaternion(rotation);
+        else
+            root.Rotation = new Vector3(0, (float)(Math.PI / 2 - robot.Yaw), 0);
         if (ring is not null)
         {
             // 登台指示: 在台上 = 绿色自发光状态灯; 不在台上 = 灰色哑光。
@@ -571,6 +580,9 @@ public partial class ArenaVisualizer : Node3D
             stripMaterial.EmissionEnergyMultiplier = 2.25f + 0.35f * Mathf.Sin(phase);
         }
     }
+
+    private static Quaternion ToGodotQuaternion(Rotation3 rotation)
+        => new((float)rotation.X, (float)rotation.Y, (float)rotation.Z, (float)rotation.W);
 
     private void EnsureBlockNodes(int count)
     {

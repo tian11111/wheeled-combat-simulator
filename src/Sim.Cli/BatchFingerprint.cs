@@ -30,7 +30,7 @@ internal static class BatchFingerprint
 
     public static string ResultFingerprint(
         long seed, long ticks, Scores scores, Scores penalties, string doneReason,
-        IReadOnlyList<string> eventLines)
+        IReadOnlyList<string> eventLines, string? physicsBackend = null, string? physicsModelSha256 = null)
     {
         var canonical = new StringBuilder();
         canonical.Append("seed=").Append(seed).Append('\n');
@@ -40,6 +40,11 @@ internal static class BatchFingerprint
         canonical.Append("penaltyUs=").Append(Inv(penalties.Us)).Append('\n');
         canonical.Append("penaltyThem=").Append(Inv(penalties.Them)).Append('\n');
         canonical.Append("done=").Append(doneReason).Append('\n');
+        if (physicsBackend is not null)
+        {
+            canonical.Append("physicsBackend=").Append(physicsBackend).Append('\n');
+            canonical.Append("physicsModelSha256=").Append(physicsModelSha256).Append('\n');
+        }
         canonical.Append(CanonicalEventLines(eventLines));
         return Sha256Hex(canonical.ToString());
     }

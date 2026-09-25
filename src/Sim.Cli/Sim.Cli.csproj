@@ -11,6 +11,7 @@
     <ProjectReference Include="..\Sim.Controller\Sim.Controller.csproj" />
     <ProjectReference Include="..\Sim.Calibration\Sim.Calibration.csproj" />
     <ProjectReference Include="..\Sim.VisionReplay\Sim.VisionReplay.csproj" />
+    <ProjectReference Include="..\Sim.Hosting\Sim.Hosting.csproj" />
   </ItemGroup>
 
   <ItemGroup>

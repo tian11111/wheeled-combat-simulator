@@ -32,6 +32,24 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   用 `<Compile Include>` 链接进 `Sim.Tests`，不要为它新建工程。
 - 外部控制器一律走 `Sim.Cli.PythonBridge`（JSONL、request-id 匹配、超时→零动作、计 fault）。
 
+## 物理后端契约（legacy 缺省 / mujoco 可选）
+
+- 物理后端由场景 `physics.backend` 显式选择；**未写字段 = 旧二维物理逐位不变**，
+  任何路径不得默默切换。FSM/`MatchEngine` 只依赖 `Sim.Core.IPhysicsBackend`，
+  禁止直接引用 `Sim.Mujoco` 类型；装配走 `Sim.Hosting`（CLI/Godot 同一入口）。
+- `Sim.Mujoco`：官方 C API 薄封装 + 按场景确定性生成 MJCF；每场独立
+  `mjModel/mjData`，`Dispose` 必须释放；`v/w` 经有界车轮驱动进动力学，
+  **禁止瞬移车体**伪造运动或登台。原生 DLL 哈希锁定（`runtimes/win-x64/native/`），
+  不得要求用户装到系统目录。
+- 新模式回放身份 `mujoco/<原生版本>/<模型内容哈希>`：不匹配明确拒绝；
+  旧回放缺字段按旧模式解释；协议/快照/batch 演进**只加不改**（铁律 3 同样适用于
+  `physicsBackend`/`physicsModelSha256`/`PhysicsPoses` 等新字段）。
+- 传感器在两种模式下都是解析模型平面投影（`SensorSampler`+`FieldModel`），
+  不消费 MuJoCo raycast；该差异是已知边界，写进交付报告，不得当作已三维化宣传。
+- 改 `Sim.Mujoco`/MJCF 后必须重录新模式回放（模型哈希变化会正确拒绝旧回放），
+  并跑 `src/Sim.Tests/MujocoIntegrationTests.cs` + `MujocoProtocolTests.cs`；
+  旧基线回归用 `replays/seed-42.json`。新模式不得晋升 `fidelity.json`。
+
 ## 行为对齐参考
 
 - 遗留原型 `D:/project/robocup/robot-simulator/wushu_ring_sim.html` 只读。

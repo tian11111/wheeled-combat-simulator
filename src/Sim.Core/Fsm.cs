@@ -138,7 +138,7 @@ public static class Vision
 public sealed class FsmController
 {
     private readonly FieldModel _field;
-    private readonly PhysicsWorld _physics;
+    private readonly IPhysicsBackend _physics;
     private readonly SimParameters _params;
     private readonly Func<double> _rng;
     private readonly List<BlockRuntime> _blocks;
@@ -148,7 +148,7 @@ public sealed class FsmController
     private readonly RobotRuntime _us;
     private readonly RobotRuntime _them;
 
-    public FsmController(FieldModel field, PhysicsWorld physics, SimParameters parameters, Func<double> rng,
+    public FsmController(FieldModel field, IPhysicsBackend physics, SimParameters parameters, Func<double> rng,
         RobotRuntime us, RobotRuntime them, List<BlockRuntime> blocks, EventBus events,
         IVisionAdapter vision, Action<RobotRuntime, string> onBothDone)
     {

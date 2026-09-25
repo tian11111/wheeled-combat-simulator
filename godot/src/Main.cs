@@ -89,7 +89,9 @@ public partial class Main : Node
         ConfigureVisualFrameStats(userArgs);
 
         var scenario = BuildScenario();
+        var previousSession = _session;
         _session = new MatchSession(scenario);
+        previousSession?.Dispose();
         ApplyScenarioToShell(scenario);
 
         _editor = new LayoutEditor { Name = "LayoutEditor" };
@@ -921,7 +923,7 @@ public partial class Main : Node
 
         // The applied layout must reproduce bit-for-bit through record + verify.
         var scenario = _session.Scenario;
-        var recorder = new Sim.Core.MatchEngine(scenario);
+        using var recorder = Sim.Hosting.MatchEngineHost.Create(scenario);
         recorder.Arm();
         var prints = new List<string>();
         while (!recorder.Done)
@@ -1588,7 +1590,9 @@ public partial class Main : Node
             : new Dictionary<string, double>(_scenarioTemplate.Parameters);
         _scenarioTemplate = scenario with { Parameters = templateParameters };
         var applied = _settings.ApplySimulationParameters(_scenarioTemplate);
+        var previousSession = _session;
         _session = new MatchSession(applied);
+        previousSession?.Dispose();
         _pendingMatchSettings = false;
         ApplyScenarioToShell(applied);
         StartLiveDriverIfConfigured(applied);
@@ -1750,6 +1754,7 @@ public partial class Main : Node
     public override void _ExitTree()
     {
         StopLiveDriver();
+        _session?.Dispose();
     }
 
     // ---------- headless parity check ----------

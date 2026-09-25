@@ -1,4 +1,5 @@
 using Sim.Core;
+using Sim.Hosting;
 using Sim.Protocol;
 
 namespace Sim.Cli;
@@ -41,7 +42,7 @@ internal static class MatchRunner
     /// </summary>
     internal static MatchRunResult Run(Scenario scenario, Options options)
     {
-        var engine = new MatchEngine(scenario);
+        using var engine = MatchEngineHost.Create(scenario);
         PythonBridge? usBridge = null;
         PythonBridge? themBridge = null;
         try

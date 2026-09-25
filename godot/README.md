@@ -253,6 +253,26 @@ Forward+/Mobile 路径生效，gl_compatibility 自动降级。能量块仅使�
 覆盖 `SimParameters`（如反僵局铲刃微调 `antiStallBladeAmp`，默认 0.006 m，
 0=关闭逐位恢复旧行为；见 `docs/PORTING_NOTES.md` 第 2 节第 10 条）。
 
+## MuJoCo 三维物理模式（可选，Windows x64）
+
+场景 JSON 写 `"physics": { "backend": "mujoco", ... }`（例
+`scenarios/wushu-ring-2026-mujoco.json`）即启用三维接触物理；未写该字段的场景
+保持默认二维物理，打开旧回放/旧场景不会切换模式。桌面端与 CLI 走同一后端
+（`Sim.Hosting` 装配，`Sim.Mujoco` 官方 3.14.0 原生库随发布包在
+`runtimes/win-x64/native/`，DLL 哈希锁定，无需复制到系统目录）。
+
+- 新模式快照带三维姿态：能量块的高度/翻转、车体俯仰/侧倾按真实物理显示；
+  旧快照按原方式渲染。传感器仍为解析模型平面投影（边界与场景差异见任务
+  `09-24-mujoco-dual-physics-validation/validation-report.md`；内置 FSM 的
+  登台机动按旧物理调校，新模式下可能整场无法登台）。
+- 回放头部携带 `mujoco/<原生版本>/<模型内容哈希>`；版本或模型不匹配的回放
+  在加载校验时明确拒绝。
+- 新模式 parity 校验流程与下方脚本相同，只是 `replay-record` 加
+  `--scenario scenarios/wushu-ring-2026-mujoco.json`。校验必须用真实 Godot
+  Mono EXE——WinGet `Links\godot.exe` 符号链接会把 Mono 程序集解析引到
+  `WinGet/Links/GodotSharp`，报 `.NET assemblies not found`（见无头参数表
+  上方的 parity 脚本与任务记录）。
+
 ## 无头校验脚本
 
 ```powershell

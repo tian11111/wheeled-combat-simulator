@@ -15,6 +15,17 @@
 | `--events` | 关 | 逐条打印事件日志（`batch` 不支持，其 stdout 固定为 JSONL） |
 | `--out <path>` | — | `replay-record` 输出文件；`batch` 的结果文件（原子替换） |
 
+### 物理模式（场景字段 `physics.backend`）
+
+物理后端由场景 JSON 的 `physics.backend` 选择，不是 CLI 参数：未写该字段的场景
+走默认二维物理（行为与基线逐位一致）；`"mujoco"` 启用 Windows x64 三维接触物理
+（例：`scenarios/wushu-ring-2026-mujoco.json`）。其它取值在场景预检时报
+`unsupported backend`（batch 零 JSONL、exit 2）。新模式回放头部携带
+`mujoco/<原生版本>/<模型内容哈希>` 身份，`replay-check` 在版本/模型不匹配时
+明确拒绝；`batch` 结果行加性携带 `physicsBackend`/`physicsModelSha256`。
+内置 FSM 的登台机动按旧物理调校，新模式下可能无法完成倒车登台（工程差异，
+见 `.trellis` 任务 `09-24-mujoco-dual-physics-validation/validation-report.md`）。
+
 Godot 桌面端的 F10 设置页使用同一组外部控制器 JSONL 协议，但配置保存在桌面用户目录，
 不写入 CLI 参数、场景或回放；桌面端每场独立启动角色进程。窗口/界面设置即时生效，
 仿真参数和控制器绑定在下一场或 F5 重置后生效。需要给 AI agent 做多场并行评测时，继续使用
