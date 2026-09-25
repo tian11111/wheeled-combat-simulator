@@ -3,8 +3,8 @@
 ## Goal
 
 以确定性 MuJoCo 仿真为评估 oracle,用 Optuna TPE 自动寻优内置 FSM 的决策参数
-(场景 `parameters` 白名单),提升共享 FSM 的绝对对抗能力:登台更快、推块出界更多、
-掉台更少。对称参数框架(双方同参);不训练神经网络策略(09-25-mujoco-score-rl-pilot
+(场景 `parameters` 白名单),改善共享 FSM 的绝对能力指标:登台耗时降低、推块
+出界增多、掉台减少(结论按 holdout 汇总目标值改善幅度表述,不做显著性声明)。对称参数框架(双方同参);不训练神经网络策略(09-25-mujoco-score-rl-pilot
 保留 planning);不动 legacy;`fidelity.json` 不晋升。
 
 ## Confirmed Baseline
