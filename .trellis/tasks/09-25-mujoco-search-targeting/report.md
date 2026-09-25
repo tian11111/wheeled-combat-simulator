@@ -66,3 +66,38 @@ in_progress,SCORE 阶段掉台循环为首个卡点。
    回台),目标 = 官方 120 s 出现真实 BlockScore。
 2. 恢复次数超限提前停车(91 s)是否适配新模式运动学,建议与规则口径一起复核。
 3. `fidelity.json` 未晋升;legacy 逐位不变。
+
+## 2026-09-25 接手更新：AC4 当前工作树候选通过，AC5 待补核
+
+上面的 AC4 ❌ 是本轮修改前的历史结果。当前未提交工作树的官方 MuJoCo seed 42、默认 120 s 比赛跑满 2400 tick，比分我方 8:3、faults 0/0；事件中我方在 `t=236` 取得真实 `BlockScore`（+3），对手在 `t=235` 也取得 `BlockScore`。我方全场无 `Drop` 事件。新增 `OfficialSeed42_ScoresRealBuffWithoutRepeatedUsDrops` 测试同时检查我方 `BlockScore`、增益块实际位移/出界和我方无掉台。该证据满足 AC4 的本轮候选门槛；请接手代理复查完整事件、位姿和接触链后再最终勾选 AC4。
+
+当前 `dotnet test RobotSimulator.sln -m:1 --no-restore` 为 373/373；6 个 `replays/*.json` 的 legacy `replay-check` 全部 PASS。新 MuJoCo 回放保存在临时目录 `mujoco-score-edge-core-1.0.2.json`，`replay-check` 得分 8:3、事件 117/117 PASS。Godot headless 命令退出码为 0，但只输出引擎版本，没有明确的 parity PASS 行；并行 batch 门禁和 `git diff --check` 尚未在本轮重做。因此 AC5 暂不标最终通过。
+
+改动说明、命令、文件边界和接手清单见 [handoff-2026-09-25.md](handoff-2026-09-25.md)。保留原有未提交文件，不要用整仓 restore/reset 清理。
+
+## 2026-09-25 接手完成:AC4 ✅ / AC5 ✅(独立复核 + 补齐门禁)
+
+接手对方候选(局部 MuJoCo FSM 控制:近沿回中守卫 0.27 m、对准分段、
+MuJoCo 无进展限时 8 s/2 s 分级、score_retreat 得分后驶离台沿、CoreVersion 1.0.2),
+独立复核与补齐结果:
+
+- **审查**:Fsm.cs 阈值(0.27/0.45/0.65)与 score_retreat 退出条件结构合理、
+  additivity 保持;`MujocoScoreEdgeGuardTests` 覆盖 近沿回中指令(V=−0.4/W=0)、
+  清距离继续推块(0.35)、**legacy 行为不变 pin**、官方 seed 42 整场(真实
+  BlockScore + 块出界 + 无我方 Drop + 2400 ticks)。
+- **AC4 ✅**:官方 seed 42、120 s 跑满 2400 ticks,比分 **8:3**,faults 0/0;
+  得分归属逐项核对:我方 **t=236 真实 BlockScore(+3,增益块被推下擂台)**、
+  对手 t=235 BlockScore(+3)、对手掉台 ×3(对抗结果);**我方无 Drop 事件**;
+  新增整场测试同时断言 BlockScore、块位移出界与无重复掉台。
+- **AC5 ✅(补齐对方未完成项)**:重建 Godot 程序集后 `--parity-check` **PASS
+  (8:3、2400/2400、117/117 事件)**——对方"无明确 PASS 行"是未重建 Godot
+  程序集所致(已知坑);batch p1/p4 剔除 createdAt 后逐行 IDENTICAL;
+  32×5s p32 → 32/32 completed、各 100 ticks;`git diff --check` 干净;
+  CoreVersion 门禁测试(1.0.2 当前通过 / 1.0.1 拒绝)在 373 内通过。
+- 全套 `dotnet test`:**373/373**(接手复核确认,含 MujocoScoreEdgeGuardTests、
+  分类分流、CoreVersion 门禁)。
+- RL 试点任务 `09-25-mujoco-score-rl-pilot` 保持 planning(前置条件 AC4 已满足;
+  其 design.md 的 `Tick(action, null)` 会在 MatchEngine 中把我方切到 MANUAL,
+  实施前须改为 reset 后用内置 FSM 推进至 SCORE_BLOCK 再接管——见交接记录)。
+
+**任务五项 AC 全部达标,可关闭。** `fidelity.json` 未晋升;legacy 逐位不变。

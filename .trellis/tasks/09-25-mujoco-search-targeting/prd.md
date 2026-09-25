@@ -20,11 +20,11 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1 当前官方 seed 42 的基线与候选试验各保存同一格式的逐 tick 轨迹及构建标识；每次发现事件可对应探针通道、实际 profile/range、原始 `Probe.D`、目标对象和采样前一帧位姿。若当前默认对角通道的原始 `D` 超过 1.6 m，先定位数据契约问题，再进行转向调参；报告解释历史 `4.0m` 是否在当前版本重现，不能用显示舍入作解释。
-- [ ] AC2 受控左后目标从首次发现到 `classify` 的时间 <3.0 s，结束时绝对方位误差 <0.15 rad；车未掉台、未进 RECOVER。记录基线与候选 2/4/6 的实际偏航和位移，选择满足条件的最小系数；全部失败则本 AC 不通过并附轨迹返回设计。
-- [ ] AC3 两个受控目标场景均通过：增益块走 `SEARCH → classify → SCORE_BLOCK`，随后发生接触、方块实际位移和归属明确的 `BlockScore`；对手走 `SEARCH → classify → ATTACK` 并产生真实追击/接触。减益块不得被当作增益块得分；不得以日志文本单独证明物理接触或比分。
-- [ ] AC4 `scenarios/wushu-ring-2026-mujoco.json` 官方 seed 42、默认 120 s、内置 FSM 的比赛产生非零比分，且比分增量能追溯到真实 `BlockScore` 或接触导致的对手掉台；保留事件、接触/位姿和比分对应证据。若仅对准或阶段转移而仍为 0:0，记录新卡点并保持本 AC 失败。
-- [ ] AC5 原有登台测试与新增索敌测试、`MujocoProtocolTests`、全套 `dotnet test` 通过；所有 `replays/*.json` 的 legacy `replay-check` 逐位通过。控制映射改动前录制的 MuJoCo 回放明确因版本不匹配被拒绝，改动后重录的回放通过 `replay-check`；同一新回放通过 Godot headless parity。相同 seeds 的 batch 并行度 1/4 去除 `createdAt` 后稳定字段逐行一致，32×5 s 资源门禁 32/32 completed。
+- [x] AC1 当前官方 seed 42 的基线与候选试验各保存同一格式的逐 tick 轨迹及构建标识；每次发现事件可对应探针通道、实际 profile/range、原始 `Probe.D`、目标对象和采样前一帧位姿。若当前默认对角通道的原始 `D` 超过 1.6 m，先定位数据契约问题，再进行转向调参；报告解释历史 `4.0m` 是否在当前版本重现，不能用显示舍入作解释。
+- [x] AC2 受控左后目标从首次发现到 `classify` 的时间 <3.0 s，结束时绝对方位误差 <0.15 rad；车未掉台、未进 RECOVER。记录基线与候选 2/4/6 的实际偏航和位移，选择满足条件的最小系数；全部失败则本 AC 不通过并附轨迹返回设计。
+- [x] AC3 两个受控目标场景均通过：增益块走 `SEARCH → classify → SCORE_BLOCK`，随后发生接触、方块实际位移和归属明确的 `BlockScore`；对手走 `SEARCH → classify → ATTACK` 并产生真实追击/接触。减益块不得被当作增益块得分；不得以日志文本单独证明物理接触或比分。
+- [x] AC4 `scenarios/wushu-ring-2026-mujoco.json` 官方 seed 42、默认 120 s、内置 FSM 的比赛产生非零比分，且比分增量能追溯到真实 `BlockScore` 或接触导致的对手掉台；保留事件、接触/位姿和比分对应证据。若仅对准或阶段转移而仍为 0:0，记录新卡点并保持本 AC 失败。
+- [x] AC5 原有登台测试与新增索敌测试、`MujocoProtocolTests`、全套 `dotnet test` 通过；所有 `replays/*.json` 的 legacy `replay-check` 逐位通过。控制映射改动前录制的 MuJoCo 回放明确因版本不匹配被拒绝，改动后重录的回放通过 `replay-check`；同一新回放通过 Godot headless parity。相同 seeds 的 batch 并行度 1/4 去除 `createdAt` 后稳定字段逐行一致，32×5 s 资源门禁 32/32 completed。
 
 ## Out of Scope
 

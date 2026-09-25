@@ -6,8 +6,13 @@
 > 预期行为重录(旋转位姿 x=0.4,y=−0.3,th=30°,seed 42,120 s → 278 事件,
 > replay-check 逐位 PASS;旧文件备份于 `telemetry/data/rotated-seed42.pre-antistall.bak.json`)。
 > 重录后六份旧回放 **6/6 逐位 PASS**、全套 362/362 —— AC3 达到原定标准后勾选。
-> 下文初版内容保留作过程记录;`git rev-parse HEAD` = e3865fc(修复提交 fd84852 之后)。
+> 下文保留初版失败记录作过程证据;本轮在 HEAD `7efc0d7` 上复核。
 > 工具:.NET SDK 8.0.425(临时目录安装)、真实 Godot 4.7.2-stable Mono EXE。
+> `replays/*` 被 `.gitignore` 排除,故 6/6 结论针对当前工作区本地回放文件;
+> 新检出目录须取得同一批回放后才能复核,仓库提交本身不携带重录文件。
+> 本地 `rotated-seed42.json` SHA-256:
+> `79eddaa23daf8fb7f37ac2d93917d9335b8b5ef9a3d8a4d219a493cddc650f20`;
+> 旧备份 SHA-256:`3f3bd141fbc885b6fb28c596fc1f019ea7110a44d1fcd97505efbd99a736c02`。
 
 ## AC1 / R1 官方出生点 FSM 登台 ✅
 
@@ -23,6 +28,7 @@
 - 自动化锁定:`NativeMode_FsmMountsFromOfficialSpawn`(官方出生位姿、`Arm()`、
   无参 `Tick()`),现断言 FullOn 不晚于 SEARCH、倒车阶段先于 Mount、无我方绕路
   事件及逐帧三维位移 <0.15 m;本轮定向测试 2/2 通过。
+  初版现场记录首次 FullOn 与 SEARCH 均在第 64 次迭代;测试上限为 600 ticks。
 
 ## AC2 / R2 物理连续性 ✅(画面项 ✅)
 
@@ -46,15 +52,12 @@
 | seed-42-pyus.json | PASS(逐位) |
 | seed-42.json | PASS(逐位) |
 | task-one-review-seed42.json | PASS(逐位) |
-| rotated-seed42.json | **FAIL(继承例外,非本修复引入)** |
+| rotated-seed42.json | **PASS(陈旧基线重录后,本轮复核)** |
 
-  本轮重跑确认 `rotated-seed42.json` 仍失败;其失败与修复前一致:已在 09-24 验证报告 §2 定位为分支
-  陈旧基线(反僵局提交 4d53942 后未随 5bbcd3e 再生;main 逐位 PASS;注入
-  `antiStallBladeAmp=0` 后逐位 PASS)。**据此,任何"旧回放全量 PASS"的表述
-  均不成立,应表述为"5/6 PASS + 1 个继承例外"**;父任务报告原文使用的是
-  "旧回放 5/6 PASS(rotated …)"表述,与事实一致。按本任务 PRD AC3 与父任务原始
-  “旧回放全量 replay-check PASS”文字,该项不能标为全绿;继承关系只说明不是本修复
-  引入,不能自动豁免验收门槛。
+  **初版处置前记录**:`rotated-seed42.json` 曾失败,09-24 验证报告 §2 将其
+  定位为分支陈旧基线(反僵局提交 4d53942 后未随 5bbcd3e 再生;注入
+  `antiStallBladeAmp=0` 后逐位 PASS)。当时只能报告 5/6,不能豁免 AC3。
+  当前文件按预期行为重录后,本轮逐文件重跑为 6/6 PASS,所以 AC3 现在转绿。
 - 旧登台/重启 pin:`MountGateParameterTests`、`MatchEngineTests.Arm_MountsPlatform_AndEntersSearch`、
   `RestartRobotTests`、`TransformedFieldTests` 全部在 362 中通过,legacy 行为逐位不变。
 
@@ -79,14 +82,13 @@
 
 ## 验收结论
 
-**登台修复行为通过;原始验收标准未全部满足。** AC1、AC2、AC4 的登台与复现
-证据通过,但 `rotated-seed42.json` 仍失败,AC3 按原文字保持未通过。父任务虽已
-归档,不应将该状态解释为“旧回放全量 PASS”。本轮没有重跑 Godot 动态捕获,
-AC2 的画面结论沿用原验收报告,与本轮新鲜测试证据区分。
+**当前工作区登台修复验收通过。** AC1、AC2、AC4、AC5 沿用前述验收证据;
+AC3 在陈旧回放重录后达到本地 6/6 逐位 PASS,本轮全套 362/362。验收任务已
+归档。本轮没有重跑 Godot 动态捕获,AC2 的画面结论沿用原验收报告。
 
 ## 本轮复核命令
 
 - `%TEMP%\robot-simulator-dotnet-sdk\dotnet.exe test src/Sim.Tests/Sim.Tests.csproj -m:1 --no-restore --filter <上述两个登台测试>`：2/2 通过。
 - 同一 SDK 执行 `test RobotSimulator.sln -m:1 --no-restore`：362/362 通过。
-- 对 `replays/*.json` 各执行 `run --no-build --project src/Sim.Cli -- replay-check <文件>`：5 PASS、`rotated-seed42.json` FAIL。
+- 对 `replays/*.json` 各执行 `run --no-build --project src/Sim.Cli -- replay-check <文件>`：当前本地 6/6 PASS。
 - `match --seed 42 --duration 30 --scenario scenarios/wushu-ring-2026-mujoco.json --events`：退出码 0，倒车、climbed、on_stage→SEARCH 事件依序出现。
