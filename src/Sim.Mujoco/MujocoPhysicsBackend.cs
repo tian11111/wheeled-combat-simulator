@@ -11,6 +11,15 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     private readonly HashSet<int> _themGeoms = [];
     private readonly Dictionary<int, BlockRuntime> _blockGeoms = [];
     private readonly Dictionary<string, double> _driveV = [];
+
+    // 09-25 SEARCH 索敌闭环: 原地转向补偿系数。四轮横向滑动摩擦使原地偏航速率
+    // 仅为指令的 ~3%(kv=0.25 为登台柔性所必需, 不能提高); 对 |CmdV|≤0.02 的
+    // 原地转向命令放大差速轮目标速度, 使 kv×Δω 重新触及力上限。纵向行驶、
+    // 倒车登台与推块均带纵向命令, 不受影响。受控测试选定 4(候选 2/4/6:
+    // 2 的 90° 对准需 9.45 s 超预算, 6 过冲跳过对准窗口, 4 → <3 s 且误差
+    // 0.032 rad; 轮速仍经 WheelAngularSpeedLimit 截断)。静态字段仅为
+    // SearchTurnCompensationTests 候选对照保留。
+    internal static double InPlaceTurnCompensation = 4.0;
     private IntPtr _model;
     private IntPtr _data;
     private bool _disposed;
@@ -102,10 +111,16 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
         // Commands have already been bounded by MatchEngine. Keep its optional
         // frame latency semantics at the physical actuator boundary.
         ApplyCommandLatency(robot);
+        var cmdV = robot.CmdV;
+        var cmdW = robot.CmdW;
+        if (Math.Abs(cmdV) <= 0.02 && Math.Abs(cmdW) > 0)
+        {
+            cmdW *= InPlaceTurnCompensation;
+        }
         var halfTrack = robot.Vehicle.TrackWidth / 2;
         // A +Y wheel angular velocity rolls its centre toward local +X.
-        var left = (robot.CmdV - robot.CmdW * halfTrack) / MujocoModel.WheelRadius;
-        var right = (robot.CmdV + robot.CmdW * halfTrack) / MujocoModel.WheelRadius;
+        var left = (cmdV - cmdW * halfTrack) / MujocoModel.WheelRadius;
+        var right = (cmdV + cmdW * halfTrack) / MujocoModel.WheelRadius;
         controls[offset] = Math.Clamp(left, -MujocoModel.WheelAngularSpeedLimit, MujocoModel.WheelAngularSpeedLimit);
         controls[offset + 1] = Math.Clamp(right, -MujocoModel.WheelAngularSpeedLimit, MujocoModel.WheelAngularSpeedLimit);
         controls[offset + 2] = controls[offset];

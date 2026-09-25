@@ -1,1 +1,2 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/sim/index.md","reason":"独立检查 legacy 逐位回归、MuJoCo 回放、确定性与保真度边界"}
+{"file":".trellis/tasks/09-25-mujoco-search-targeting/research/current-evidence.md","reason":"逐项核对原始证据与历史报告，避免把对准或日志当作得分验收"}

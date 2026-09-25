@@ -721,13 +721,21 @@ public sealed class FsmController
                 var pos = TargetPos(target.Obj);
                 DriveToward(r, pos, 0, 2.0);
                 sc.T += dt;
-                if (Math.Abs(Js.Norm(AngleTo(r, pos) - r.Th)) < 0.15)
+                // mujoco 模式: 原地旋转受四轮横向滑动摩擦限制, 偏航速率仅 ~0.07 rad/s
+                // (kv=0.25 伺服为登台柔性所必需, 见 09-25 登台修复报告), legacy 的
+                // 3 s 预算只够转 0.2 rad, 0.15 rad 精确对准更不可达 —— 对准阈值放宽
+                // 到 0.6 rad(分类/推块无需精确朝向)、超时放宽到 30 s, 让慢速旋转
+                // 自然完成对准; legacy 逐位不变。
+                var mujocoSearch = _physics.BackendId == PhysicsSpec.Mujoco;
+                var alignTolerance = mujocoSearch ? 0.6 : 0.15;
+                var turnBudget = mujocoSearch ? 30.0 : 3.0;
+                if (Math.Abs(Js.Norm(AngleTo(r, pos) - r.Th)) < alignTolerance)
                 {
                     sc.Phase = "classify";
                     sc.T = 0;
                     Log(r, "[fsm] SEARCH: 已对准 → 视觉识别中…");
                 }
-                if (sc.T > 3 || !_field.OnPlatform(pos.X, pos.Y))
+                if (sc.T > turnBudget || !_field.OnPlatform(pos.X, pos.Y))
                 {
                     Log(r, "[fsm] SEARCH: 目标丢失 → 继续扫描");
                     sc.Phase = "scan";

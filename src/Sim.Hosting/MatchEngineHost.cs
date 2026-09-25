@@ -30,14 +30,17 @@ public static class MatchEngineHost
             var current = engine.BuildReplayHeader();
             var recordedBackend = file.Header.PhysicsBackend ?? PhysicsSpec.Legacy;
             var currentBackend = current.PhysicsBackend ?? PhysicsSpec.Legacy;
+            // 09-25 SEARCH 索敌闭环: 控制映射变更以 CoreVersion 标识, MuJoCo 回放
+            // 额外比较该字段(纯 C# 变更不进 MJCF 哈希); legacy 回放不加此门禁。
             if (recordedBackend != currentBackend
                 || (currentBackend == PhysicsSpec.Mujoco
                     && (file.Header.PhysicsEngineVersion != current.PhysicsEngineVersion
-                        || file.Header.PhysicsModelSha256 != current.PhysicsModelSha256)))
+                        || file.Header.PhysicsModelSha256 != current.PhysicsModelSha256
+                        || file.Header.CoreVersion != current.CoreVersion)))
             {
                 throw new InvalidOperationException(
-                    $"replay physics identity mismatch: recorded {recordedBackend}/{file.Header.PhysicsEngineVersion}/{file.Header.PhysicsModelSha256}, "
-                    + $"current {currentBackend}/{current.PhysicsEngineVersion}/{current.PhysicsModelSha256}.");
+                    $"replay physics identity mismatch: recorded {recordedBackend}/{file.Header.PhysicsEngineVersion}/{file.Header.PhysicsModelSha256}/{file.Header.CoreVersion}, "
+                    + $"current {currentBackend}/{current.PhysicsEngineVersion}/{current.PhysicsModelSha256}/{current.CoreVersion}.");
             }
             return engine;
         }
