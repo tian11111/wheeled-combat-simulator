@@ -172,6 +172,7 @@ def evaluation_gate(policy_summary: dict, fsm_summary: dict, policy_rows: list[d
     scoring_rows = [row for row in policy_rows if row["locked_target_us_block_scores"] > 0]
     untraceable = [row["seed"] for row in scoring_rows
                    if row["position_event_cross_check"] is not True]
+    traceability_ok = not untraceable
     project_gate = {
         "has_at_least_one_locked_target_score":
             policy_summary["total_locked_target_us_block_scores"] > 0,
@@ -183,11 +184,11 @@ def evaluation_gate(policy_summary: dict, fsm_summary: dict, policy_rows: list[d
     }
     return {
         **project_gate,
-        "gate_passed": all(project_gate.values()),
-        "traceability_ok": not untraceable,
+        "gate_passed": all(project_gate.values()) and traceability_ok,
+        "traceability_ok": traceability_ok,
         "scores_without_position_event_cross_check": untraceable,
-        "note": "gate uses locked-target real BlockScore and our own Drop only; "
-                "reward and final score are not gate evidence",
+        "note": "gate uses locked-target real BlockScore, our own Drop, and score "
+                "traceability; reward and final score are not gate evidence",
     }
 
 

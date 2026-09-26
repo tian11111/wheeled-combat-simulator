@@ -62,8 +62,12 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   同一机器人的多个接触几何体不得被读成"双方同时接触"。修此判定会经
   `Gain`/`OppGain`/`HandleBuffScored` 反馈进对手 FSM，故它不是纯观测改动，
   跨版本轨迹只在首次归属变化前可比。
-- 选模只看锁定目标我方**真实** `BlockScore` 与我方 `Drop`（合格者按目标得分多、
-  掉台少、训练步数多排序），**禁用** `EvalCallback` 默认的平均回报选模；训练侧
+- `controllers/score_block_rl/evaluate.py::evaluation_gate` 的 `gate_passed` 必须同时满足：
+  至少 1 次锁定目标真实 `BlockScore`、目标得分总数不低于同 seed FSM、我方 `Drop`
+  不高于 FSM、且每个得分 seed 的 `position_event_cross_check is True`。开发集选模与
+  最终集 `new_round_blind_gate_passed` 使用同一门槛，不能只在选模时检查得分可追溯性。
+  合格者按目标得分多、掉台少、训练步数多排序；**禁用** `EvalCallback` 默认的
+  平均回报选模。训练侧
   `CheckpointCallback` 只做无偏快照（每 51,200 个单环境 step，`n_envs=1` 下
   `save_freq` 即单环境步数，不可再除以 `n_envs`）。SB3 在 `verbose=0` 且无
   `tensorboard_log` 时不安装任何 logger writer，需要 `progress.csv` 诊断必须

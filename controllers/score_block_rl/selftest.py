@@ -198,6 +198,23 @@ def pure_checks(harness: Harness) -> None:
 
     harness.check("split routing: custom seeds are exploratory only", exploratory_label)
 
+    def untraceable_score_fails_gate() -> str:
+        from evaluate import evaluation_gate
+
+        policy = {"total_locked_target_us_block_scores": 1, "total_us_drops": 0}
+        fsm = {"total_locked_target_us_block_scores": 1, "total_us_drops": 0}
+        row = {"seed": 7001, "locked_target_us_block_scores": 1,
+               "position_event_cross_check": False}
+        failed = evaluation_gate(policy, fsm, [row])
+        assert failed["gate_passed"] is False
+        assert failed["scores_without_position_event_cross_check"] == [7001]
+        row["position_event_cross_check"] = True
+        passed = evaluation_gate(policy, fsm, [row])
+        assert passed["gate_passed"] is True
+        return "an untraceable real score cannot pass the blind gate"
+
+    harness.check("selection: untraceable score fails gate", untraceable_score_fails_gate)
+
     mutex_cases = [
         ("holdout + split", {"split": DEVELOPMENT_V3, "final_holdout": True},
          "cannot be combined with --split"),
