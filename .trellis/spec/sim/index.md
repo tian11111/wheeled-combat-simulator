@@ -49,6 +49,19 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   Python 训练进程用 UTF-8 模式写 SB3 Monitor CSV，编码不符须启动时失败。
   SCORE_BLOCK 试点观测前 9 项顺序不变，末尾追加相对平台中心、按半边长
   归一化的我方 x/y；改维度后旧 PPO 模型必须重训，不能静默加载。
+- SCORE_BLOCK PPO 的评测 seed 划分是**预注册契约**，唯一来源为
+  `controllers/score_block_rl/splits.py`（`split_version = score-block-split-v2`）：
+  训练池 42/1000–1999 且 SB3 RNG 与首次 reset 为 20260925；**已揭示**的
+  3001–3010、4001–4010 只能作历史对照（`--final-holdout` 永远只指
+  4001–4010，不得改称新模型盲验）；本轮开发集 5001–5020、盲验集 6001–6050。
+  评测入口必须显式标注 split、拒绝 split 混用与任何 seed 重叠；盲验集必须先
+  冻结候选（路径/步数/SHA-256/场景与 CLI 哈希）并拒绝覆盖已有结果。
+- 选模只看锁定目标我方**真实** `BlockScore` 与我方 `Drop`（合格者按目标得分多、
+  掉台少、训练步数多排序），**禁用** `EvalCallback` 默认的平均回报选模；训练侧
+  `CheckpointCallback` 只做无偏快照（每 51,200 个单环境 step，`n_envs=1` 下
+  `save_freq` 即单环境步数，不可再除以 `n_envs`）。SB3 在 `verbose=0` 且无
+  `tensorboard_log` 时不安装任何 logger writer，需要 `progress.csv` 诊断必须
+  显式 `set_logger`。
 - 新模式回放身份 `mujoco/<原生版本>/<模型内容哈希>`：不匹配明确拒绝；
   旧回放缺字段按旧模式解释；协议/快照/batch 演进**只加不改**（铁律 3 同样适用于
   `physicsBackend`/`physicsModelSha256`/`PhysicsPoses` 等新字段）。
