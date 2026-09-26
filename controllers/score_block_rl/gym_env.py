@@ -13,6 +13,9 @@ from typing import Any, Optional
 import gymnasium as gym
 import numpy as np
 
+#: Mirrors ``RlEnvCommand.MaxPolicyTicks``: the strategy phase is capped there.
+MAX_POLICY_TICKS = 2400
+
 
 def resolve_dotnet_executable(override: str | None = None) -> str:
     executable = shutil.which(override or "dotnet")
@@ -34,7 +37,7 @@ class ScoreBlockEnv(gym.Env):
 
     def __init__(self, dotnet_exe: str, cli_dll: str, scenario_path: str,
                  duration: float = 120.0, seed_pool: Optional[list[int]] = None,
-                 max_policy_ticks: int = 2400):
+                 max_policy_ticks: int = MAX_POLICY_TICKS):
         super().__init__()
         if seed_pool is not None and not seed_pool:
             raise ValueError("seed_pool must contain at least one seed")
@@ -124,7 +127,20 @@ class ScoreBlockEnv(gym.Env):
             raise ValueError("action must contain two finite values")
         v = float(np.clip(action_array[0], -1.0, 1.0))
         w = float(np.clip(action_array[1], -1.0, 1.0)) * 2.0
-        reply = self._send({"op": "step", "v": v, "w": w})
+        return self._unpack_step(self._send({"op": "step", "v": v, "w": w}))
+
+    def step_fsm(self):
+        """Advance one tick with the built-in FSM driving both robots.
+
+        Evaluation-only baseline path: it never accepts a policy action, so the
+        FSM and the policy can be compared from the same seed and the same first
+        ``SCORE_BLOCK`` entry produced by :meth:`reset`.
+        """
+        if self._closed:
+            raise RuntimeError("rl-env bridge is closed")
+        return self._unpack_step(self._send({"op": "step_fsm"}))
+
+    def _unpack_step(self, reply: dict[str, Any]):
         if reply.get("type") != "step":
             raise RuntimeError(f"expected step response, got {reply.get('type')!r}")
         try:

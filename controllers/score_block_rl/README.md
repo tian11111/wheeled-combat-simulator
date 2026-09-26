@@ -2,6 +2,8 @@
 
 仅用于官方 MuJoCo 场景的离线试验。11 维观测含仿真真值块坐标（特权状态），模型不能直接部署到真机，也不会替换默认 FSM。旧 9 维观测模型与当前环境不兼容，须重新训练。
 
+本页描述的是 **split v2 / checkpoint 轮**（任务 `09-26-score-block-ppo-checkpoint-round`）的训练与评测入口。上一轮（4001–4010）的 AC4 已判定失败，其结论不因任何后续结果改变。
+
 ## Windows x64 复现
 
 使用 Python 3.12、.NET 8 SDK 和项目锁定的 MuJoCo 原生 DLL。以下命令在仓库根目录运行，训练产物放在 Git 跟踪目录之外：
@@ -11,15 +13,76 @@ py -3.12 -m venv "$env:TEMP\score-block-rl-venv"
 & "$env:TEMP\score-block-rl-venv\Scripts\python.exe" -m pip install -r controllers/score_block_rl/requirements.txt
 dotnet build RobotSimulator.sln -m:1
 & "$env:TEMP\score-block-rl-venv\Scripts\python.exe" -X utf8 controllers/score_block_rl/train.py --steps 500000 --out "$env:TEMP\score-block-rl-train"
-& "$env:TEMP\score-block-rl-venv\Scripts\python.exe" controllers/score_block_rl/evaluate.py --model "$env:TEMP\score-block-rl-train\ppo_score_block.zip" --out "$env:TEMP\score-block-rl-train\dev-evaluation.json"
 ```
 
-`rl-env` 的 JSONL 输入/输出和逐集 CSV 固定为 UTF-8；Windows 训练命令须带 `-X utf8`，脚本会在编码不符时立即报错。脚本优先查找 PATH 中的 `dotnet`，也可给 `train.py`、`evaluate.py` 和 `benchmark.py` 传 `--dotnet <dotnet.exe 的绝对路径>`。训练 episode seed 池为 42、1000–1999；SB3 自身随机种子为 20260925，首次 reset 也会使用该 seed。3001–3010 是开发验证集，4001–4010 是预注册最终留出集。默认评测使用开发集；模型冻结后显式传 `--final-holdout` 才会运行最终留出集。自定义 `--seeds` 仅生成探索性结果，不能作为 AC4 证据；所有评测均拒绝训练 seed 重叠。
+`rl-env` 的 JSONL 输入/输出和逐集 CSV 固定为 UTF-8；Windows 训练命令须带 `-X utf8`，脚本会在编码不符时立即报错。脚本优先查找 PATH 中的 `dotnet`，也可给 `train.py`、`evaluate.py` 和 `benchmark.py` 传 `--dotnet <dotnet.exe 的绝对路径>`。
 
-`train.py` 使用锁定 SB3 版本的 PPO 默认参数，并把实际参数、11 维观测定义及 seed split 写入 `run-config.json`。输出还包括模型与 UTF-8 `episodes.monitor.csv`。`evaluate.py` 输出 split 标签、逐 seed 指标及 AC4 门槛。只有锁定目标的我方真实 `BlockScore` 算策略推块成功；最终比分和回报不能代替该裁判事件。未进入阶段的 seed 保留为零成功样本。最终集命令示例：
+## 数据划分（split v2）
+
+`controllers/score_block_rl/splits.py` 是划分的唯一来源，`train.py`、`evaluate.py`、`selftest.py` 共用，避免三处各写一份 seed 列表。
+
+| split | seeds | 用途 |
+|---|---|---|
+| `legacy_development` | 3001–3010 | 历史开发集（已揭示），仅对照 |
+| `legacy_final_holdout` | 4001–4010 | 历史最终留出集（已揭示，AC4 失败）；`--final-holdout` **只**表示它 |
+| `development_v2` | 5001–5020 | 本轮选模开发集（默认 split） |
+| `final_holdout_v2` | 6001–6050 | 本轮唯一盲验集，需冻结记录 |
+| `exploratory` | 自定义 `--seeds` | 探索，永不作门槛证据 |
+
+训练 episode 池仍为 42、1000–1999，SB3 RNG 与首次 reset seed 为 20260925；所有命名 split 与训练池、历史 split 互斥。评测入口拒绝 split 混用（`--final-holdout` + `--split`、`--split` + `--seeds`）与任何 seed 重叠，并拒绝覆盖已存在的结果文件（除非 `--force`）。
+
+## 训练诊断与 checkpoint
+
+`train.py` 使用锁定 SB3 版本的 PPO 默认参数和单环境，并把实际参数、11 维观测定义、split 版本与 seed 池写入 `run-config.json`。此外：
+
+- `progress.csv`：显式 `CSVLogger`（SB3 在 `verbose=0` 且无 `tensorboard_log` 时**不会**默认写 CSV），保留 `train/approx_kl`、`train/clip_fraction`、`train/explained_variance`、`train/value_loss` 等优化诊断；
+- `episodes.monitor.csv`：Monitor 逐集裁判信息（`INFO_LOG_FIELDS`）；
+- `checkpoints/rl_model_<steps>_steps.zip`：每 51,200 个单环境 step 一个 `CheckpointCallback` 快照；
+- `ppo_score_block.zip`：最终模型；
+- `run-config.json`：`split_version`、每个 checkpoint 的训练步数与 SHA-256、`checkpoint_audit`、场景/CLI/依赖版本与哈希。
+
+`CheckpointCallback.save_freq` 的计数单位是 `env.step()` 调用次数；本任务固定 `n_envs=1`，因此 51,200 直接等于 51,200 个单环境 step（不做 `// n_envs`，`train.py` 会断言单环境）。**不使用** `EvalCallback` 的平均回报选模，选模只看裁判事件。
+
+## 评测与选模
+
+默认 split 现在是 `development_v2`；旧 3001–3010 用 `--split legacy_development`。
 
 ```powershell
-& "$env:TEMP\score-block-rl-venv\Scripts\python.exe" controllers/score_block_rl/evaluate.py --model "$env:TEMP\score-block-rl-train\ppo_score_block.zip" --final-holdout --out "$env:TEMP\score-block-rl-train\final-holdout.json"
+# 1) 逐个 checkpoint + 最终模型在开发集上评测，选出并冻结唯一候选
+& $py -X utf8 controllers/score_block_rl/evaluate.py `
+    --split development_v2 `
+    --checkpoints-dir "$env:TEMP\score-block-rl-train\checkpoints" `
+    --select-candidate --freeze "$env:TEMP\score-block-rl-train\candidate-freeze.json" `
+    --out "$env:TEMP\score-block-rl-train\dev-v2-sweep.json"
+
+# 2) 冻结后只运行一次盲验（缺冻结记录、或不匹配都会被拒绝）
+& $py -X utf8 controllers/score_block_rl/evaluate.py `
+    --split final_holdout_v2 `
+    --model "$env:TEMP\score-block-rl-train\checkpoints\rl_model_XXXXXX_steps.zip" `
+    --require-freeze "$env:TEMP\score-block-rl-train\candidate-freeze.json" `
+    --out "$env:TEMP\score-block-rl-train\final-holdout-v2.json"
+
+# 历史对照（已揭示的 4001–4010，不再作为新模型盲验）
+& $py -X utf8 controllers/score_block_rl/evaluate.py --model <模型> --final-holdout `
+    --out "$env:TEMP\score-block-rl-train\legacy-final-4001-4010.json"
 ```
 
-性能测量：`dotnet test src/Sim.Tests/Sim.Tests.csproj --filter FullyQualifiedName~TrainingResetPerformanceTests` 比较 20 次冷建模与 100 次热建模；设置 `ROBOT_SIM_RL_PERF_OUTPUT` 为绝对 JSON 路径可保存原始样本。`python controllers/score_block_rl/benchmark.py --out <绝对 JSON 路径>` 记录 100 次完整预推进 reset 和 1000 次策略 step 的原始样本及 p50/p95。性能受机器、杀毒软件和原生 DLL 影响，比较时须记录运行环境。
+- `deterministic=True` 在独立评测环境里逐 seed 运行；同一 seed 的内置 FSM 基线从**同一个首次 `SCORE_BLOCK` 入口**开始配对（FSM 路径不消费策略，故每个 seed 只跑一次即可作为所有模型的共同基准，输出里标注 `fsm_baseline_is_model_independent`）。
+- 合格条件只用真实裁判事件：锁定目标我方真实 `BlockScore` ≥ 1、总数不低于 FSM、我方 `Drop` 不高于 FSM，且所有计分 seed 都有位姿/事件交叉核验。合格者按目标得分多 → 掉台少 → 训练步数多选唯一候选；没有合格模型时记录 `stop_reason="no_qualified_model"` 并停止，不打开最终集。
+- 输出保留全部 `no_score_block`、掉台、归因歧义与 fault 样本；`ac4_claim_eligible` 恒为 `false`（上一轮 AC4 已关闭），新盲验结果记在 `new_round_blind_gate_passed`，不能追认为上一轮 AC4。
+- 最终比分和 episode 回报只作参考，不能替代锁定目标 `BlockScore`。
+
+## 定向验证
+
+```powershell
+& $py -X utf8 controllers/score_block_rl/selftest.py `
+    --train-dir "$env:TEMP\score-block-rl-train" `
+    --dev-sweep "$env:TEMP\score-block-rl-train\dev-v2-sweep.json" `
+    --freeze "$env:TEMP\score-block-rl-train\candidate-freeze.json"
+```
+
+覆盖 split 路由与互斥矩阵、checkpoint 步数解析与 SHA-256、`run-config.json` 与磁盘一致性、`progress.csv` / `episodes.monitor.csv` 可读性、以及最终盲验守卫（缺冻结、split 混用、重复写入）。不带 `--train-dir` 时产物相关检查标为 `skipped`，不会假装通过。
+
+## 性能测量
+
+`dotnet test src/Sim.Tests/Sim.Tests.csproj --filter FullyQualifiedName~TrainingResetPerformanceTests` 比较 20 次冷建模与 100 次热建模；设置 `ROBOT_SIM_RL_PERF_OUTPUT` 为绝对 JSON 路径可保存原始样本。`python controllers/score_block_rl/benchmark.py --out <绝对 JSON 路径>` 记录 100 次完整预推进 reset 和 1000 次策略 step 的原始样本及 p50/p95。性能受机器、杀毒软件和原生 DLL 影响，比较时须记录运行环境。
