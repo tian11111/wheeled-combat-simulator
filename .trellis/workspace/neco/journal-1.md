@@ -712,3 +712,36 @@ No training was run and no gate is claimed.
 - Retrain on `development_v3` (7001-7020) under the corrected reward, freeze one candidate, then
   open `final_holdout_v3` (8001-8050) exactly once.
 - Do not quote the projected 5 -> 9; the end-to-end measured value is 8.
+
+
+## Session 20: SCORE_BLOCK v3 重训验收收尾
+
+**Date**: 2026-09-26
+**Task**: SCORE_BLOCK v3 重训验收收尾
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+修复 PPO 得分追溯盲验门槛；无防护基线完成训练并在 v3 单次盲验中以真实得分 2 比 6 未达 FSM；收尾复跑 Python 自测 40 通过、0 失败、0 跳过，任务已归档。
+
+### Main Changes
+
+- evaluate.py 的 gate_passed 纳入得分位姿/事件交叉核验，补回归自测和仿真规范。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `079480a` | (see git log) |
+
+### Testing
+
+- [OK] Python selftest 40/0/0；Sim.Tests 388/0/0；六份 legacy 回放与 MuJoCo 回放通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 若继续优化得分，另建任务并预注册新的开发集与盲验集；v3 已揭示，仅作诊断。
