@@ -583,3 +583,34 @@ planning(前置已满足;其 design 的 Tick 用法须按交接修正)。08-28 �
 ### Status
 
 [OK] **Completed**
+
+## Session 23: MBri 控制器可移植性契约 + RL 参数寻优首轮
+
+**Date**: 2026-09-25
+**Tasks**: 09-25-mujoco-search-targeting(接手完成) / 09-25-fsm-parameter-optimization(新建完成) / 09-25-mbri-controller-portability(新建完成)
+**Branch**: `feat/mujoco-dual-physics-validation`
+
+### Summary
+
+三大块: ①SEARCH 闭环完成——接手对方 score_retreat 候选, AC4 达成(官方 2400 ticks
+8:3, 我方 t=236 真实 BlockScore, 无掉台), AC5 补齐(Godot parity 需重建程序集的坑)。
+②FSM 参数寻优——Optuna TPE 150 trials, 5 维白名单参数, 最优 4.0(基线 1.0),
+MOUNT_SPEED 0.806 主导(慢速登台更稳, 与台沿物理互证); holdout 改善 26(−58→−32,
+按复核意见去显著性措辞); tuned 场景产出。③MBri 接入契约——用户实测暴露三重量纲
+不匹配/电机单位之谜/MANUAL 语义, 落成 CONTROLLER_PROTOCOL 移植章节+映射表+
+官方适配器(10 自测)+标定模板; 修正"零我方事件"编码误报(GB18030)。
+环境事件: %TEMP% SDK 被清, 重装修复。RL 试点 score-rl-pilot 保持 planning
+(前置 AC4 已满足)。
+
+### Git Commits
+
+- 032d30a feat(mujoco): SEARCH 索敌闭环完成(AC1-AC5 全过)
+- e5797e7 feat(tools): FSM 参数自动寻优(150 trials)
+- 218b77e/65928b1 FSM 寻优验收修正+归档
+- 7efc0d7 验收报告最终处置(rotated 重录)
+- 427e0ca feat(docs): MBri 控制器接入契约
+- (本次) MBri 任务归档
+
+### Status
+
+[OK] **Completed**
