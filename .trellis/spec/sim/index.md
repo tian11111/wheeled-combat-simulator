@@ -41,6 +41,14 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   `mjModel/mjData`，`Dispose` 必须释放；`v/w` 经有界车轮驱动进动力学，
   **禁止瞬移车体**伪造运动或登台。原生 DLL 哈希锁定（`runtimes/win-x64/native/`），
   不得要求用户装到系统目录。
+- `rl-env` 是训练专用例外：一个 CLI 会话可按模型内容哈希复用只读 `mjModel`，
+  但每次 reset 必须新建 `MatchEngine` 与 `mjData`。先释放当前 episode 数据，
+  再释放共享模型；普通比赛仍每场独立模型和数据。训练桥的进程/文件/Gym IO
+  留在 CLI 与 Python，不能进入 `Sim.Core`。
+- `rl-env` 的 JSONL stdin/stdout 固定 UTF-8，不依赖 Windows 控制台代码页；
+  Python 训练进程用 UTF-8 模式写 SB3 Monitor CSV，编码不符须启动时失败。
+  SCORE_BLOCK 试点观测前 9 项顺序不变，末尾追加相对平台中心、按半边长
+  归一化的我方 x/y；改维度后旧 PPO 模型必须重训，不能静默加载。
 - 新模式回放身份 `mujoco/<原生版本>/<模型内容哈希>`：不匹配明确拒绝；
   旧回放缺字段按旧模式解释；协议/快照/batch 演进**只加不改**（铁律 3 同样适用于
   `physicsBackend`/`physicsModelSha256`/`PhysicsPoses` 等新字段）。
