@@ -42,4 +42,11 @@ public static class ProtocolVersion
     /// raw-log replay gates. Offline artifact only — never enters Scenario/Snapshot/replays.
     /// </summary>
     public const string SensorCalibrationFormat = "sensor-calibration-v1";
+
+    /// <summary>
+    /// Version tag of the headless batch result stream (one
+    /// <see cref="BatchMatchResult"/> JSON object per input seed). Additive-only
+    /// wire contract consumed by AI agents; never part of Scenario/Snapshot/replays.
+    /// </summary>
+    public const string BatchResultFormat = "sim-batch-result-v1";
 }

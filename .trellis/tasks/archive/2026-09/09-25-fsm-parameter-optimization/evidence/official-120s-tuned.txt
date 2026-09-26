@@ -1,0 +1,2 @@
+cmd=dotnet exec Sim.Cli.dll match --seed 42 --scenario scenarios/wushu-ring-2026-mujoco-tuned.json --duration 120
+seed=42 ticks=2400 score 我方 5 : 3 对手 done=比赛时间结束 faults(us/them)=0/0 penalties=0/0

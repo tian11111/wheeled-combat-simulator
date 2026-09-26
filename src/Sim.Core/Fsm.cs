@@ -138,7 +138,7 @@ public static class Vision
 public sealed class FsmController
 {
     private readonly FieldModel _field;
-    private readonly PhysicsWorld _physics;
+    private readonly IPhysicsBackend _physics;
     private readonly SimParameters _params;
     private readonly Func<double> _rng;
     private readonly List<BlockRuntime> _blocks;
@@ -148,7 +148,7 @@ public sealed class FsmController
     private readonly RobotRuntime _us;
     private readonly RobotRuntime _them;
 
-    public FsmController(FieldModel field, PhysicsWorld physics, SimParameters parameters, Func<double> rng,
+    public FsmController(FieldModel field, IPhysicsBackend physics, SimParameters parameters, Func<double> rng,
         RobotRuntime us, RobotRuntime them, List<BlockRuntime> blocks, EventBus events,
         IVisionAdapter vision, Action<RobotRuntime, string> onBothDone)
     {
@@ -177,6 +177,11 @@ public sealed class FsmController
             pusher.V = 0;
             pusher.W = 0;
             EnterSearchFor(pusher);
+            if (_physics.BackendId == PhysicsSpec.Mujoco
+                && _field.DistToNearestEdge(pusher.X, pusher.Y) < 0.65)
+            {
+                pusher.Fsm.Scan.Phase = "score_retreat";
+            }
         }
     }
 
@@ -673,6 +678,23 @@ public sealed class FsmController
         var sc = r.Fsm.Scan;
         switch (sc.Phase)
         {
+            case "score_retreat":
+            {
+                if (_field.DistToNearestEdge(r.X, r.Y) >= 0.65)
+                {
+                    sc.Phase = "scan";
+                    sc.T = 0;
+                    r.V = 0;
+                    r.W = 0;
+                    break;
+                }
+                var center = _field.CenterWorld;
+                var towardCenter = Math.Cos(r.Th) * (center.X - r.X) + Math.Sin(r.Th) * (center.Y - r.Y);
+                SetAct(r, "得分后离开台沿");
+                r.V = towardCenter < 0 ? -0.4 : 0.35;
+                r.W = 0;
+                break;
+            }
             case "scan":
             {
                 // 扫描避边: 在台上、车头朝外且前灰度压到黑带 → 倒车回台再扫描。
@@ -721,13 +743,21 @@ public sealed class FsmController
                 var pos = TargetPos(target.Obj);
                 DriveToward(r, pos, 0, 2.0);
                 sc.T += dt;
-                if (Math.Abs(Js.Norm(AngleTo(r, pos) - r.Th)) < 0.15)
+                // mujoco 模式: 原地旋转受四轮横向滑动摩擦限制, 偏航速率仅 ~0.07 rad/s
+                // (kv=0.25 伺服为登台柔性所必需, 见 09-25 登台修复报告), legacy 的
+                // 3 s 预算只够转 0.2 rad, 0.15 rad 精确对准更不可达 —— 对准阈值放宽
+                // 到 0.6 rad(分类/推块无需精确朝向)、超时放宽到 30 s, 让慢速旋转
+                // 自然完成对准; legacy 逐位不变。
+                var mujocoSearch = _physics.BackendId == PhysicsSpec.Mujoco;
+                var alignTolerance = mujocoSearch ? 0.6 : 0.15;
+                var turnBudget = mujocoSearch ? 30.0 : 3.0;
+                if (Math.Abs(Js.Norm(AngleTo(r, pos) - r.Th)) < alignTolerance)
                 {
                     sc.Phase = "classify";
                     sc.T = 0;
                     Log(r, "[fsm] SEARCH: 已对准 → 视觉识别中…");
                 }
-                if (sc.T > 3 || !_field.OnPlatform(pos.X, pos.Y))
+                if (sc.T > turnBudget || !_field.OnPlatform(pos.X, pos.Y))
                 {
                     Log(r, "[fsm] SEARCH: 目标丢失 → 继续扫描");
                     sc.Phase = "scan";
@@ -857,6 +887,41 @@ public sealed class FsmController
         DriveToward(r, (o.X, o.Y), 1.25, 2.5);
     }
 
+    private bool ReturnFromMujocoScoreEdge(RobotRuntime r, BlockRuntime target)
+    {
+        // Keep MuJoCo scoring runs away from the platform edge before the
+        // chassis footprint reaches it; legacy scoring remains unchanged.
+        if (_physics.BackendId != PhysicsSpec.Mujoco
+            || !_physics.OnStage(r)
+            || _field.DistToNearestEdge(r.X, r.Y) >= 0.27
+            || _field.DistToNearestEdge(target.X, target.Y)
+                >= _field.DistToNearestEdge(r.X, r.Y))
+        {
+            return false;
+        }
+
+        var targetHeadingError = Math.Abs(Js.Norm(AngleTo(r, (target.X, target.Y)) - r.Th));
+        if (targetHeadingError < 0.6)
+        {
+            // The target is between the chassis and the edge. Back away along
+            // the current heading before trying to rotate beside the block.
+            r.V = -0.4;
+            r.W = 0;
+        }
+        else
+        {
+            var center = _field.CenterWorld;
+            var headingError = Math.Abs(Js.Norm(AngleTo(r, center) - r.Th));
+            DriveToward(r, center, 0.35, 1.2);
+            if (headingError > 0.25)
+            {
+                r.V = 0;
+            }
+        }
+        SetAct(r, "SCORE_BLOCK: 近台沿回中");
+        return true;
+    }
+
     private void ScoreTick(RobotRuntime r, double dt)
     {
         var st = r.Fsm;
@@ -902,7 +967,9 @@ public sealed class FsmController
         {
             st.ScoreProgressT += dt;
         }
-        if (st.ScoreProgressT > 2.0)
+        var scoreTimeout = _physics.BackendId == PhysicsSpec.Mujoco
+            && _field.DistToNearestEdge(b.X, b.Y) >= 0.45 ? 8.0 : 2.0;
+        if (st.ScoreProgressT > scoreTimeout)
         {
             var alt = _blocks.FirstOrDefault(x => !ReferenceEquals(x, b) && x.Kind == BlockKind.Buff && !x.Out && _field.OnPlatform(x.X, x.Y));
             if (alt is not null)
@@ -916,6 +983,19 @@ public sealed class FsmController
             }
             Log(r, "[fsm] SCORE_BLOCK: 目标无进展超时 → SEARCH");
             EnterSearchFor(r);
+            return;
+        }
+        if (ReturnFromMujocoScoreEdge(r, b))
+        {
+            return;
+        }
+        if (_physics.BackendId == PhysicsSpec.Mujoco
+            && (_field.DistToNearestEdge(b.X, b.Y) >= 0.45
+                || Js.Hypot(b.X - r.X, b.Y - r.Y) < 0.65)
+            && Math.Abs(Js.Norm(AngleTo(r, (b.X, b.Y)) - r.Th)) > 0.25)
+        {
+            SetAct(r, "SCORE_BLOCK: 对准增益块");
+            DriveToward(r, (b.X, b.Y), 0, 2.0);
             return;
         }
         if (_field.DistToNearestEdge(b.X, b.Y) < 0.45)

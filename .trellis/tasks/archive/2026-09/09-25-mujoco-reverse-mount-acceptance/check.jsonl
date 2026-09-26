@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "检查旧模式逐位兼容、新模式回放身份和未标定声明"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "检查真实 Godot parity 与动态画面证据"}

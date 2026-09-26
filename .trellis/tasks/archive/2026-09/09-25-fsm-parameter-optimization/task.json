@@ -1,0 +1,28 @@
+{
+  "id": "fsm-parameter-optimization",
+  "name": "fsm-parameter-optimization",
+  "title": "FSM 参数自动寻优(Optuna TPE x MuJoCo)",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "neco",
+  "assignee": "neco",
+  "createdAt": "2026-09-25",
+  "completedAt": "2026-09-25",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "commit": "e5797e7"
+  }
+}

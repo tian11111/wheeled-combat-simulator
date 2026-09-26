@@ -1,0 +1,4 @@
+HEAD=e5797e79a5e2712a12bbbebcbd65945416332004
+date=2026-09-25T22:21:20+08:00
+cmd=dotnet test RobotSimulator.sln -m:1
+已通过! - 失败:     0，通过:   373，已跳过:     0，总计:   373，持续时间: 6 s - Sim.Tests.dll (net8.0)

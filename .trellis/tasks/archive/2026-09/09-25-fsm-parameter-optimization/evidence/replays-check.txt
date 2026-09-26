@@ -1,0 +1,7 @@
+cmd=dotnet exec Sim.Cli.dll replay-check <replay> (逐文件)
+arena-layout-audit-seed42.json: PASS: replay reproduces the recorded match bit-for-bit.
+godot-parity-seed42.json: PASS: replay reproduces the recorded match bit-for-bit.
+rotated-seed42.json: PASS: replay reproduces the recorded match bit-for-bit.
+seed-42-pyus.json: PASS: replay reproduces the recorded match bit-for-bit.
+seed-42.json: PASS: replay reproduces the recorded match bit-for-bit.
+task-one-review-seed42.json: PASS: replay reproduces the recorded match bit-for-bit.

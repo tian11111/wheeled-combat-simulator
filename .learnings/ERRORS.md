@@ -4,6 +4,383 @@ Command failures and integration errors.
 
 ---
 
+## [ERR-20260901-002] settings-null-test-assumption
+
+**Logged**: 2026-09-01T10:55:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+### Summary
+A new settings fallback test expected JSON `null` to reach the settings validator, but the shared `ProtocolJson.Deserialize` contract rejects null during deserialization.
+
+### Error
+```
+Assert.Contains() Failure: expected a diagnostic containing '空对象'
+```
+
+### Context
+- `ProtocolJson.Deserialize<T>` throws `JsonException` when deserialization returns null.
+- `SettingsStore.Load` correctly catches that exception and returns `DesktopSettings.Default`.
+
+### Resolution
+- **Resolved**: 2026-09-01T10:55:00+08:00
+- **Notes**: The regression now asserts the existing `读取失败` fallback diagnostic; the defensive null check remains harmless if the protocol deserializer changes later.
+
+---
+
+## [ERR-20260901-001] trellis-check-skill-path
+
+**Logged**: 2026-09-01T10:50:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tooling
+
+### Summary
+The quality skill was first looked up under a non-existent global `.agents` path instead of the project-local Trellis skill root.
+
+### Error
+```
+Get-Content: Cannot find path C:\Users\Neco\.agents\skills\trellis-check\SKILL.md
+```
+
+### Context
+- Project skill root is `D:\project\robot-simulator\.agents\skills` in this workspace.
+
+### Suggested Fix
+Use the project-local `.agents/skills` path for Trellis skills in this repository.
+
+### Resolution
+- **Resolved**: 2026-09-01T10:50:00+08:00
+- **Notes**: Re-read from the correct project-local path.
+
+---
+
+## [ERR-20260831-002] start-process-argument-policy
+
+**Logged**: 2026-08-31T22:49:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tooling
+
+### Summary
+The shell tool rejected a PowerShell `Start-Process` command while trying to capture GUI Godot stdout/stderr for a real-renderer settings smoke.
+
+### Error
+```
+exec_command failed ... CreateProcess ... rejected by policy
+```
+
+### Context
+- Command: `Start-Process -FilePath <Godot GUI executable> -ArgumentList ... -RedirectStandardOutput ... -Wait`
+- Environment: Windows PowerShell 7 through the workspace command runner.
+- Direct GUI launch did start a window, but did not produce the requested PNG before it was stopped.
+
+### Suggested Fix
+Use the direct console executable for deterministic smoke output, or launch the GUI executable through a pre-existing approved terminal session when visual capture is required; do not compose a complex quoted `Start-Process` command in the workspace runner.
+
+### Metadata
+- Reproducible: unknown
+- Related Files: godot/src/Main.cs, godot/README.md
+
+### Resolution
+- **Resolved**: 2026-09-01T11:00:00+08:00
+- **Notes**: Used the direct Godot GUI executable through a waited `System.Diagnostics.Process` launch; the real renderer saved the settings capture and exited 0.
+
+---
+
+## [ERR-20260831-001] powershell-dotnet-filter
+
+**Logged**: 2026-08-31T00:00:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+### Summary
+An unquoted `|` in a dotnet test filter was parsed by PowerShell as a pipeline.
+
+### Error
+```
+The term 'FullyQualifiedName~DesktopSettingsTests' is not recognized ...
+```
+
+### Context
+- Operation: run two xUnit class filters in one `dotnet test` command.
+- The first build/test command completed, but the second filter token was executed as a PowerShell command.
+
+### Suggested Fix
+Quote the filter expression: `--filter "FullyQualifiedName~A|FullyQualifiedName~B"`.
+
+### Metadata
+- Reproducible: yes
+- Related Files: src/Sim.Tests/Sim.Tests.csproj
+
+### Resolution
+- **Resolved**: 2026-08-31T00:00:00+08:00
+- **Notes**: Re-ran the quoted filter successfully; both targeted test classes passed (9 tests).
+
+---
+
+## [ERR-20260830-005] godot-capture-argument-typo
+
+**Logged**: 2026-08-30T19:12:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+### Summary
+A manual Godot capture invocation contained a placeholder user argument, so the app started normally but had no capture request and did not exit.
+
+### Context
+- Operation: first post-change Forward+ visual regression capture.
+- The process was stopped immediately and no project state was changed.
+
+### Suggested Fix
+Use a fully specified absolute `--capture` path and verify the command line before launching a real renderer.
+
+### Metadata
+- Reproducible: no
+- Related Files: `godot/src/Main.cs`
+
+---
+
+## [ERR-20260830-004] render-frame-time-property
+
+**Logged**: 2026-08-30T19:09:00+08:00
+**Priority**: medium
+**Status**: resolved
+**Area**: frontend
+
+### Summary
+Used a nonexistent `RenderFrame.T` property while wiring presentation-only robot breathing lights.
+
+### Error
+```text
+ArenaVisualizer.cs: RenderFrame does not contain a definition for T
+```
+
+### Context
+- Operation: compile the first visual-stack implementation.
+- The typed frame stores simulation time in `RenderFrame.Hud.T`.
+
+### Suggested Fix
+Trace typed render records before adding fields; use the existing HUD projection time for a visual-only deterministic phase.
+
+### Metadata
+- Reproducible: no
+- Related Files: `godot/src/SnapshotView.cs`, `godot/src/ArenaVisualizer.cs`
+
+---
+
+## [ERR-20260830-003] godot-relative-capture-path
+
+**Logged**: 2026-08-30T19:07:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+### Summary
+Godot resolved a relative `--capture` path from the `godot/` project directory rather than the repository root.
+
+### Error
+```text
+view_image: unable to locate image at D:\project\robot-simulator\.trellis\tasks\08-30-godot-visual-gi-materials\research\baseline\forward-overview-1280.png
+```
+
+### Context
+- Operation: inspect a real-renderer baseline capture after the first capture batch.
+- The files were generated under `godot/.trellis/...` and then moved into the intended task research directory.
+
+### Suggested Fix
+Pass an absolute output path to Godot captures; verify the file exists before visual inspection.
+
+### Metadata
+- Reproducible: yes
+- Related Files: `.trellis/tasks/08-30-godot-visual-gi-materials/research/baseline/`
+
+---
+
+## [ERR-20260830-002] godot-gui-launch-no-capture
+
+**Logged**: 2026-08-30T19:04:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+### Summary
+The WinGet GUI Godot Mono launcher returned only the engine version and did not execute the C# scene capture command.
+
+### Context
+- Operation: generate the first Forward+ baseline capture.
+- The console Mono executable in the same installation executed the scene successfully.
+
+### Suggested Fix
+Use `Godot_v*_stable_mono_win64_console.exe` for scripted Godot QA and real-renderer captures.
+
+### Metadata
+- Reproducible: yes
+- Related Files: `godot/src/Main.cs`
+
+---
+
+## [ERR-20260830-001] rg-powershell-glob
+
+**Logged**: 2026-08-30T00:00:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: config
+
+### Summary
+Passed a Windows wildcard path directly to `rg`; PowerShell forwarded the literal glob and `rg` returned OS error 123.
+
+### Error
+```text
+rg: .trellis/spec/frontend/*.md: 文件名、目录名或卷标语法不正确。 (os error 123)
+```
+
+### Context
+- Operation: discover Trellis frontend and sim guideline files before implementation.
+- Environment: Windows PowerShell.
+
+### Suggested Fix
+Pass the directory to `rg` and use `-g '*.md'` for filtering, or enumerate files with `Get-ChildItem`.
+
+### Metadata
+- Reproducible: yes
+- Related Files: none
+- See Also: ERR-20260827-012
+- Recurrence-Count: 3
+- Last-Seen: 2026-08-30
+
+---
+
+## [ERR-20260829-003] unsupported-vision-help
+
+**Logged**: 2026-08-29T00:00:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tests
+
+### Summary
+Used `vision --help` even though the command exposes usage through the top-level CLI help and only accepts `import` or `evaluate` subcommands.
+
+### Error
+```
+unknown vision subcommand '--help'
+```
+
+### Context
+- Operation: smoke-check the completed `vision` CLI after the full test run.
+- The command returned its supported `vision import` / `vision evaluate` usage and exit code 1.
+
+### Suggested Fix
+Use the documented subcommands or top-level `dotnet run --project src/Sim.Cli -- --help` for usage checks.
+
+### Metadata
+- Reproducible: yes
+- Related Files: `src/Sim.Cli/VisionCommand.cs`, `docs/CLI.md`
+
+### Resolution
+- **Resolved**: 2026-08-29T00:00:00+08:00
+- **Notes**: Treat the documented command usage as authoritative; no product failure indicated.
+
+---
+
+## [ERR-20260829-002] godot-parity-missing-assemblies
+
+**Logged**: 2026-08-29T00:00:00+08:00
+**Priority**: medium
+**Status**: resolved
+**Area**: tests
+
+### Summary
+The first Godot parity command used the GUI-linked executable, which searched the wrong .NET assemblies directory; the project assemblies themselves were available.
+
+### Error
+```
+ERROR: .NET: Assemblies not found
+CrashHandlerException: Program crashed with signal 11
+```
+
+### Context
+- Initial command used the GUI-linked `godot` executable.
+- Correct executable: WinGet-installed `Godot_v4.7.2-stable_mono_win64_console.exe`; parity and edit-smoke then completed successfully.
+- The .NET test suite and CLI replay-check passed independently.
+
+### Suggested Fix
+Resolve the actual Mono console executable before diagnosing project assemblies; then rerun parity and distinguish environment warnings from parity assertions.
+
+### Metadata
+- Reproducible: unknown
+- Related Files: `godot/project.godot`, `godot/README.md`, `godot/src/ParityCheck.cs`
+
+---
+
+## [ERR-20260829-001] guessed-spec-paths
+
+**Logged**: 2026-08-29T00:00:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: config
+
+### Summary
+Tried to read two spec filenames that were not present instead of following the index links.
+
+### Error
+```
+Cannot find path '.trellis/spec/sim/vision-replay.md'
+Cannot find path '.trellis/spec/backend/controller-protocol.md'
+```
+
+### Context
+- Operation: inspect applicable Trellis specs before auditing the completed visual replay task and planning headless parallel simulation.
+- The actual visual contract is linked from `.trellis/spec/sim/index.md`; backend guidance is split into the files listed by `.trellis/spec/backend/index.md`.
+
+### Suggested Fix
+Read the relevant index first and resolve only the filenames it links before opening detail documents.
+
+### Metadata
+- Reproducible: yes
+- Related Files: `.trellis/spec/sim/index.md`, `.trellis/spec/backend/index.md`
+
+### Resolution
+- **Resolved**: 2026-08-29T00:00:00+08:00
+- **Notes**: Continued using the existing index and actual linked files; no project failure was found.
+
+---
+
+## [ERR-20260828-005] trellis-task-context-subcommand
+
+**Logged**: 2026-08-28T15:20:00+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: config
+
+### Summary
+Used a nonexistent `task.py context` subcommand while inspecting the active Trellis task.
+
+### Error
+```
+task.py: error: argument command: invalid choice: 'context'
+```
+
+### Context
+- Operation: inspect the current planning task before researching the vision-replay request.
+- The script help listed `current` and `list-context` as the supported read-only commands.
+
+### Suggested Fix
+Use `python .trellis/scripts/task.py current` for the active task and `list-context` for its curated context entries.
+
+### Metadata
+- Reproducible: yes
+- Related Files: `.trellis/scripts/task.py`
+
+### Resolution
+- **Resolved**: 2026-08-28T15:20:00+08:00
+- **Notes**: Switched subsequent inspection to the supported read-only subcommands.
+
+---
+
 ## [ERR-20260828-UI6] git-index-permission
 
 **Logged**: 2026-08-28T00:00:00+08:00
@@ -169,6 +546,42 @@ Resolve the project skill root from the active workspace and use the active-task
 ### Metadata
 - Reproducible: yes
 - Related Files: .agents/skills/trellis-check/SKILL.md, .trellis/scripts/get_context.py
+
+---
+
+## [ERR-20260828-004] git-push-auth-helper-sandbox
+
+**Logged**: 2026-08-28T15:00:00+08:00
+**Priority**: medium
+**Status**: resolved
+**Area**: infra
+
+### Summary
+Windows 沙箱内的 GitHub 认证提示脚本无法创建 signal pipe，导致普通 HTTPS push 无法读取凭据。
+
+### Error
+```
+sh.exe: fatal error - couldn't create signal pipe, Win32 error 5
+error: failed to execute prompt script (exit code 66)
+fatal: could not read Username for 'https://github.com'
+```
+
+### Context
+- 命令：`git push origin main`
+- remote：`https://github.com/tian11111/wheeled-combat-simulator.git`
+- 用户已明确授权普通推送；未使用 force push。
+
+### Suggested Fix
+对同一条范围明确的 push 请求沙箱外执行，使 Git Credential Manager/认证提示进程可正常启动。
+
+### Metadata
+- Reproducible: yes
+- Related Files: `.git/config`
+- See Also: ERR-20260828-002
+
+### Resolution
+- **Resolved**: 2026-08-28T15:05:00+08:00
+- **Notes**: 用户明确确认具体 GitHub 目的地后，沙箱外普通 `git push origin main` 成功；远端 main 从 39f0851 更新到 5d515de。
 
 ---
 

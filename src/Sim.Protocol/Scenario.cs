@@ -222,6 +222,35 @@ public static class OfficialLayout
     ];
 }
 
+/// <summary>Optional physics engine selection. An absent value uses the legacy engine.</summary>
+public sealed record PhysicsSpec
+{
+    public const string Legacy = "legacy";
+    public const string Mujoco = "mujoco";
+    public const string MujocoModelV1 = "wushu-mjcf-v1";
+
+    public string Backend { get; init; } = Legacy;
+
+    /// <summary>Version of the generated contact model, required for MuJoCo.</summary>
+    public string? ModelVersion { get; init; }
+
+    public IEnumerable<string> Validate()
+    {
+        if (Backend != Legacy && Backend != Mujoco)
+        {
+            yield return $"physics: unsupported backend '{Backend}'.";
+        }
+        if (Backend == Mujoco && ModelVersion != MujocoModelV1)
+        {
+            yield return $"physics: mujoco requires modelVersion '{MujocoModelV1}'.";
+        }
+        if (Backend == Legacy && ModelVersion is not null)
+        {
+            yield return "physics: legacy backend must not specify modelVersion.";
+        }
+    }
+}
+
 /// <summary>
 /// A fully specified match setup: ruleset id, seed, field parameters, vehicle
 /// profiles and block layout. Everything needed to reproduce a match is in the
@@ -243,6 +272,9 @@ public sealed record Scenario : IProtocolMessage
     /// the layout editor stamp the current tag.
     /// </summary>
     public string? LayoutVersion { get; init; }
+
+    /// <summary>Optional physical backend; null preserves the legacy engine and wire shape.</summary>
+    public PhysicsSpec? Physics { get; init; }
 
     /// <summary>Optional display name.</summary>
     public string? Name { get; init; }
@@ -285,6 +317,13 @@ public sealed record Scenario : IProtocolMessage
         if (LayoutVersion is not null && LayoutVersion != ProtocolVersion.ArenaLayoutV1)
         {
             yield return $"scenario: unsupported layoutVersion '{LayoutVersion}'.";
+        }
+        if (Physics is not null)
+        {
+            foreach (var error in Physics.Validate())
+            {
+                yield return $"scenario: {error}";
+            }
         }
         if (Seed < 0)
         {

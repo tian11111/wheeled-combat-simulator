@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "Verify old deterministic baseline and no native engine dependency in Sim.Core"}
+{"file": ".trellis/spec/sim/restart-contract.md", "reason": "Check real restart score, timing, state reset and cross-end replay parity"}
+{"file": ".trellis/spec/backend/batch-simulation.md", "reason": "Check 1-vs-4 fingerprint parity, 32-worker isolation and batch failure matrix"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Check Godot headless parity, SnapshotView tests and real-render capture evidence"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Audit additive DTO fields and every CLI/Godot creation/replay consumer"}

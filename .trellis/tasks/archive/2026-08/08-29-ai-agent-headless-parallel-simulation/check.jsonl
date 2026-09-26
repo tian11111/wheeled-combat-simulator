@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "Determinism gates: replay-check/parity bitwise; Sim.Core must gain no IO/thread/process deps; bridge isolation semantics"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Build/test/determinism gate conventions for the final validation battery"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer consistency: DTO schema vs CLI output vs engine semantics, old-command compatibility"}

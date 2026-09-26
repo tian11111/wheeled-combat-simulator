@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Sim.Controller</RootNamespace>
+    <AssemblyName>Sim.Controller</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sim.Core\Sim.Core.csproj" />
+    <ProjectReference Include="..\Sim.Protocol\Sim.Protocol.csproj" />
+  </ItemGroup>
+
+</Project>

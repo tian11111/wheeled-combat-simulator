@@ -12,8 +12,32 @@
 | `--controller-us <cmd>` | 内置 FSM | 我方外部策略进程命令 |
 | `--controller-them <cmd>` | 内置 FSM | 对手外部策略进程命令 |
 | `--timeout-ms <ms>` | 100 | 策略单帧响应截止时间 |
-| `--events` | 关 | 逐条打印事件日志 |
-| `--out <path>` | — | `replay-record` 输出文件 |
+| `--events` | 关 | 逐条打印事件日志（`batch` 不支持，其 stdout 固定为 JSONL） |
+| `--out <path>` | — | `replay-record` 输出文件；`batch` 的结果文件（原子替换） |
+
+### 物理模式（场景字段 `physics.backend`）
+
+物理后端由场景 JSON 的 `physics.backend` 选择，不是 CLI 参数：未写该字段的场景
+走默认二维物理（行为与基线逐位一致）；`"mujoco"` 启用 Windows x64 三维接触物理
+（例：`scenarios/wushu-ring-2026-mujoco.json`）。其它取值在场景预检时报
+`unsupported backend`（batch 零 JSONL、exit 2）。新模式回放头部携带
+`mujoco/<原生版本>/<模型内容哈希>` 身份，`replay-check` 在版本/模型不匹配时
+明确拒绝；`batch` 结果行加性携带 `physicsBackend`/`physicsModelSha256`。
+内置 FSM 从官方出生位姿可在新模式完成倒车登台并进入 SEARCH（2026-09-25 模型层
+修复：轮驱动力矩、底盘离地、台沿倒角、驱动斜坡；见 `.trellis` 任务
+`09-25-mujoco-fsm-reverse-mount/report.md`）。已知后续边界：登台后的
+SEARCH 索敌在新模式下尚不收敛（发现目标→丢失循环，未进入推块），与登台机动无关。
+
+部署：`dotnet publish src/Sim.Cli -c Release -r win-x64 --self-contained true`
+会把锁定的 `mujoco.dll` 与许可放在产物 `runtimes/win-x64/native/`（运行时按
+该路径加载并校验 SHA-256，缺失/被篡改/版本不符都清晰报错）。目标机需要
+VC++ 2015-2022 运行库（.NET Windows 应用通用前置）；如需完全免安装依赖，
+可把 `vcruntime140(_1).dll`、`msvcp140.dll` 随应用目录分发（应用本地部署）。
+
+Godot 桌面端的 F10 设置页使用同一组外部控制器 JSONL 协议，但配置保存在桌面用户目录，
+不写入 CLI 参数、场景或回放；桌面端每场独立启动角色进程。窗口/界面设置即时生效，
+仿真参数和控制器绑定在下一场或 F5 重置后生效。需要给 AI agent 做多场并行评测时，继续使用
+下面的 `batch` 入口，它不启动 Godot。
 
 ## match — 无头比赛
 
@@ -26,6 +50,62 @@ dotnet run --project src/Sim.Cli -- match --seed 42 \
 
 输出每种子一行（步数、比分、结束原因、fault、判罚），多种子时附胜负汇总。
 未指定 `--controller-*` 的角色使用内置 FSM。
+
+## batch — AI agent 无头并行批量仿真 (JSONL)
+
+面向 AI agent / 脚本的批量入口：**不启动 Godot、不依赖任何桌面组件**，多个独立
+种子并行运行，完成后按输入顺序一次性输出机器可读结果。stdout 只有 JSONL，
+人类诊断与错误全部走 stderr；不支持 `--events`（需要事件文本用 `match --events`）。
+
+```bash
+dotnet run --project src/Sim.Cli -- batch --seeds 1,2,3,4 --parallelism 4 --duration 3
+
+# 接外部控制器 + 结果落盘 (AI agent 一条命令即用):
+dotnet run --project src/Sim.Cli -- batch --seeds 1,2,3,4 --parallelism 4 \
+  --controller-us "python controllers/example_controller.py" --out artifacts/batch.jsonl
+```
+
+选项（与 `match` 相同含义的不再重复）：
+
+| 选项 | 默认 | 说明 |
+| --- | --- | --- |
+| `--seed N` / `--seeds a,b,c` | `42` | 输入种子列表（1..4096 个；**允许重复**，按 `inputIndex` 区分） |
+| `--parallelism <k>` | `min(CPU 核数, 8)` | 同时运行的场次数，整数 `1..32` |
+| `--out <path>` | — | 结果文件；父目录按需创建，**同目录临时文件 + 原子替换**，缺省写 stdout |
+
+预检在**任何 worker/controller 启动之前**完成（seeds、scenario 读取 + `Validate()`、
+duration/timeout/parallelism 数值、`--out` 可写性）；任何非法输入返回 `2`、只写
+stderr、不产出 JSONL 也不留临时文件。
+
+### 输出 schema（`sim-batch-result-v1`，每输入种子一行，按输入顺序）
+
+```json
+{"schemaVersion":"sim-batch-result-v1","inputIndex":0,"seed":1,"status":"completed","scenarioId":"wushu-ring-2026","ticks":60,"scores":{"us":0,"them":0},"penalties":{"us":0,"them":0},"doneReason":"比赛时间结束","faults":{"us":0,"them":0},"eventCount":20,"eventFingerprint":"<sha256>","resultFingerprint":"<sha256>"}
+```
+
+- `inputIndex`：输入列表中的零基位置（并行乱序完成也不影响输出顺序）。
+- `status`：`completed` 或 `failed`。失败行保留 `inputIndex`、`seed`、`status`、
+  `faults` 并填充 `failure.kind`（如 `controller_start_failed` / `match_error` /
+  `batch_scheduler`）与 `failure.message`；ticks/scores/penalties/doneReason/指纹
+  全为 null，**不伪造部分成功**。
+- `eventFingerprint`：按事件顺序拼接 `seq|tick|type|cls|message` 行（每行含尾部
+  换行）后的 SHA-256；`resultFingerprint` 再纳入 seed/ticks/比分/判罚/结束原因。
+  均为 UTF-8、InvariantCulture、小写 hex；**不含时间戳、路径、线程或调度信息**，
+  同输入重复运行逐位一致。
+- 序列化对非 ASCII 转义（`\uXXXX`），解析后即中文原文。
+
+### 控制器生命周期与隔离
+
+外部控制器**每场独立启动/回收**（`PythonBridge` 进程、stdout reader、fault 计数
+均属于该场，绝不跨场复用）；超时、坏 JSONL、requestId 错配、死进程沿用既有
+zero-action 回退语义，fault 计入该场该角色的结果。单场异常转为该场的 `failed`
+行，不影响其他场次，也不会静默丢 seed。
+
+### 退出码
+
+- `0` 全部场次 completed
+- `1` 至少一条 `failed` 行或输出写失败（仍输出完整 N 行 JSONL）
+- `2` 参数/场景预检失败（零 JSONL、零部分文件）
 
 ## replay-record — 录制回放
 

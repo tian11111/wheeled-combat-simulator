@@ -1,0 +1,3 @@
+{"file":".trellis/spec/sim/index.md","reason":"核对规则、事件、默认场景与旧回放逐位不变"}
+{"file":".trellis/spec/backend/index.md","reason":"核对 request-id、超时零动作与 stdout/stderr 边界"}
+{"file":"docs/CONTROLLER_PROTOCOL.md","reason":"核对新增量纲表、感知来源标记和可复现运行命令"}

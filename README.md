@@ -9,10 +9,15 @@
 
 ```bash
 dotnet build                                   # 构建
-dotnet test                                    # 187 个回归测试(规则/确定性/回放/跨端/视图/场地布局/标定)
+dotnet test                                    # 315 个回归测试(规则/确定性/回放/跨端/视图/场地布局/标定)
 
 # 无头比赛(内置 FSM)
 dotnet run --project src/Sim.Cli -- match --seed 42
+
+# AI agent 无头批量仿真(多种子并行, JSONL 机器可读, 不启动 Godot)
+dotnet run --project src/Sim.Cli -- batch --seeds 1,2,3,4 --parallelism 4 --duration 3
+# → stdout 每个输入种子一行 sim-batch-result-v1 JSON(输入顺序), 退出码 0/1/2
+#   详见 docs/CLI.md 的 batch 章节
 
 # 接入外部 Python 策略(我方)
 dotnet run --project src/Sim.Cli -- match --seed 42 \
@@ -29,6 +34,11 @@ dotnet run --project src/Sim.Cli -- calibrate --input telemetry/data/<export>.js
 dotnet run --project src/Sim.Cli -- sensor-calibration import --data-dir <MBri/data> --manifest selection.json --out calibration/sensor-report.json
 ```
 
+物理/裁判参数可经场景 `parameters` 覆盖（键与默认值见 `src/Sim.Core/SimParameters.cs`），
+如反僵局铲刃微调：正面顶牛的同型机器人由种子派生初相的慢速正弦铲刃微调周期性触发楔入
+（`antiStallBladeAmp` 默认 0.006 m，**0=关闭逐位恢复旧行为**，周期 2.1/2.7 s；有意偏差，
+见 `docs/PORTING_NOTES.md`）。
+
 ## 桌面端(Godot 4 .NET)
 
 需要安装 [Godot 4.x .NET (Mono)](https://godotengine.org/download)（当前按 4.7.2 验证，
@@ -42,7 +52,9 @@ godot --path godot -- --scenario-path scenarios/wushu-ring-2026.json      # 加�
 
 桌面端支持 **布局编辑模式**(E 进入): 选择场地/出发区/能量块, 拖动+旋转+网格吸附,
 Ctrl+Z/Y 撤销重做, 保存/重载 `arena-layout-v1` JSON 场景并应用到仿真; 机器人可导入
-`.glb/.gltf` 外观模型(仅渲染层)。详见 `godot/README.md`。
+`.glb/.gltf` 外观模型(仅渲染层)。按 F10 或右上角按钮打开玻璃控制台设置页，可调整分辨率、
+全屏/UI 缩放、全部已登记仿真参数，并为双方绑定外部 Python/C# 等 JSONL 控制器；显示设置即时生效，
+仿真参数和控制器在下一场或 F5 重置后生效。详见 `godot/README.md`。
 
 无头跨端一致性校验（与 Sim.Cli `replay-check` 语义一致，比对最终比分/结束原因/末帧/事件指纹）：
 
@@ -58,6 +70,7 @@ godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.j
 | --- | --- |
 | `src/Sim.Core` | 确定性比赛内核（规则/物理/传感器/事件/快照），无引擎依赖 |
 | `src/Sim.Protocol` | 版本化协议 DTO 与 JSON 校验（含 telemetry-v1 遥测契约） |
+| `src/Sim.Controller` | CLI/Godot 共用的外部控制器 JSONL stdio 桥（每角色/每场独立进程） |
 | `src/Sim.Cli` | 无头评测/回放 + Python 进程适配器 + `calibrate` 离线标定 |
 | `src/Sim.Calibration` | 纯标定库（物理拟合器/mount 门控评估/传感器回放评估器/报告指纹），无 IO 副作用于内核 |
 | `src/Sim.Tests` | xUnit 回归 |

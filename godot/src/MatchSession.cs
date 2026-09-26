@@ -5,6 +5,7 @@
 // Keeping this file free of Godot lets Sim.Tests regress it headlessly.
 
 using Sim.Core;
+using Sim.Hosting;
 using Sim.Protocol;
 
 namespace Sim.GodotShell;
@@ -20,7 +21,7 @@ public enum SessionMode
 /// Shell-side match state: one authoritative engine, the fixed-step clock, and
 /// (in replay mode) the cached snapshot stream reconstructed from a ReplayFile.
 /// </summary>
-public sealed class MatchSession
+public sealed class MatchSession : IDisposable
 {
     // Live scenario the session resets to. Loading a replay re-points it at the
     // replay's own scenario so F5 (ResetToLive) rebuilds the same match the
@@ -33,7 +34,7 @@ public sealed class MatchSession
     public MatchSession(Scenario scenario)
     {
         _scenario = scenario;
-        Engine = new MatchEngine(scenario);
+        Engine = MatchEngineHost.Create(scenario);
     }
 
     public MatchEngine Engine { get; private set; }
@@ -108,7 +109,10 @@ public sealed class MatchSession
     /// <summary>Rebuilds a fresh engine for the same scenario (reset same seed).</summary>
     public void ResetToLive()
     {
-        Engine = new MatchEngine(_scenario);
+        var next = MatchEngineHost.Create(_scenario);
+        var previous = Engine;
+        Engine = next;
+        previous.Dispose();
         Mode = SessionMode.Live;
         LatestSnapshot = null;
         ReplayCache = [];
@@ -134,35 +138,47 @@ public sealed class MatchSession
             throw new InvalidOperationException($"invalid replay header: {string.Join(" ", errors)}");
         }
 
-        var engine = new MatchEngine(file.Scenario);
-        var actionsByTick = file.Header.Ticks.ToDictionary(t => t.Tick, t => t.Actions);
-        var commandsByTick = file.Header.Ticks
-            .Where(t => t.Commands is { Count: > 0 })
-            .ToDictionary(t => t.Tick, t => t.Commands!);
-
-        var cache = new List<Snapshot>();
-        engine.Arm();
-        var lastTick = Math.Max(file.Ticks, file.Header.Ticks.Count > 0 ? file.Header.Ticks[^1].Tick : 0);
-        for (var tick = 1; tick <= lastTick && !engine.Done; tick++)
+        var engine = MatchEngineHost.CreateForReplay(file);
+        try
         {
-            if (commandsByTick.TryGetValue(tick, out var commands))
-            {
-                ApplyCommands(engine, commands);
-            }
-            actionsByTick.TryGetValue(tick, out var actions);
-            cache.Add(engine.Tick(
-                actions?.GetValueOrDefault(RoleNames.Us),
-                actions?.GetValueOrDefault(RoleNames.Them)));
-        }
+            var actionsByTick = file.Header.Ticks.ToDictionary(t => t.Tick, t => t.Actions);
+            var commandsByTick = file.Header.Ticks
+                .Where(t => t.Commands is { Count: > 0 })
+                .ToDictionary(t => t.Tick, t => t.Commands!);
 
-        Engine = engine;
-        _scenario = file.Scenario; // F5 (ResetToLive) 从回放场景重建, 与录制端同一场地
-        Mode = SessionMode.Replay;
-        LatestSnapshot = null;
-        ReplayCache = cache;
-        ReplayIndex = 0;
-        ReplayPlaying = false;
+            var cache = new List<Snapshot>();
+            engine.Arm();
+            var lastTick = Math.Max(file.Ticks, file.Header.Ticks.Count > 0 ? file.Header.Ticks[^1].Tick : 0);
+            for (var tick = 1; tick <= lastTick && !engine.Done; tick++)
+            {
+                if (commandsByTick.TryGetValue(tick, out var commands))
+                {
+                    ApplyCommands(engine, commands);
+                }
+                actionsByTick.TryGetValue(tick, out var actions);
+                cache.Add(engine.Tick(
+                    actions?.GetValueOrDefault(RoleNames.Us),
+                    actions?.GetValueOrDefault(RoleNames.Them)));
+            }
+
+            var previous = Engine;
+            Engine = engine;
+            previous.Dispose();
+            _scenario = file.Scenario; // F5 (ResetToLive) 从回放场景重建, 与录制端同一场地
+            Mode = SessionMode.Replay;
+            LatestSnapshot = null;
+            ReplayCache = cache;
+            ReplayIndex = 0;
+            ReplayPlaying = false;
+        }
+        catch
+        {
+            if (!ReferenceEquals(Engine, engine)) engine.Dispose();
+            throw;
+        }
     }
+
+    public void Dispose() => Engine.Dispose();
 
     /// <summary>Steps the replay cursor; returns false when already at an end.</summary>
     public bool ReplayStep(int delta)

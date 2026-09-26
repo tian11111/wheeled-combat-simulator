@@ -8,8 +8,15 @@
   <ItemGroup>
     <ProjectReference Include="..\Sim.Core\Sim.Core.csproj" />
     <ProjectReference Include="..\Sim.Protocol\Sim.Protocol.csproj" />
+    <ProjectReference Include="..\Sim.Controller\Sim.Controller.csproj" />
     <ProjectReference Include="..\Sim.Calibration\Sim.Calibration.csproj" />
     <ProjectReference Include="..\Sim.VisionReplay\Sim.VisionReplay.csproj" />
+    <ProjectReference Include="..\Sim.Hosting\Sim.Hosting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Sim.Tests drives internal seams (BatchExecutor fake-worker overlap test). -->
+    <InternalsVisibleTo Include="Sim.Tests" />
   </ItemGroup>
 
 </Project>

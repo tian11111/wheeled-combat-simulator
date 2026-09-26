@@ -29,6 +29,15 @@ public sealed class SimParameters
     public double MountVMin { get; set; } = 0.3;          // 登台门槛最小法向速度 (m/s), 原 PhysicsWorld 常量
     public double MountAngleMax { get; set; } = 0.26;     // 登台最大入射角 (rad≈15°), 原 PhysicsWorld 常量
 
+    // 反僵局铲刃微调 (有意偏差, 见 docs/PORTING_NOTES.md): 同型机器人正面顶牛时
+    // 给双方有效铲刃高度叠加慢速正弦项, 让既有楔入机制周期性生效。
+    /// <summary>铲刃微调振幅 (m); null=默认 0.006 (启用), 0=关闭 (逐位恢复旧行为)。</summary>
+    public double? AntiStallBladeAmp { get; set; }
+    /// <summary>我方微调周期 (s); null 或非正值 = 默认 2.1。</summary>
+    public double? AntiStallBladePeriodUs { get; set; }
+    /// <summary>对手微调周期 (s); null 或非正值 = 默认 2.7。两周期互质错开形成拍频。</summary>
+    public double? AntiStallBladePeriodThem { get; set; }
+
     /// <summary>Legacy parameter names accepted from scenario JSON, mapped to properties.</summary>
     public static SimParameters FromDictionary(IReadOnlyDictionary<string, double>? source)
     {
@@ -61,6 +70,9 @@ public sealed class SimParameters
                 case "BLOCK_STICK_SPEED": parameters.BlockStickSpeed = value; break;
                 case "BLOCK_MU_K": parameters.BlockMuK = value; break;
                 case "COLLISION_RESTITUTION": parameters.CollisionRestitution = value; break;
+                case "antiStallBladeAmp": parameters.AntiStallBladeAmp = value; break;
+                case "antiStallBladePeriodUs": parameters.AntiStallBladePeriodUs = value; break;
+                case "antiStallBladePeriodThem": parameters.AntiStallBladePeriodThem = value; break;
                 case "MOUNT_V_MIN":
                     if (!(value > 0 && value <= 2) || !double.IsFinite(value))
                     {

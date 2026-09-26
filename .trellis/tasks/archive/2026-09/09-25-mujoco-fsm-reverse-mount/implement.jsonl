@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "确定性契约、协议只加不改、旧基线逐位回归是登台修复的硬约束"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Godot headless parity 与真实渲染证据的验收方式"}

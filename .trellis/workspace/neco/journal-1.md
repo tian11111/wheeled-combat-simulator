@@ -299,3 +299,318 @@ Godot 4.7.2 .NET 桌面端从脚手架完成到可运行/可观察/可控制/可
 ### Status
 
 [OK] **Completed**
+
+
+## Session 11: AI Agent 无头并行快速仿真 (batch 命令)
+
+**Date**: 2026-08-29
+**Task**: AI Agent 无头并行快速仿真 (batch 命令)
+**Branch**: `feat/ai-batch-sim`
+
+### Summary
+
+完成 08-29-ai-agent-headless-parallel-simulation：新增 Sim.Cli batch 命令（sim-batch-result-v1 JSONL、有界 worker pool 默认 min(CPU,8) 上限 32、每场独立 scenario/engine/PythonBridge 子进程、指纹排除运行元数据、退出码 0/1/2、--out 原子写），从 RunOne 抽取 MatchRunner 供 match/replay-record/batch 共用（旧命令字节级兼容验证），EchoController 测试夹具覆盖 echo/wrongid/bad/die/hang 的隔离与回收；测试 315/315，replay-check/Godot parity/edit-smoke 全绿；质量门修复 wrongid 夹具 ID 别名偶发等 3 项。新增 spec/backend/batch-simulation.md 契约。AI agent 可 dotnet run --batch --seeds ... --parallelism k 无界面并行仿真。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5baca51` | (see git log) |
+| `7f9745f` | (see git log) |
+| `f92f434` | (see git log) |
+| `48bc461` | (see git log) |
+| `e38171d` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 12: Godot 3D 赛事视觉真实感优化
+
+**Date**: 2026-08-29
+**Task**: Godot 3D 赛事视觉真实感优化
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 08-29-godot-3d-visual-fidelity-polish（接手另窗口中断的 WIP）：默认取景占比 51.9%×53.9% 达标、程序化天空/三点光/Filmic+SSAO/一次更新 ReflectionProbe、四类 PBR 材质工厂与机器人多分件（顶盖/侧带/4轮/车头/推铲/灯带/接触阴影盘）、MSAA 4×；glow/TAA 默认关（白心泛光威胁灰度判读/拖影，实验配方入 README）；台面灰度 Unshaded 官方调色板契约零改动；新增 --capture-frames/--camera-cycle 验收旗标与 camera-smoke R1 取景断言（去钳制）。质量门修复接触阴影盘 z 序被台面遮挡、R1 断言钳制掩盖回归两处。315/315 测试、双 smoke、Godot parity、双分辨率真实渲染证据全通过；720p 帧时间无退化。前端两份规范沉淀视觉栈约定与证据要求。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a2ed0a5` | (see git log) |
+| `be66ac8` | (see git log) |
+| `690f3f6` | (see git log) |
+| `cce7f35` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 13: Godot 3D 二轮视觉校正与能量块修复
+
+**Date**: 2026-08-30
+**Task**: Godot 3D 二轮视觉校正与能量块修复
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 08-29-godot-3d-visual-second-pass：相机拖拽四方向反转契约（camera-smoke 扩为四方向断言 + --camera-orbit QA 旗标）；台面显示改官方欧氏径向渐变（中心白→四角黑，消除 L∞ 方形范数的对角亮带；FieldGrayLocal 传感器 0-1000 语义零改动，显示/传感器双语义分离写入规范）；能量块修复三连——深色棱线+顺光接触阴影（落地感）、绕序修正为 Godot 顺时针正面（修复空心透视导致的悬空面片/跟随视角观感）、官方赛事贴纸与全屏显示校正（六面 UV 贴图/canvas_items 等比拉伸/headless 输入缩放）。319→324 测试全绿，parity/replay-check 逐位通过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ab0f923` | (see git log) |
+| `028ec60` | (see git log) |
+| `d8be837` | (see git log) |
+| `da28169` | (see git log) |
+| `54951d0` | (see git log) |
+| `f000c1c` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 14: 布局编辑实体点选拖拽
+
+**Date**: 2026-08-30
+**Task**: 布局编辑实体点选拖拽
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 08-30-godot-entity-pick-drag：布局编辑模式支持直接点击/拖动能量块与双方小车——Selection 扩展 RobotUs/RobotThem，世界空间解析命中代理（块体 AABB/车辆圆柱+容差，零物理碰撞体），命中序=最近射线距离（同距优先机器人），低角度不再依赖 y=0 投射；LayoutDraft.MoveStart 只改出生位 X/Y（保留 Th 与出发区），拖动=一次撤销分组；选中高亮与 我方小车/对手小车 标签；edit-smoke 扩展实体拖动隔离/低角度命中/应用重建一致性断言，InjectButtonDrag 修正 canvas→window 拉伸换算。修复布局编辑器门禁（Prep 空转 tick 使 TickIndex>0 导致人工永远无法按 E 进入，改只看比赛阶段）。324/324 测试全绿，parity/replay-check 逐位通过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `de79fd0` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 15: 物理反僵局优化 (铲刃微调破除顶牛死锁)
+
+**Date**: 2026-08-30
+**Task**: 物理反僵局优化 (铲刃微调破除顶牛死锁)
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 08-30-physics-anti-stalemate：同型机器人正面顶牛死锁根因=楔入阈值 |Δ铲刃|>4mm 对逐位同型车永假。修复：正面接触(facing>0.6π)时双方铲刃叠加种子派生慢速正弦微调（antiStallBladeAmp 0.006m，周期 2.1/2.7s 拍频，相位 HashString32(seed,role) 构造期派生，零 rng 流消费），周期性越过楔入阈值→对方 FrontLoad→驱动力 20%→僵局自然破除。实测 60s 完全锁死→0.65s 首楔、10s 内推离 0.56m。amp=0 逐位恢复旧行为；普通 seed42 比赛逐位不变（godot-parity 基线除 createdAt 零差异）；restart 基线正规再生成（新链路 8:10）。330/330 测试、全部 replay-check/parity/smoke 绿；PORTING_NOTES 条目 10 记录有意偏差。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4d53942` | (see git log) |
+| `5bbcd3e` | (see git log) |
+| `595ffbf` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 16: Godot 3D 视觉三阶收尾
+
+**Date**: 2026-08-31
+**Task**: Godot 3D 视觉三阶收尾
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成 Forward+ SDFGI、低密度体积雾、阈值 Glow、远景 DoF、程序化材质微噪声、自定义倒角能量块、机器人细分件及场地装饰；通过 330 项 .NET 测试、Godot camera/edit smoke、CLI 与 Godot parity，归档视觉任务。保留未相关的 .learnings 与遥测任务。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `86ac17f` | (see git log) |
+| `8617f3b` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 17: 玻璃控制台、运行设置与自定义控制器
+
+**Date**: 2026-09-01
+**Task**: 玻璃控制台、运行设置与自定义控制器
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+完成玻璃赛事控制台视觉、运行设置面板与自定义小车外部控制器接入；保留现有 Sim.Core 仿真边界，验证完整测试、Godot parity 和设置 smoke。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1053e8d` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 18: Trellis 收尾复核
+
+**Date**: 2026-09-01
+**Task**: Trellis 收尾复核
+**Branch**: `feat/godot-3d-visual`
+
+### Summary
+
+复核当前工作区和活动任务：无当前任务可归档；玻璃控制台、运行设置、自定义控制器的 3 个子任务及真机遥测任务仍处于 planning；保留其他窗口的未提交修改。
+
+### Git Commits
+
+(No commits - planning session)
+
+### Status
+
+[OK] **Completed**
+
+## Session 19: MuJoCo 双物理验证收口 + 三任务治理 + 控制器预检
+
+**Date**: 2026-09-25
+**Task**: 09-24-mujoco-dual-physics-validation / 08-31-custom-vehicle-controller
+**Branch**: `feat/mujoco-dual-physics-validation`
+
+### Summary
+
+按 handoff 完成 MuJoCo 验证三轮:修复被 self-contained 发布污染的还原状态;全套测试(最终 361/361)、
+旧基线(Seed42 逐位/batch 1v4)、新模式复现/负例/1v4/32worker/长稳(32×120s×2, 重复指纹一致)全部通过;
+真实 Godot parity + 双分辨率渲染 + 实况动态序列;性能可复测记录(i9-14900HX, 中位 253ms vs 379ms @32×5s p32)。
+两项诚实发现:FSM 在新模式整场无法登台(专项测试实为台沿卡位, 报告 §4.1 已修正——登台适配任务的关键输入);
+rotated-seed42 为分支陈旧基线(反僵局提交后未再生, 与本任务无关)。新增传感器平面投影边界测试。
+产物:validation-report.md + ARCHITECTURE/CLI/godot README 更新 + sim spec 物理后端契约。
+治理:归档 glass-console-ui 与 runtime-settings-panel(已由 1053e8d 覆盖), custom-vehicle-controller
+缩范围为发令前预检。实现预检:ControllerPreflight 探针(复用桥语义, 一帧握手)+ 设置页按钮 +
+HUD 通知 + Arm 互斥;EchoController 五失败模式 8 测试全过。AC6 干净机项维持阻塞(nuget.org 不可达)。
+协同:为登台适配 agent 的工作树同步第三轮增量;开 PR #3(叠 feat/godot-3d-visual)。
+
+### Git Commits
+
+- aad1dfb feat(sim): MuJoCo 双物理后端工程验证(可选 mujoco 模式, Windows x64)
+- fe7b252 test(sim): 锁定新模式传感器平面投影边界; 修正登台测试语义的报告表述
+- a8514ba docs(task): 缩范围 08-31-custom-vehicle-controller 为发令前预检
+- f6b3a62 feat(godot): 外部控制器发令前预检(设置页按钮 + 握手探针 + HUD 通知)
+
+### Status
+
+[OK] **Completed**
+
+## Session 20: 09-24 AC6 关闭, 任务归档
+
+**Date**: 2026-09-25
+**Task**: 09-24-mujoco-dual-physics-validation
+**Branch**: `feat/mujoco-dual-physics-validation`
+
+### Summary
+
+网络恢复后完成 AC6:self-contained win-x64 发布成功(DLL+许可入 RID 结构);隔离目录+剥离环境变量
+运行新模式 match/record/逐位 check 全过, 缺 DLL/篡改 DLL 负例 exit 1 无伪输出, 无 DLL 副本旧模式正常。
+边界如实声明: VC++ 运行库为 .NET 通用前置(应用本地部署已验证), 真·全新 OS 未实测。全套 361/361,
+工作区 obj 恢复无 RID。任务归档 → archive/2026-09/。活跃任务仅剩 08-28 真机遥测(planning)。
+
+### Git Commits
+
+- 40d7ea2 docs(task): AC6 按可行范围关闭
+- 8caeaec chore(task): archive 09-24-mujoco-dual-physics-validation
+
+### Status
+
+[OK] **Completed**
+
+## Session 21: 接手 09-25 登台修复, MuJoCo 模式全场对抗复活
+
+**Date**: 2026-09-25
+**Task**: 09-25-mujoco-fsm-reverse-mount
+**Branch**: `feat/mujoco-dual-physics-validation`
+
+### Summary
+
+用户改派本会话接手登台适配(原外部 agent 未实质开工, 工作树由用户停用)。四层根因逐层实证:
+力矩不足(0.3 N·m/轮 < pivot 所需 0.36)→ 底盘腹部与台面齐平 → 指令阶跃变扭矩阶跃致整车
+弹跳(kv=1.0 伺服)→ 刚体圆柱轮咬不住直角台沿(接触对 dump 实证与扭矩无关)。修复全在
+Sim.Mujoco 模型层: 力上限 3.0、底盘离地 +2cm、kv 0.25 + AccelK 一阶 v 斜坡、台沿 20° 倒角、
+宽软轮。FSM 零改动即从官方出生点 ~62 ticks 登台进入 SEARCH(新增 E2E 测试锁定)。全套 362/362,
+旧回放 5/6(rotated 为先前定位的分支陈旧基线), p1=p4, Godot parity PASS, 32worker 32/32。
+新发现如实记录: SEARCH 索敌不收敛(发现目标→3s 丢失循环, 比分 0:0), 与登台无关, 建议独立任务。
+调校教训沉淀进 sim spec(力矩口径/伺服弹跳/直角台阶/底盘高度/传感器一帧滞后)。
+
+### Git Commits
+
+- fd84852 fix(mujoco): 内置 FSM 从官方出生点完成倒车登台(FSM 零改动, 全在模型层)
+- (本次) spec 沉淀 + 归档
+
+### Status
+
+[OK] **Completed**
+
+## Session 22: SEARCH 索敌闭环完成 + 独立验收通过
+
+**Date**: 2026-09-25
+**Task**: 09-25-mujoco-search-targeting(接手另一代理的实施)
+**Branch**: `feat/mujoco-dual-physics-validation`
+
+### Summary
+
+接手对方 score_retreat 候选并独立验收:全套 373/373;官方 seed 42、120 s 跑满
+2400 ticks,比分 8:3,我方 t=236 真实 BlockScore(+3)、无我方掉台;fresh 回放
+CLI 逐位 PASS + 真实 Godot parity PASS(对方缺的重建步骤补齐);旧 CoreVersion
+回放明确拒绝;p1=p4;32worker 32/32;diff-check 干净。AC1-AC5 全部勾选,任务归档。
+SEARCH 修复全景(两轮):一轮 = 执行器边界原地转向补偿(系数 4,受控对照选定);
+二轮 = SCORE 台沿守卫 + score_retreat(对方实施,我验收)。RL 试点任务保持
+planning(前置已满足;其 design 的 Tick 用法须按交接修正)。08-28 仍等真机。
+
+### Git Commits
+
+- 032d30a feat(mujoco): SEARCH 索敌闭环完成(接手收尾, AC1-AC5 全过)
+- (本次) 独立验收归档
+
+### Status
+
+[OK] **Completed**
+
+## Session 23: MBri 控制器可移植性契约 + RL 参数寻优首轮
+
+**Date**: 2026-09-25
+**Tasks**: 09-25-mujoco-search-targeting(接手完成) / 09-25-fsm-parameter-optimization(新建完成) / 09-25-mbri-controller-portability(新建完成)
+**Branch**: `feat/mujoco-dual-physics-validation`
+
+### Summary
+
+三大块: ①SEARCH 闭环完成——接手对方 score_retreat 候选, AC4 达成(官方 2400 ticks
+8:3, 我方 t=236 真实 BlockScore, 无掉台), AC5 补齐(Godot parity 需重建程序集的坑)。
+②FSM 参数寻优——Optuna TPE 150 trials, 5 维白名单参数, 最优 4.0(基线 1.0),
+MOUNT_SPEED 0.806 主导(慢速登台更稳, 与台沿物理互证); holdout 改善 26(−58→−32,
+按复核意见去显著性措辞); tuned 场景产出。③MBri 接入契约——用户实测暴露三重量纲
+不匹配/电机单位之谜/MANUAL 语义, 落成 CONTROLLER_PROTOCOL 移植章节+映射表+
+官方适配器(10 自测)+标定模板; 修正"零我方事件"编码误报(GB18030)。
+环境事件: %TEMP% SDK 被清, 重装修复。RL 试点 score-rl-pilot 保持 planning
+(前置 AC4 已满足)。
+
+### Git Commits
+
+- 032d30a feat(mujoco): SEARCH 索敌闭环完成(AC1-AC5 全过)
+- e5797e7 feat(tools): FSM 参数自动寻优(150 trials)
+- 218b77e/65928b1 FSM 寻优验收修正+归档
+- 7efc0d7 验收报告最终处置(rotated 重录)
+- 427e0ca feat(docs): MBri 控制器接入契约
+- (本次) MBri 任务归档
+
+### Status
+
+[OK] **Completed**

@@ -11,5 +11,6 @@ libraries. Keep deterministic-kernel rules in [sim](../sim/index.md).
 | [Error Handling](./error-handling.md) | CLI and protocol error behavior |
 | [Quality Guidelines](./quality-guidelines.md) | Build, test, and determinism gates |
 | [Logging Guidelines](./logging-guidelines.md) | CLI output and controller diagnostics |
+| [Batch Simulation](./batch-simulation.md) | `batch` 无头并行仿真契约 (sim-batch-result-v1: 隔离/指纹/退出码) |
 
 All guidance describes the current codebase, not a proposed web stack.

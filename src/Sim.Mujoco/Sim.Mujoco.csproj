@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Sim.Core\Sim.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="runtimes\win-x64\native\mujoco.dll" Condition="Exists('runtimes\win-x64\native\mujoco.dll')" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="runtimes\win-x64\native\LICENSE" Condition="Exists('runtimes\win-x64\native\LICENSE')" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="runtimes\win-x64\native\THIRD_PARTY_NOTICES.txt" Condition="Exists('runtimes\win-x64\native\THIRD_PARTY_NOTICES.txt')" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

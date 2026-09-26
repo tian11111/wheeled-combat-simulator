@@ -14,6 +14,18 @@ namespace Sim.GodotShell;
 /// <summary>A point in Godot world space (x, up, z).</summary>
 public readonly record struct Vec3(double X, double Up, double Z);
 
+/// <summary>Godot-space rotation, stored as x/y/z/w without a Godot dependency.</summary>
+public readonly record struct Rotation3(double X, double Y, double Z, double W)
+{
+    public Rotation3 Normalized()
+    {
+        var length = Math.Sqrt(X * X + Y * Y + Z * Z + W * W);
+        return length > 1e-12
+            ? new Rotation3(X / length, Y / length, Z / length, W / length)
+            : new Rotation3(0, 0, 0, 1);
+    }
+}
+
 /// <summary>Render state for one robot.</summary>
 public sealed record RobotVisual
 {
@@ -21,6 +33,8 @@ public sealed record RobotVisual
     public Vec3 Position { get; init; }
     /// <summary>Heading in radians about the up axis.</summary>
     public double Yaw { get; init; }
+    /// <summary>Full physical orientation when the snapshot has MuJoCo poses.</summary>
+    public Rotation3? Rotation { get; init; }
     public bool OnPlatform { get; init; }
     public string? State { get; init; }
     public bool Armed { get; init; }
@@ -34,6 +48,9 @@ public sealed record BlockVisual
     /// <summary>"buff" or "debuff".</summary>
     public required string Kind { get; init; }
     public Vec3 Position { get; init; }
+    /// <summary>True when Position is the physical cube centre, not its support plane.</summary>
+    public bool HasPhysicsPose { get; init; }
+    public Rotation3? Rotation { get; init; }
     public bool OnPlatform { get; init; }
     /// <summary>True once pushed off the platform (stays for the rest of the match).</summary>
     public bool Out { get; init; }
@@ -55,6 +72,16 @@ public sealed record HudState
     public double RestartPenaltyThem { get; init; }
     /// <summary>Most recent event messages, newest last.</summary>
     public IReadOnlyList<string> RecentEvents { get; init; } = [];
+
+    /// <summary>Per-source score subtotals (2026 评分表: drop/clock/block_buff/block_debuff/penalty/restart/inactivity), null when the snapshot predates the field.</summary>
+    public IReadOnlyDictionary<string, double>? BreakdownUs { get; init; }
+    public IReadOnlyDictionary<string, double>? BreakdownThem { get; init; }
+
+    /// <summary>Active score-clock phase ("us_only"/"them_only"), null when both sides share a state.</summary>
+    public string? ScoreClockPhase { get; init; }
+
+    /// <summary>Seconds toward the next score-clock point (0–10).</summary>
+    public double ScoreClockSeconds { get; init; }
 }
 
 /// <summary>Everything the renderer needs for one frame.</summary>
@@ -89,13 +116,14 @@ public static class SnapshotView
         var blocks = new List<BlockVisual>();
         if (snapshot.Objects is { } objects)
         {
-            foreach (var buff in objects.Buffs)
+            for (var i = 0; i < objects.Buffs.Count; i++)
             {
-                blocks.Add(ToBlockVisual("buff", buff, platformHeight));
+                var pose = snapshot.PhysicsPoses?.Buffs.ElementAtOrDefault(i);
+                blocks.Add(ToBlockVisual("buff", objects.Buffs[i], platformHeight, pose));
             }
             if (objects.Debuff is { } debuff)
             {
-                blocks.Add(ToBlockVisual("debuff", debuff, platformHeight));
+                blocks.Add(ToBlockVisual("debuff", debuff, platformHeight, snapshot.PhysicsPoses?.Debuff));
             }
         }
 
@@ -123,6 +151,10 @@ public static class SnapshotView
                 RestartPenaltyUs = snapshot.RestartPenalties.Us,
                 RestartPenaltyThem = snapshot.RestartPenalties.Them,
                 RecentEvents = events.TakeLast(maxRecentEvents).ToList(),
+                BreakdownUs = snapshot.ScoreBreakdown is { } bd && bd.TryGetValue(RoleNames.Us, out var bu) ? bu : null,
+                BreakdownThem = snapshot.ScoreBreakdown is { } bd2 && bd2.TryGetValue(RoleNames.Them, out var bt) ? bt : null,
+                ScoreClockPhase = snapshot.ScoreClockPhase,
+                ScoreClockSeconds = snapshot.ScoreClockSeconds ?? 0,
             },
         };
     }
@@ -151,11 +183,13 @@ public static class SnapshotView
             {
                 Position = LerpVec(a.Us.Position, b.Us.Position, alpha),
                 Yaw = LerpYaw(a.Us.Yaw, b.Us.Yaw, alpha),
+                Rotation = LerpRotation(a.Us.Rotation, b.Us.Rotation, alpha),
             },
             Them = b.Them with
             {
                 Position = LerpVec(a.Them.Position, b.Them.Position, alpha),
                 Yaw = LerpYaw(a.Them.Yaw, b.Them.Yaw, alpha),
+                Rotation = LerpRotation(a.Them.Rotation, b.Them.Rotation, alpha),
             },
             Blocks = LerpBlocks(a.Blocks, b.Blocks, alpha),
             CameraFocus = LerpVec(a.CameraFocus, b.CameraFocus, alpha),
@@ -173,6 +207,9 @@ public static class SnapshotView
             Role = role,
             Position = new Vec3(robot.X, robot.ZG, robot.Y),
             Yaw = robot.Th,
+            Rotation = snapshot.PhysicsPoses?.Robots.TryGetValue(role, out var pose) == true
+                ? ToGodotRotation(pose, alignRobotForward: true)
+                : null,
             OnPlatform = robot.OnPlatform,
             State = robot.State,
             Armed = robot.Armed,
@@ -181,11 +218,14 @@ public static class SnapshotView
         };
     }
 
-    private static BlockVisual ToBlockVisual(string kind, EnergyBlockView block, double platformHeight) => new()
+    private static BlockVisual ToBlockVisual(string kind, EnergyBlockView block, double platformHeight, PhysicsPose3? pose) => new()
     {
         Kind = kind,
-        // Blocks sit on the ground / platform surface; height is purely visual.
-        Position = new Vec3(block.X, block.OnPlatform ? platformHeight : 0.0, block.Y),
+        Position = pose is null
+            ? new Vec3(block.X, block.OnPlatform ? platformHeight : 0.0, block.Y)
+            : new Vec3(pose.X, pose.Z, pose.Y),
+        HasPhysicsPose = pose is not null,
+        Rotation = pose is null ? null : ToGodotRotation(pose, alignRobotForward: false),
         OnPlatform = block.OnPlatform,
         Out = block.Out == true,
     };
@@ -206,6 +246,37 @@ public static class SnapshotView
         return a + delta * alpha;
     }
 
+    private static Rotation3 ToGodotRotation(PhysicsPose3 pose, bool alignRobotForward)
+    {
+        // Sim (X,Y,Z) -> Godot (X,Z,Y) is a reflection. Rotations therefore
+        // transform as S*R*S, mapping the quaternion vector to (-x,-z,-y).
+        var mapped = new Rotation3(-pose.Qx, -pose.Qz, -pose.Qy, pose.Qw).Normalized();
+        if (!alignRobotForward) return mapped;
+        // The primitive robot faces local +Z; the physical body faces local +X.
+        var halfTurn = Math.Sqrt(0.5);
+        return Multiply(mapped, new Rotation3(0, halfTurn, 0, halfTurn)).Normalized();
+    }
+
+    private static Rotation3 Multiply(Rotation3 a, Rotation3 b) => new(
+        a.W * b.X + a.X * b.W + a.Y * b.Z - a.Z * b.Y,
+        a.W * b.Y - a.X * b.Z + a.Y * b.W + a.Z * b.X,
+        a.W * b.Z + a.X * b.Y - a.Y * b.X + a.Z * b.W,
+        a.W * b.W - a.X * b.X - a.Y * b.Y - a.Z * b.Z);
+
+    private static Rotation3? LerpRotation(Rotation3? a, Rotation3? b, double alpha)
+    {
+        if (a is null || b is null) return b;
+        var start = a.Value;
+        var end = b.Value;
+        var dot = start.X * end.X + start.Y * end.Y + start.Z * end.Z + start.W * end.W;
+        if (dot < 0) end = new Rotation3(-end.X, -end.Y, -end.Z, -end.W);
+        return new Rotation3(
+            start.X + (end.X - start.X) * alpha,
+            start.Y + (end.Y - start.Y) * alpha,
+            start.Z + (end.Z - start.Z) * alpha,
+            start.W + (end.W - start.W) * alpha).Normalized();
+    }
+
     private static IReadOnlyList<BlockVisual> LerpBlocks(IReadOnlyList<BlockVisual> a, IReadOnlyList<BlockVisual> b, double alpha)
     {
         if (a.Count != b.Count)
@@ -215,7 +286,11 @@ public static class SnapshotView
         var result = new List<BlockVisual>(b.Count);
         for (var i = 0; i < b.Count; i++)
         {
-            result.Add(b[i] with { Position = LerpVec(a[i].Position, b[i].Position, alpha) });
+            result.Add(b[i] with
+            {
+                Position = LerpVec(a[i].Position, b[i].Position, alpha),
+                Rotation = LerpRotation(a[i].Rotation, b[i].Rotation, alpha),
+            });
         }
         return result;
     }

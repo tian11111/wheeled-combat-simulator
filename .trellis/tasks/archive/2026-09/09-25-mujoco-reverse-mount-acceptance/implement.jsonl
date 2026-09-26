@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "MuJoCo 登台、回放身份、旧基线与确定性验收契约"}
+{"file": ".trellis/tasks/archive/2026-09/09-25-mujoco-fsm-reverse-mount/report.md", "reason": "已归档父任务的修复结果与已知证据矛盾，作为复核起点"}

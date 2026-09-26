@@ -28,5 +28,14 @@ schedule captures after the smoke finishes plus a short settle, or the smoke
 exits before asserting. Real-renderer captures are the evidence for visual
 claims (e.g. gray-band absence); keep them out of Git.
 
+Visual-fidelity claims need dual-resolution real-renderer captures
+(1280×720 and 1920×1080), a framing-ratio assertion in `--camera-smoke`
+(unclamped NDC — clamping corner projections can mask fence-cutting
+regressions), and a frame-time comparison with a ~30% regression gate; any
+expensive effect that fails the gate ships off by default with a
+reproducible experiment recipe in `godot/README.md`. Refresh committed
+evidence screenshots with dated new files instead of overwriting historical
+"before" images referenced by task PRDs.
+
 Review source-of-truth ownership, nullable handling, replay compatibility,
 headless testability, and whether the UI remains a pure consumer of snapshots.

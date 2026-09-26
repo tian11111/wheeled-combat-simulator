@@ -84,4 +84,44 @@ public class SnapshotViewTests
         Assert.True(Math.Abs(Math.Abs(half.Us.Yaw) - Math.PI) < 0.2,
             $"expected interpolated yaw near ±π, got {half.Us.Yaw}");
     }
+
+    [Fact]
+    public void From_MapsPhysicalCentresAndOrientationWithoutChangingLegacyProjection()
+    {
+        using var engine = new MatchEngine(Scenario());
+        var legacy = engine.CommitSnapshot();
+        var quarter = Math.Sqrt(0.5);
+        var physical = legacy with
+        {
+            PhysicsPoses = new PhysicsPoses
+            {
+                Robots = new()
+                {
+                    [RoleNames.Us] = new PhysicsPose3 { X = 1, Y = 2, Z = 0.12, Qz = quarter, Qw = quarter },
+                    [RoleNames.Them] = new PhysicsPose3 { X = 3, Y = 1, Z = 0.08 },
+                },
+                Buffs =
+                [
+                    new PhysicsPose3 { X = 1.2, Y = 1.3, Z = 0.22, Qx = quarter, Qw = quarter },
+                    new PhysicsPose3 { X = 2.4, Y = 2.6, Z = 0.14 },
+                ],
+                Debuff = new PhysicsPose3 { X = 1.6, Y = 2.4, Z = 0.13 },
+            },
+        };
+
+        var oldFrame = SnapshotView.From(legacy);
+        var frame = SnapshotView.From(physical);
+        Assert.Null(oldFrame.Us.Rotation);
+        Assert.False(oldFrame.Blocks[0].HasPhysicsPose);
+        Assert.Equal(1.2, frame.Blocks[0].Position.X, 9);
+        Assert.Equal(0.22, frame.Blocks[0].Position.Up, 9);
+        Assert.Equal(1.3, frame.Blocks[0].Position.Z, 9);
+        Assert.True(frame.Blocks[0].HasPhysicsPose);
+        Assert.NotNull(frame.Blocks[0].Rotation);
+        // Sim yaw +90 degrees maps to Godot yaw -90, then the primitive
+        // robot's +Z forward alignment adds +90: the displayed pose is identity.
+        Assert.Equal(0, frame.Us.Rotation!.Value.Y, 9);
+        Assert.Equal(1, frame.Us.Rotation!.Value.W, 9);
+        Assert.True(Math.Abs(frame.Blocks[0].Rotation!.Value.X) > 0.1);
+    }
 }

@@ -1,0 +1,30 @@
+{
+  "id": "glass-settings-custom-controller",
+  "name": "glass-settings-custom-controller",
+  "title": "玻璃控制台、运行设置与自定义小车控制器",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "neco",
+  "assignee": "neco",
+  "createdAt": "2026-08-31",
+  "completedAt": "2026-09-01",
+  "branch": null,
+  "base_branch": "feat/godot-3d-visual",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-31-glass-console-ui",
+    "08-31-runtime-settings-panel",
+    "08-31-custom-vehicle-controller"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

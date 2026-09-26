@@ -7,9 +7,9 @@
 ```
 ┌──────────────────────────┐   ┌──────────────────────────┐
 │ godot/  (Godot 4 .NET)   │   │ Sim.Cli  (.NET 8 无头)    │
-│ 3D 展示壳: 渲染/相机/HUD/ │   │ 评测/回放: match /        │
-│ 回放时间轴               │   │ replay-record / replay-check│
-│ 只消费快照+发裁判指令     │   │ 可拉起 Python 策略进程    │
+│ 3D 展示壳: 渲染/相机/HUD/ │   │ 评测/回放: match / batch / │
+│ 回放时间轴/玻璃设置/驱动   │   │ replay-record / replay-check│
+│ 只消费快照+发裁判指令     │   │ 可拉起外部策略进程        │
 └──────────┬───────────────┘   └──────────┬───────────────┘
            │  同一 MatchEngine / 同一协议    │
            ▼                               ▼
@@ -27,9 +27,45 @@
       └──────────────────────────────────────────┘
 ```
 
-**单一权威**：比分、回放、AI 观测全部以 `Sim.Core` 的确定性 2D 模型为准。
-Godot 物理仅用于可视摆放与可选诊断，**不参与判分**。未来若引入 3D 权威物理，
-必须显式新增模式/版本并单独提供确定性与保真度证据，不属于当前范围。
+`Sim.Controller` 是 CLI 与 Godot 桌面端共享的外部控制器边界：每个角色/每场独立拥有
+JSONL stdio 进程、reader、超时与 fault 计数。CLI 的 `PythonBridge` 保留兼容入口，桌面端
+的 `DesktopLiveDriver` 在独立 worker 中编排固定步长和有界快照队列；这些进程、线程、文件与
+时钟能力不进入 `Sim.Core`。
+
+**单一权威**：比分、回放、AI 观测全部以 `Sim.Core` 的确定性内核为准。
+Godot 物理仅用于可视摆放与可选诊断，**不参与判分**。
+
+## 双物理后端（可选 mujoco 模式，Windows x64）
+
+物理接触有两个显式后端，由场景字段 `physics.backend` 选择；未写该字段的场景
+一律走旧二维物理（默认，行为逐位不变），**不会默默切换**：
+
+- `legacy`（缺省）：`Sim.Core PhysicsWorld` 二维简化接触，基线行为。
+- `mujoco`：`Sim.Mujoco` 经官方 C API（3.14.0，DLL 哈希锁定）驱动的三维刚体
+  接触——两辆差速车、三块立方体、台面/围栏都来自按 `Scenario`/`FieldTransform`
+  确定性生成的 MJCF；`v/w` 请求经有界车轮驱动进入动力学，车/块的位置、三维
+  姿态与接触归属来自 MuJoCo，禁止瞬移伪造。
+
+跨后端共同契约（`src/Sim.Core/IPhysicsBackend.cs`）：
+
+- `MatchEngine`/FSM 只依赖 `IPhysicsBackend` 接口；裁判固定步长不变，MuJoCo 在
+  一帧内做固定数量子步；真实重启经 `ResetRobot` 同步原生状态。
+- 快照加性携带三维姿态（`PhysicsPoses`，仅渲染消费）；传感器仍是解析模型
+  平面投影（已知差异见任务 `09-24-mujoco-dual-physics-validation/validation-report.md`）。
+- 回放身份 `mujoco/<原生版本>/<模型内容哈希>`：版本或模型不匹配的回放明确拒绝；
+  旧回放缺该字段按旧模式解释。batch 行加性携带 `physicsBackend`/`physicsModelSha256`。
+- 每场独立 `mjModel/mjData`，经 `Dispose` 释放；装配入口 `src/Sim.Hosting/`，
+  CLI 与 Godot 走同一后端选择/释放路径。
+- 模型参数（轮半径、轮驱动力上限等）为未标定工程初值；新模式不得宣称真机
+  保真度，`fidelity.json` 不因此晋升。
+- 2026-09-25 登台修复（任务 09-25）：轮驱动力上限 0.3→3.0（铰链力矩 N·m/轮，
+  原值无法绕台沿 pivot 爬上 6 cm 台沿）；台沿 20° 倒角（刚体圆柱轮咬不住直角
+  台沿：低速打滑、高速轮抬抛体，与扭矩无关）；底盘离地 +2 cm（原腹部与台面
+  齐平会被台沿卡住）；执行器边界镜像 legacy 的一阶驱动加速（AccelK 只滤 v）
+  并把速度伺服 kv 降至 0.25（避免指令阶跃变扭矩阶跃导致整车弹跳）。内置 FSM
+  零改动即从官方出生点完成倒车登台（`NativeMode_FsmMountsFromOfficialSpawn`）。
+  已知后续边界：新模式 SEARCH 索敌尚不收敛（反复发现目标→丢失，未进入推块，
+  比分仍 0:0），为独立后续工作。
 
 ## 确定性契约
 
@@ -38,6 +74,12 @@ Godot 物理仅用于可视摆放与可选诊断，**不参与判分**。未来�
 - 随机数用 mulberry32 并按 `(seed, step, role, channel)` 派生独立传感器噪声流，
   增删一个传感器通道不会重排比赛逻辑里的随机序列。
 - 渲染掉帧/客户端关闭 **不改变**仿真时钟：展示端用固定步长累加器推进内核。
+- 反僵局铲刃微调：正面顶牛的同型机器人铲刃静差恒为 0，遗留楔入阈值永不触发 →
+  对推死锁。楔入判定内给双方有效铲刃高度叠加慢速正弦微调（场景键
+  `antiStallBladeAmp` 默认 0.006 m，**0=关闭逐位恢复旧行为**；周期
+  `antiStallBladePeriodUs/Them` 默认 2.1/2.7 s），初相由 `(seed, role)` 哈希派生、
+  时间源是比赛时钟——仍是比赛时间的确定函数，不消费比赛随机流
+  （有意偏差，见 `docs/PORTING_NOTES.md` 第 2 节第 10 条）。
 
 ## 跨端一致性
 
@@ -125,10 +167,15 @@ MBri CSV（本地忽略目录, 不入库）
 - `src/Sim.Protocol/` — 版本化协议 DTO 与 JSON 校验（含 `arena-layout-v1` 布局字段与 `telemetry-v1` 遥测契约）。
 - `src/Sim.Calibration/` — 纯标定库：拟合器、分解层、mount 门控评估、报告指纹。
 - `src/Sim.VisionReplay/` — 视觉证据分线纯库：vision-replay-v1 schema、MBri 导入校验、链路质量指标、报告指纹。
-- `src/Sim.Cli/Program.cs` — 无头命令；`PythonBridge.cs` — 外部策略进程适配；`VisionCommand.cs` — `vision import/evaluate`。
+- `src/Sim.Core/IPhysicsBackend.cs` — 物理后端接口与工厂上下文（legacy/mujoco 共同契约）。
+- `src/Sim.Mujoco/` — MuJoCo 后端：官方 C API 薄封装、确定性 MJCF 生成、车轮驱动、`mjModel/mjData` 生命周期（官方原生库在 `runtimes/win-x64/native/`，哈希锁定）。
+- `src/Sim.Hosting/` — CLI/Godot 共用的比赛/后端装配入口。
+- `src/Sim.Cli/Program.cs` — 无头命令；`PythonBridge.cs` — `Sim.Controller` 兼容包装；`VisionCommand.cs` — `vision import/evaluate`。
+- `src/Sim.Controller/ExternalControllerBridge.cs` — CLI/Godot 共用的 JSONL 外部控制器进程适配、超时、request-id、zero-action 与 fault 边界。
+- `src/Sim.Cli/{BatchCommand,BatchExecutor,BatchFingerprint}.cs` — AI agent 无头批量仿真：严格预检、有界 worker pool（每场独立场景副本/引擎/控制器进程）、`sim-batch-result-v1` JSONL 与稳定指纹；并发编排全部留在 CLI 层，`Sim.Core` 不感知并行。
 - `godot/src/SnapshotView.cs` — 快照→渲染帧（无 Godot 依赖，可单测）。
 - `godot/src/MatchSession.cs` — 会话门面：固定步长实况 + 回放重构/缓存/导航（无 Godot 依赖，可单测）。
 - `godot/src/ParityCheck.cs` — 跨端一致性校验（无 Godot 依赖，可单测）。
 - `godot/src/LayoutDraft.cs` — 布局编辑模型：快照式撤销/重做 + 拖拽分组 + 校验 + 原子保存（无 Godot 依赖，可单测）。
-- `godot/src/{LayoutEditor,ArenaVisualizer,HudPanel,MatchCamera,RobotModelLoader}.cs` — 桌面壳入口、编辑交互与渲染/HUD/相机/模型导入。
+- `godot/src/{LayoutEditor,ArenaVisualizer,HudPanel,SettingsPanel,DesktopSettings,DesktopLiveDriver,MatchCamera,RobotModelLoader}.cs` — 桌面壳入口、设置/外部驱动、编辑交互与渲染/HUD/相机/模型导入。
 - `scenarios/*.json` — 固定布局回归场景；`replays/` — 回放文件；`test-data/` — 渲染层测试资产（glTF）。

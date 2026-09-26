@@ -1,0 +1,21 @@
+{
+  "_comment": "归一化转换器输入映射(阶段 2 填充)。单位换算写表达式;符号约定写自然语言;sourceField 留空 = 该字段缺, 需路径②补采。",
+  "protocolVersion": "v1",
+  "vehicleId": "",
+  "sourceLog": { "format": "", "frameRateHz": null, "timeBase": "" },
+  "mappings": {
+    "frame.t":        { "sourceField": "", "transform": "" },
+    "frame.robot.x":  { "sourceField": "", "transform": "" },
+    "frame.robot.y":  { "sourceField": "", "transform": "" },
+    "frame.robot.th": { "sourceField": "", "transform": "" },
+    "frame.command.v":{ "sourceField": "", "transform": "" },
+    "frame.command.w":{ "sourceField": "", "transform": "" },
+    "block.x":        { "sourceField": "", "transform": "" },
+    "block.y":        { "sourceField": "", "transform": "" },
+    "collision.normal": { "sourceField": "", "transform": "" },
+    "stall.stalled":  { "sourceField": "", "transform": "" },
+    "mount.vn":       { "sourceField": "", "transform": "" },
+    "mount.vt":       { "sourceField": "", "transform": "" },
+    "mount.outcome":  { "sourceField": "", "transform": "" }
+  }
+}

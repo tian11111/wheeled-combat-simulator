@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "灰度契约逐像素 A/B 门; 仿真/协议零 diff 复核"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "双分辨率证据/帧时间门/分桶回归复核"}

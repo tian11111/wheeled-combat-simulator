@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "Unshaded/官方调色板灰度契约, 渲染不复刻规则, 视觉 QA 以 --capture 像素证据为准, FieldGray 单一来源"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Godot shell boundary: input routing/camera/render 分层与 adapter 约定"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "MatchCamera presentation-only 约定与 ArenaVisualizer 材质/节点规则 (无第二几何真值)"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "真实 renderer capture 证据要求与 smoke 时序陷阱 (headless 64x64, 阻尼收敛)"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "渲染层绝不回写 core: 装饰节点不得参与碰撞/规则/传感器"}

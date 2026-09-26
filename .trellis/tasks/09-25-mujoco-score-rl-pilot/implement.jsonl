@@ -1,0 +1,3 @@
+{"file":".trellis/spec/sim/index.md","reason":"遵守 Sim.Core 无 IO、MuJoCo 显式选择、逐位确定性、官方布局单一来源与保真度边界"}
+{"file":".trellis/spec/backend/index.md","reason":"将 episode 桥和训练 IO 限于 CLI/Python 宿主，不扩展 Sim.Core"}
+{"file":".trellis/tasks/09-25-mujoco-score-rl-pilot/research/references.md","reason":"Gymnasium/SB3 PPO/评测方法、Fetch Push 奖励思路与 MJX 暂缓决策"}

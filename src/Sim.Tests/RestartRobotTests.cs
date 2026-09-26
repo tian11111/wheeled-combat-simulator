@@ -8,7 +8,7 @@ namespace Sim.Tests;
 /// Real restart contract (task 08-28-godot-camera-gray-restart):
 /// <see cref="MatchEngine.RestartRobot"/> returns the target to its scenario
 /// start pose via <see cref="FieldTransform"/>, cleans motion/sensor/FSM
-/// transients, awards the opponent exactly +4 once, preserves the match clock
+/// transients, awards the opponent exactly +3 once (2026 裁判同意重启), preserves the match clock
 /// / other robot / blocks, and records the additive
 /// <c>restart_robot:&lt;role&gt;</c> command. The legacy penalty-only
 /// <c>restart:&lt;role&gt;:&lt;kind&gt;</c> replay commands must stay
@@ -236,15 +236,17 @@ public sealed class RestartRobotTests
     }
 
     [Fact]
-    public void RestartRobot_AwardsOpponentExactlyFour_AndRecordsCommandOnce()
+    public void RestartRobot_AwardsOpponentExactlyThree_AndRecordsCommandOnce()
     {
         var engine = RunningEngine(FixedScenario());
 
         Assert.True(engine.RestartRobot(RoleNames.Us));
-        Assert.Equal(4, engine.Scores.Them);  // 对手 +4, 且仅此一次
+        Assert.Equal(3, engine.Scores.Them);  // 2026 规则: 裁判同意的重启 对手 +3, 且仅此一次
         Assert.Equal(0, engine.Scores.Us);
-        Assert.Equal(4, engine.RestartPenalties.Us); // 被重启方计 4 次判罚
+        Assert.Equal(3, engine.RestartPenalties.Us); // 被重启方计一次判罚
         Assert.Equal(0, engine.RestartPenalties.Them);
+        // 记分牌明细: 重启来源 +3, 且与总分一致。
+        Assert.Equal(3, engine.BuildSnapshot().ScoreBreakdown!["them"]["restart"]);
 
         var restarts = engine.Events.Events.Where(e => e.Kind == EventKind.Restart).ToList();
         Assert.Single(restarts);

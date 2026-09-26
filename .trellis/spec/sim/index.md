@@ -32,6 +32,37 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   用 `<Compile Include>` 链接进 `Sim.Tests`，不要为它新建工程。
 - 外部控制器一律走 `Sim.Cli.PythonBridge`（JSONL、request-id 匹配、超时→零动作、计 fault）。
 
+## 物理后端契约（legacy 缺省 / mujoco 可选）
+
+- 物理后端由场景 `physics.backend` 显式选择；**未写字段 = 旧二维物理逐位不变**，
+  任何路径不得默默切换。FSM/`MatchEngine` 只依赖 `Sim.Core.IPhysicsBackend`，
+  禁止直接引用 `Sim.Mujoco` 类型；装配走 `Sim.Hosting`（CLI/Godot 同一入口）。
+- `Sim.Mujoco`：官方 C API 薄封装 + 按场景确定性生成 MJCF；每场独立
+  `mjModel/mjData`，`Dispose` 必须释放；`v/w` 经有界车轮驱动进动力学，
+  **禁止瞬移车体**伪造运动或登台。原生 DLL 哈希锁定（`runtimes/win-x64/native/`），
+  不得要求用户装到系统目录。
+- 新模式回放身份 `mujoco/<原生版本>/<模型内容哈希>`：不匹配明确拒绝；
+  旧回放缺字段按旧模式解释；协议/快照/batch 演进**只加不改**（铁律 3 同样适用于
+  `physicsBackend`/`physicsModelSha256`/`PhysicsPoses` 等新字段）。
+- 传感器在两种模式下都是解析模型平面投影（`SensorSampler`+`FieldModel`），
+  不消费 MuJoCo raycast；该差异是已知边界，写进交付报告，不得当作已三维化宣传。
+- 改 `Sim.Mujoco`/MJCF 后必须重录新模式回放（模型哈希变化会正确拒绝旧回放），
+  并跑 `src/Sim.Tests/MujocoIntegrationTests.cs` + `MujocoProtocolTests.cs`；
+  旧基线回归用 `replays/seed-42.json`。新模式不得晋升 `fidelity.json`。
+- **模型调校教训（09-25 登台修复沉淀，改车辆/场地几何前必读）**：
+  1. hinge 执行器 `forcerange` 的单位是**铰链力矩 N·m**，不是轮面接触力
+     （表面力 = 力矩/轮半径）——估算爬台阶需求时用 hub 扭矩口径。
+  2. 力上限提高后，kv=1.0 速度伺服会把任何指令阶跃在第一帧变成满扭矩阶跃，
+     整车抬头-砸地弹跳——执行器边界必须对 v 做一阶斜坡（镜像 legacy AccelK，
+     只滤 v、w 瞬时），伺服增益调低（kv=0.25，满力只出现在近堵转误差处）。
+  3. 刚体圆柱轮**咬不住直角台阶**：低速绕角 pivot 打滑、高速被驱动力矩掀成
+     轮抬抛体，与扭矩无关（0.3/2/3/6 N·m 行为一致，接触对 dump 实证爬升瞬间
+     与台面零接触）——台沿需要 20° 倒角斜坡（`AppendChamfers`）。
+  4. 底盘下缘不得与台面齐平（否则腹部搁台沿）；调车体高度时轮轴与车体 spawn
+     必须同步移动，**不要**用 geom pos 偏移车体（实测冻结整车，原因未深究）。
+  5. 传感器在物理步进**前**采样（读上一提交帧）——任何用"当前帧位姿"验证
+     传感器读数的测试，在车辆快速越过台沿/边界时都会假性失败。
+
 ## 行为对齐参考
 
 - 遗留原型 `D:/project/robocup/robot-simulator/wushu_ring_sim.html` 只读。
@@ -63,10 +94,16 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
 - 视觉 QA 以 `--capture` 视口像素分桶为机器可判定证据；桌面截图存 `godot/docs/`
   （其 `.import` 元数据不入库），调试用临时图不入库。
 - 台面灰度显示：像素↔场局部轴契约由 `godot/src/FieldGrayTextureMap.cs` 单一实现
-  （row 0 = 南、col 0 = 西），数值仍以 `FieldModel.FieldGrayLocal` 为唯一来源；
-  材质必须 Unshaded，防止方向光制造假对角灰度带。Godot 4 PlaneMesh(FACE_Y) 的
-  顶点与 UV 翻转互相抵消，改动映射前先以代表性像素测试验证
-  （`src/Sim.Tests/FieldGrayDisplayTests.cs`）。
+  （row 0 = 南、col 0 = 西），**显示与传感器是两种独立灰度语义**：传感器 0–1000
+  永远是 `FieldModel.FieldGrayLocal`（L∞ 手绘模型，一字不改、永不进纹理）；
+  显示用**官方效果图外观**（规则 PDF 第 10 页"四角纯黑→中心纯白"）——归一化欧氏
+  径向渐变 `OfficialSurfaceLuminance`（中心白、四角黑、边中点 1−1/√2、等欧氏半径
+  同亮度），几何红区红底白"武"优先覆盖，走道深灰属外场地面材质。旧 L∞ 方形显示
+  会画出白色对角亮带，禁止以任何 `max`/`|dx|+|dy|` 形式回到显示层。材质必须
+  Unshaded + 线性过滤，防止方向光/SSAO/探针制造假灰度带（关 SSAO/探针的 A/B
+  capture 逐像素一致）。Godot 4 PlaneMesh(FACE_Y) 的顶点与 UV 翻转互相抵消，
+  改动映射前先以代表性像素测试验证（`src/Sim.Tests/FieldGrayDisplayTests.cs`，
+  必须覆盖等欧氏半径轴向/对角向，不能只测对称点同值）。
 
 ## 真实重启契约（restart-v1）
 

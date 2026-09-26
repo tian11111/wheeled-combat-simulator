@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "核对晋升只认 real 来源 + 独立 holdout 达标; 合成数据只验工具; fidelity.json 变更可追溯且旧回放逐位不变"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "核对转换器/工具链的测试与回归门禁(全套 test、replay-check、parity、候选场景 smoke)"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "核对无效 trial 列出/剔除留痕, 无静默补值, 校验失败无报告无 patch"}

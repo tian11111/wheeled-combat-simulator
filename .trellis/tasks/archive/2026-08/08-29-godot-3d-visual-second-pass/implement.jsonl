@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "台面灰度 Unshaded/官方调色板契约; 显示调色板与 FieldGrayLocal 传感器语义分离; 渲染不复刻规则; --capture 像素证据"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "MatchCamera presentation-only 相机契约与可执行方向语义; 视觉栈约定与 z 序陷阱"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "smoke 时序陷阱; 双分辨率 capture 证据; 去钳制断言不掩盖回归; 30% 性能门"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Godot shell 边界: input/camera/render 分层"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "渲染层绝不回写 core; 装饰几何不参与规则"}

@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "台面灰度 Unshaded/官方调色板契约是每项视觉效果的 A/B 红线; 渲染不复刻规则; --capture 像素证据"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "视觉栈约定 (材质工厂/装饰节点 primitivePart/z 序陷阱/相机契约不回归)"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "smoke 时序陷阱; 双分辨率 capture 证据; 30% 帧时间门; 去钳制断言"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Godot shell 分层边界"}

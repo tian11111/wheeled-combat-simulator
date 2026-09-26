@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "Core engine/IO separation, additive protocol evolution, deterministic legacy regression and fidelity honesty"}
+{"file": ".trellis/spec/sim/restart-contract.md", "reason": "Real restart requires native state reset while preserving +3 score, timer and replay semantics"}
+{"file": ".trellis/spec/backend/batch-simulation.md", "reason": "Headless worker isolation, preflight, JSONL/fingerprint and exit-code contracts"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Explicit native-load and scenario validation failures without silent fallback"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Godot remains an immutable Snapshot consumer and disposes/rebuilds match sessions"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Trace Scenario to physics backend to Snapshot, replay, batch and Godot across ownership boundaries"}

@@ -1,0 +1,5 @@
+Manual 语义与事件归属(oracle smoke seed 42, GB18030 解码):
+- Arm×2(双方各一, 外部角色也发令)
+- 对手 Fsm/Mount 事件 14 条(内置 FSM 照常)
+- 我方 FSM 事件在首个外部动作后停止(Manual); 裁判 ScoreClock×5 可见
+- 修正: 此前报告的'零我方事件'为 grep UTF-8 搜 GBK 文件的编码误报

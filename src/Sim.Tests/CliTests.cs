@@ -7,6 +7,7 @@ namespace Sim.Tests;
 /// a recorded match must pass replay-check regardless of whether external
 /// controllers were attached, and a corrupted replay must fail.
 /// </summary>
+[Collection("cli-console")]
 public class CliTests : IDisposable
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("sim-cli-tests").FullName;
@@ -75,5 +76,21 @@ public class CliTests : IDisposable
         Assert.Equal(0, code);
         Assert.Contains("ticks=60", sink.ToString());
         Assert.Contains("比赛时间结束", sink.ToString());
+    }
+
+    [Fact]
+    public void MatchSeeds_StillSequentialOneLinePerSeed_PlusSummary()
+    {
+        using var sink = new StringWriter();
+        Console.SetOut(sink);
+        var code = Run("match", "--seeds", "1,2", "--duration", "3");
+        Console.SetOut(_stdout);
+        Assert.Equal(0, code);
+        var lines = sink.ToString()
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        Assert.Equal(3, lines.Length); // 2 per-seed results + summary (frozen behavior)
+        Assert.StartsWith("seed=1 ticks=", lines[0]);
+        Assert.StartsWith("seed=2 ticks=", lines[1]);
+        Assert.StartsWith("summary: matches=2", lines[2]);
     }
 }

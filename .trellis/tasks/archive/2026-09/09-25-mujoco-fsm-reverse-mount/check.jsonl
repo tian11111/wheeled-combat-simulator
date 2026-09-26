@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "核对 legacy 逐位不变、新模式确定性(p1=p4)与回放身份(模型哈希变化被正确拒绝)"}

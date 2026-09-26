@@ -5,6 +5,7 @@
 // path, keeping the acceptance evidence honest.
 
 using Sim.Core;
+using Sim.Hosting;
 using Sim.Protocol;
 
 namespace Sim.GodotShell;
@@ -42,7 +43,7 @@ public static class ParityCheck
             };
         }
 
-        var engine = new MatchEngine(file.Scenario);
+        using var engine = MatchEngineHost.CreateForReplay(file);
         var actionsByTick = file.Header.Ticks.ToDictionary(t => t.Tick, t => t.Actions);
         var commandsByTick = file.Header.Ticks
             .Where(t => t.Commands is { Count: > 0 })
