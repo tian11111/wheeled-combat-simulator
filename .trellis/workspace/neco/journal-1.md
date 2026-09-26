@@ -614,3 +614,39 @@ MOUNT_SPEED 0.806 主导(慢速登台更稳, 与台沿物理互证); holdout 改
 ### Status
 
 [OK] **Completed**
+
+
+## Session 19: SCORE_BLOCK PPO checkpoint round
+
+**Date**: 2026-09-26
+**Task**: SCORE_BLOCK PPO checkpoint round
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+Archived the completed checkpoint and split-v2 workflow task. The new 6001-6050 blind performance gate failed; the prior PPO AC4 remains failed and active.
+
+### Main Changes
+
+- Recorded official SB3 v2.9.0 handoff and preserved the previous pilot result.
+- Archived the new PPO checkpoint task after verifying AC1-AC6 evidence.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `465b1c4` | (see git log) |
+| `cf169c3` | (see git log) |
+| `b9c6b0c` | (see git log) |
+
+### Testing
+
+- [OK] New task report records 33/33 selftests, 382/382 Sim.Tests, and replay checks; no tests rerun during this finish step.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Keep 09-25-mujoco-score-rl-pilot open; use fresh seeds for any further model work.

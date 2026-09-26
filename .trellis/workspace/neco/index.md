@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 18
-- **Last Active**: 2026-09-01
+- **Total Sessions**: 19
+- **Last Active**: 2026-09-26
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~482 | Active |
+| `journal-1.md` | ~652 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 19 | 2026-09-26 | SCORE_BLOCK PPO checkpoint round | `465b1c4`, `cf169c3`, `b9c6b0c` | `test/score-block-ppo-checkpoint-round` |
 | 18 | 2026-09-01 | Trellis 收尾复核 | - | `feat/godot-3d-visual` |
 | 17 | 2026-09-01 | 玻璃控制台、运行设置与自定义控制器 | `1053e8d` | `feat/godot-3d-visual` |
 | 16 | 2026-08-31 | Godot 3D 视觉三阶收尾 | `86ac17f`, `8617f3b` | `feat/godot-3d-visual` |
