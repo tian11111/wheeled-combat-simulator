@@ -1,0 +1,3 @@
+{"file":".trellis/spec/sim/index.md","reason":"保持 Sim.Core 无 IO、协议只加不改、MuJoCo 确定性与回放边界"}
+{"file":".trellis/spec/backend/index.md","reason":"外部控制器进程、JSONL 诊断与故障留在 CLI 宿主边界"}
+{"file":"docs/CONTROLLER_PROTOCOL.md","reason":"基于现行 Observation/Action JSONL 契约补真车移植说明"}

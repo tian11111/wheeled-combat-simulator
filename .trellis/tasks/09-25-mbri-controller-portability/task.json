@@ -1,0 +1,32 @@
+{
+  "id": "mbri-controller-portability",
+  "name": "mbri-controller-portability",
+  "title": "MBri 真车控制器仿真接入契约与可观测性",
+  "description": "把真实 MBri 控制器接入仿真所需的量纲、感知、时间、MANUAL 语义和事件归属整理为可运行、可验收的契约",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "docs/CONTROLLER_PROTOCOL.md, controllers MBri adapter example, Sim.Cli event verification, focused tests",
+  "package": null,
+  "priority": "P0",
+  "creator": "neco",
+  "assignee": "neco",
+  "createdAt": "2026-09-25",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "feat/mujoco-dual-physics-validation",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "docs/CONTROLLER_PROTOCOL.md",
+    "src/Sim.Cli/MatchRunner.cs",
+    "src/Sim.Core/MatchEngine.cs",
+    "src/Sim.Protocol/Observation.cs",
+    ".trellis/tasks/09-25-mujoco-score-rl-pilot/prd.md"
+  ],
+  "notes": "规划只覆盖 MBri 接入契约与可观测性；Gymnasium、PPO、快速 reset 在既有 RL 试点。用户 60 秒 0:5、faults 0/0 为待复现的实测报告。",
+  "meta": {}
+}
