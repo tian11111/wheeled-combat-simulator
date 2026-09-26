@@ -1,0 +1,4538 @@
+{
+  "stage": "analyze",
+  "generated_at": "2026-09-26T11:38:47.580235+00:00",
+  "diagnosis_only": true,
+  "never_gate_evidence": true,
+  "scenario": "D:\\project\\robot-simulator\\scenarios\\wushu-ring-2026-mujoco.json",
+  "scenario_sha256": "52ec978e001e0ca09b1ce4b3620d89e356cbc70ffccd8b9ad9e8389bbecff7d3",
+  "classification_rules": [
+    "block never had any contact record in the episode -> no_valid_contact",
+    "last contact tick: exactly one record at the max contact time -> single_contact_<role>",
+    "last contact tick: several records at the max contact time, all one role -> multi_point_same_robot_<role>  (referee labels this 'simultaneous' -> no score)",
+    "last contact tick: both roles at the max contact time -> genuine_two_robot_contest"
+  ],
+  "fsm_reference_thresholds": {
+    "edge_guard": 0.27,
+    "edge_slow": 0.45
+  },
+  "aggregate": {
+    "fsm": {
+      "episodes": 50,
+      "episodes_with_no_score_block": 5,
+      "total_locked_target_us_block_scores": 8,
+      "total_us_drops": 21,
+      "total_block_off_events": 1,
+      "total_block_score_events": 15,
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 15,
+        "slow_drift_over_edge": 3,
+        "driving_outward_fast": 1,
+        "pushed_out_by_opponent_contact": 2
+      },
+      "drop_features": {
+        "drops": 21,
+        "min_edge_distance_in_window": {
+          "median": 0.2517,
+          "min": 0.1476,
+          "max": 0.2586
+        },
+        "referee_edge_distance_at_drop": {
+          "median": 0.2517
+        },
+        "speed_at_drop": {
+          "median": 0.1337
+        },
+        "outward_speed_at_drop": {
+          "median": 0.1225
+        },
+        "command_v_at_drop": {
+          "median": -0.4,
+          "min": -0.4,
+          "max": 0.35
+        },
+        "abs_command_w_at_drop": {
+          "median": 0
+        },
+        "entered_fsm_guard_zone_0_27m": 21,
+        "entered_fsm_slow_zone_0_45m": 21,
+        "contacting_target_in_window": 15,
+        "opponent_contacting_target_in_window": 0,
+        "seeds_with_more_than_one_drop": []
+      },
+      "block_off_referee_reasons": {
+        "simultaneous": 1
+      },
+      "block_off_classifications": {
+        "multi_point_same_robot_them": 1
+      },
+      "block_off_by_owner_and_kind": {
+        "Buff|multi_point_same_robot_them|target=False": 1
+      },
+      "block_score_classifications": {
+        "single_contact_us": 9,
+        "single_contact_them": 6
+      }
+    },
+    "policy": {
+      "episodes": 50,
+      "episodes_with_no_score_block": 5,
+      "total_locked_target_us_block_scores": 5,
+      "total_us_drops": 28,
+      "total_block_off_events": 10,
+      "total_block_score_events": 11,
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 19,
+        "driving_outward_fast": 4,
+        "pushed_out_by_opponent_contact": 1,
+        "slow_drift_over_edge": 4
+      },
+      "drop_features": {
+        "drops": 28,
+        "min_edge_distance_in_window": {
+          "median": 0.187,
+          "min": 0.1511,
+          "max": 0.2589
+        },
+        "referee_edge_distance_at_drop": {
+          "median": 0.187
+        },
+        "speed_at_drop": {
+          "median": 0.6704
+        },
+        "outward_speed_at_drop": {
+          "median": 0.4937
+        },
+        "command_v_at_drop": {
+          "median": -1.0,
+          "min": -1,
+          "max": 1
+        },
+        "abs_command_w_at_drop": {
+          "median": 0.3891
+        },
+        "entered_fsm_guard_zone_0_27m": 28,
+        "entered_fsm_slow_zone_0_45m": 28,
+        "contacting_target_in_window": 19,
+        "opponent_contacting_target_in_window": 2,
+        "seeds_with_more_than_one_drop": []
+      },
+      "block_off_referee_reasons": {
+        "simultaneous": 10
+      },
+      "block_off_classifications": {
+        "multi_point_same_robot_them": 6,
+        "multi_point_same_robot_us": 4
+      },
+      "block_off_by_owner_and_kind": {
+        "Buff|multi_point_same_robot_them|target=False": 5,
+        "Buff|multi_point_same_robot_us|target=True": 4,
+        "Buff|multi_point_same_robot_them|target=True": 1
+      },
+      "block_score_classifications": {
+        "single_contact_us": 5,
+        "single_contact_them": 6
+      }
+    }
+  },
+  "misattributed_simultaneous": [
+    {
+      "source": "final_holdout_v2/fsm/6012",
+      "seed": 6012,
+      "tick": 395,
+      "block_index": 1,
+      "block_is_target": false,
+      "referee_reason": "simultaneous",
+      "classification": "multi_point_same_robot_them",
+      "last_contact_tick": 395,
+      "records_at_max_time": 2,
+      "roles_at_max_time": [
+        "them"
+      ],
+      "record_count_in_tick": 4,
+      "us_distance_to_block_at_exit": 2.0839,
+      "them_distance_to_block_at_exit": 0.3353
+    },
+    {
+      "source": "final_holdout_v2/policy/6011",
+      "seed": 6011,
+      "tick": 353,
+      "block_index": 1,
+      "block_is_target": false,
+      "referee_reason": "simultaneous",
+      "classification": "multi_point_same_robot_them",
+      "last_contact_tick": 351,
+      "records_at_max_time": 2,
+      "roles_at_max_time": [
+        "them"
+      ],
+      "record_count_in_tick": 4,
+      "us_distance_to_block_at_exit": 0.8156,
+      "them_distance_to_block_at_exit": 0.461
+    },
+    {
+      "source": "final_holdout_v2/policy/6022",
+      "seed": 6022,
+      "tick": 338,
+      "block_index": 0,
+      "block_is_target": true,
+      "referee_reason": "simultaneous",
+      "classification": "multi_point_same_robot_us",
+      "last_contact_tick": 260,
+      "records_at_max_time": 4,
+      "roles_at_max_time": [
+        "us"
+      ],
+      "record_count_in_tick": 8,
+      "us_distance_to_block_at_exit": 0.8165,
+      "them_distance_to_block_at_exit": 0.4145
+    },
+    {
+      "source": "final_holdout_v2/policy/6029",
+      "seed": 6029,
+      "tick": 395,
+      "block_index": 1,
+      "block_is_target": false,
+      "referee_reason": "simultaneous",
+      "classification": "multi_point_same_robot_them",
+      "last_contact_tick": 393,
+      "records_at_max_time": 2,
+      "roles_at_max_time": [
+        "them"
+      ],
+      "record_count_in_tick": 4,
+      "us_distance_to_block_at_exit": 1.4028,
+      "them_distance_to_block_at_exit": 0.3879
+    },
+    {
+      "source": "final_holdout_v2/policy/6031",
+      "seed": 6031,
+      "tick": 354,
+      "block_index": 1,
+      "block_is_target": false,
+      "referee_reason": "simultaneous",
+      "classification": "multi_point_same_robot_them",
+      "last_contact_tick": 352,
+      "records_at_max_time": 2,
+      "roles_at_max_time": [
+        "them"
+      ],
+      "record_count_in_tick": 6,
+      "us_distance_to_block_at_exit": 0.6219,
+      "them_distance_to_block_at_exit": 0.3178
+    },
+    {
+      "source": "final_holdout_v2/policy/6037",
+      "seed": 6037,
+      "tick": 317,
+      "block_index": 0,
+      "block_is_target": true,
+      "referee_reason": "simultaneous",
+      "classification": "multi_point_same_robot_us",
+      "last_contact_tick": 317,
+      "records_at_max_time": 2,
+      "roles_at_max_time": [
+        "us"
+      ],
+      "record_count_in_tick": 8,
+      "us_distance_to_block_at_exit": 0.2177,
+      "them_distance_to_block_at_exit": 1.7819
+    },
+    {
+      "source": "final_holdout_v2/policy/6040",
+      "seed": 6040,
+      "tick": 288,
+      "block_index": 0,
+      "block_is_target": true,
+      "referee_reason": "simultaneous",
+      "classification": "multi_point_same_robot_us",
+      "last_contact_tick": 288,
+      "records_at_max_time": 2,
+      "roles_at_max_time": [
+        "us"
+      ],
+      "record_count_in_tick": 14,
+      "us_distance_to_block_at_exit": 0.2321,
+      "them_distance_to_block_at_exit": 0.6323
+    },
+    {
+      "source": "final_holdout_v2/policy/6043",
+      "seed": 6043,
+      "tick": 396,
+      "block_index": 0,
+      "block_is_target": true,
+      "referee_reason": "simultaneous",
+      "classification": "multi_point_same_robot_them",
+      "last_contact_tick": 396,
+      "records_at_max_time": 2,
+      "roles_at_max_time": [
+        "them"
+      ],
+      "record_count_in_tick": 17,
+      "us_distance_to_block_at_exit": 0.769,
+      "them_distance_to_block_at_exit": 0.295
+    },
+    {
+      "source": "final_holdout_v2/policy/6047",
+      "seed": 6047,
+      "tick": 330,
+      "block_index": 1,
+      "block_is_target": false,
+      "referee_reason": "simultaneous",
+      "classification": "multi_point_same_robot_them",
+      "last_contact_tick": 328,
+      "records_at_max_time": 2,
+      "roles_at_max_time": [
+        "them"
+      ],
+      "record_count_in_tick": 10,
+      "us_distance_to_block_at_exit": 0.8182,
+      "them_distance_to_block_at_exit": 0.3224
+    },
+    {
+      "source": "final_holdout_v2/policy/6048",
+      "seed": 6048,
+      "tick": 260,
+      "block_index": 0,
+      "block_is_target": true,
+      "referee_reason": "simultaneous",
+      "classification": "multi_point_same_robot_us",
+      "last_contact_tick": 260,
+      "records_at_max_time": 4,
+      "roles_at_max_time": [
+        "us"
+      ],
+      "record_count_in_tick": 17,
+      "us_distance_to_block_at_exit": 0.2227,
+      "them_distance_to_block_at_exit": 2.1641
+    },
+    {
+      "source": "final_holdout_v2/policy/6049",
+      "seed": 6049,
+      "tick": 558,
+      "block_index": 1,
+      "block_is_target": false,
+      "referee_reason": "simultaneous",
+      "classification": "multi_point_same_robot_them",
+      "last_contact_tick": 558,
+      "records_at_max_time": 2,
+      "roles_at_max_time": [
+        "them"
+      ],
+      "record_count_in_tick": 13,
+      "us_distance_to_block_at_exit": 0.5902,
+      "them_distance_to_block_at_exit": 0.3049
+    }
+  ],
+  "genuine_two_robot_contests": [],
+  "episodes": [
+    {
+      "source": "final_holdout_v2/fsm/6001",
+      "seed": 6001,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2223,
+      "total_reward": -0.251613,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6002",
+      "seed": 6002,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 235,
+      "total_reward": -0.96264,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6002,
+          "tick": 399,
+          "policy_ticks": 235,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.0861,
+          "outward_speed": 0.0437,
+          "signed_edge_distance": 0.2548,
+          "referee_edge_distance": 0.2548,
+          "min_edge_distance_in_window": 0.2548,
+          "opponent_min_distance_in_window": 2.0387,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6003",
+      "seed": 6003,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 135,
+      "total_reward": -0.950609,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6003,
+          "tick": 316,
+          "policy_ticks": 135,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.1337,
+          "outward_speed": 0.1225,
+          "signed_edge_distance": 0.2554,
+          "referee_edge_distance": 0.2554,
+          "min_edge_distance_in_window": 0.2554,
+          "opponent_min_distance_in_window": 0.7575,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6004",
+      "seed": 6004,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 94,
+      "total_reward": -0.947907,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6004,
+          "tick": 277,
+          "policy_ticks": 94,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.0647,
+          "outward_speed": 0.0497,
+          "signed_edge_distance": 0.2548,
+          "referee_edge_distance": 0.2548,
+          "min_edge_distance_in_window": 0.2548,
+          "opponent_min_distance_in_window": 0.3083,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6005",
+      "seed": 6005,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 157,
+      "total_reward": -0.953178,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6005,
+          "tick": 338,
+          "policy_ticks": 157,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.2174,
+          "outward_speed": 0.163,
+          "signed_edge_distance": 0.251,
+          "referee_edge_distance": 0.251,
+          "min_edge_distance_in_window": 0.251,
+          "opponent_min_distance_in_window": 0.7929,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6006",
+      "seed": 6006,
+      "target_index": -1,
+      "target_name": null,
+      "no_score_block": true,
+      "policy_ticks": 0,
+      "total_reward": 0.0,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6007",
+      "seed": 6007,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2223,
+      "total_reward": -0.195914,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6008",
+      "seed": 6008,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 199,
+      "total_reward": -0.959549,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6008,
+          "tick": 355,
+          "policy_ticks": 199,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.3053,
+          "outward_speed": 0.2465,
+          "signed_edge_distance": 0.2517,
+          "referee_edge_distance": 0.2517,
+          "min_edge_distance_in_window": 0.2517,
+          "opponent_min_distance_in_window": 2.2327,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6009",
+      "seed": 6009,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2223,
+      "total_reward": -0.189245,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6010",
+      "seed": 6010,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 128,
+      "total_reward": -0.94398,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6010,
+          "tick": 317,
+          "policy_ticks": 128,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.0793,
+          "outward_speed": 0.0649,
+          "signed_edge_distance": 0.2565,
+          "referee_edge_distance": 0.2565,
+          "min_edge_distance_in_window": 0.2565,
+          "opponent_min_distance_in_window": 0.4436,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6011",
+      "seed": 6011,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2109,
+      "total_reward": -1.219217,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6011,
+          "tick": 2278,
+          "policy_ticks": 2109,
+          "action": null,
+          "command_v": 0,
+          "command_w": 2,
+          "speed": 0.0936,
+          "outward_speed": 0.0598,
+          "signed_edge_distance": 0.2586,
+          "referee_edge_distance": 0.2586,
+          "min_edge_distance_in_window": 0.2586,
+          "opponent_min_distance_in_window": 1.6757,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "slow_drift_over_edge"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "slow_drift_over_edge": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6012",
+      "seed": 6012,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 283,
+      "total_reward": 1.036083,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 1,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [
+        {
+          "tick": 395,
+          "kind": "BlockOff",
+          "event_reason": "simultaneous",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "multi_point_same_robot_them",
+          "last_contact_tick": 395,
+          "last_contact_role": "simultaneous",
+          "max_contact_time": 0.03,
+          "records_at_max_time": 2,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 4,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 2.0839,
+          "them_distance_to_block_at_exit": 0.3353,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "block_scores": [
+        {
+          "tick": 464,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 464,
+          "last_contact_role": "us",
+          "max_contact_time": 0.005,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 1,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.3065,
+          "them_distance_to_block_at_exit": 3.4675,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {
+        "multi_point_same_robot_them": 1
+      },
+      "block_score_classifications": {
+        "single_contact_us": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/fsm/6013",
+      "seed": 6013,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2248,
+      "total_reward": -0.215606,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6014",
+      "seed": 6014,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 223,
+      "total_reward": -0.959138,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6014,
+          "tick": 388,
+          "policy_ticks": 223,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.335,
+          "outward_speed": 0.2002,
+          "signed_edge_distance": 0.2446,
+          "referee_edge_distance": 0.2446,
+          "min_edge_distance_in_window": 0.2446,
+          "opponent_min_distance_in_window": 1.6144,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6015",
+      "seed": 6015,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 282,
+      "total_reward": -0.967364,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6015,
+          "tick": 437,
+          "policy_ticks": 282,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.0856,
+          "outward_speed": 0.0647,
+          "signed_edge_distance": 0.2429,
+          "referee_edge_distance": 0.2429,
+          "min_edge_distance_in_window": 0.2429,
+          "opponent_min_distance_in_window": 1.627,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "slow_drift_over_edge"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "slow_drift_over_edge": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6016",
+      "seed": 6016,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 1598,
+      "total_reward": 0.904452,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 1631,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "them",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "single_contact_them",
+          "last_contact_tick": 1172,
+          "last_contact_role": "them",
+          "max_contact_time": 0.03,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 6,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.4485,
+          "them_distance_to_block_at_exit": 0.307,
+          "us_on_stage_at_exit": true
+        },
+        {
+          "tick": 1755,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 1754,
+          "last_contact_role": "us",
+          "max_contact_time": 0.015,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 1,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.3381,
+          "them_distance_to_block_at_exit": 0.4286,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_them": 1,
+        "single_contact_us": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/fsm/6017",
+      "seed": 6017,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2219,
+      "total_reward": -0.232512,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6018",
+      "seed": 6018,
+      "target_index": -1,
+      "target_name": null,
+      "no_score_block": true,
+      "policy_ticks": 0,
+      "total_reward": 0.0,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6019",
+      "seed": 6019,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2237,
+      "total_reward": -0.187174,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6020",
+      "seed": 6020,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 143,
+      "total_reward": -0.952511,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6020,
+          "tick": 324,
+          "policy_ticks": 143,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.1139,
+          "outward_speed": 0.0895,
+          "signed_edge_distance": 0.2536,
+          "referee_edge_distance": 0.2536,
+          "min_edge_distance_in_window": 0.2536,
+          "opponent_min_distance_in_window": 1.5691,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6021",
+      "seed": 6021,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 361,
+      "total_reward": 1.028131,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 529,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 529,
+          "last_contact_role": "us",
+          "max_contact_time": 0.005,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 1,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.2884,
+          "them_distance_to_block_at_exit": 0.4967,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_us": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/fsm/6022",
+      "seed": 6022,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 294,
+      "total_reward": 0.035397,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 461,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "them",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_them",
+          "last_contact_tick": 461,
+          "last_contact_role": "them",
+          "max_contact_time": 0.045,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 8,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.3964,
+          "them_distance_to_block_at_exit": 0.3358,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_them": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/fsm/6023",
+      "seed": 6023,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2240,
+      "total_reward": -0.251573,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6024",
+      "seed": 6024,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 1993,
+      "total_reward": -1.175553,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6024,
+          "tick": 2160,
+          "policy_ticks": 1993,
+          "action": null,
+          "command_v": 0.35,
+          "command_w": -0.03200715971139029,
+          "speed": 0.0622,
+          "outward_speed": 0.0522,
+          "signed_edge_distance": 0.1969,
+          "referee_edge_distance": 0.1969,
+          "min_edge_distance_in_window": 0.1969,
+          "opponent_min_distance_in_window": 0.7392,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6025",
+      "seed": 6025,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2234,
+      "total_reward": -0.252817,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6026",
+      "seed": 6026,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 218,
+      "total_reward": 1.042332,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 383,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 383,
+          "last_contact_role": "us",
+          "max_contact_time": 0.005,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 1,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.3095,
+          "them_distance_to_block_at_exit": 2.2348,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_us": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/fsm/6027",
+      "seed": 6027,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 257,
+      "total_reward": -0.964304,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6027,
+          "tick": 412,
+          "policy_ticks": 257,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.4509,
+          "outward_speed": 0.3168,
+          "signed_edge_distance": 0.2453,
+          "referee_edge_distance": 0.2453,
+          "min_edge_distance_in_window": 0.2453,
+          "opponent_min_distance_in_window": 2.2478,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6028",
+      "seed": 6028,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 299,
+      "total_reward": -0.970159,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6028,
+          "tick": 466,
+          "policy_ticks": 299,
+          "action": null,
+          "command_v": 0,
+          "command_w": 2,
+          "speed": 0.1501,
+          "outward_speed": 0.1366,
+          "signed_edge_distance": 0.2418,
+          "referee_edge_distance": 0.2418,
+          "min_edge_distance_in_window": 0.2418,
+          "opponent_min_distance_in_window": 2.3834,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 404,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "them",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "single_contact_them",
+          "last_contact_tick": 401,
+          "last_contact_role": "them",
+          "max_contact_time": 0.005,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 1,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 2.7692,
+          "them_distance_to_block_at_exit": 0.3353,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_them": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/fsm/6029",
+      "seed": 6029,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2236,
+      "total_reward": -0.264284,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6030",
+      "seed": 6030,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 255,
+      "total_reward": -0.965971,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6030,
+          "tick": 419,
+          "policy_ticks": 255,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.098,
+          "outward_speed": -0.0693,
+          "signed_edge_distance": 0.2528,
+          "referee_edge_distance": 0.2528,
+          "min_edge_distance_in_window": 0.2528,
+          "opponent_min_distance_in_window": 2.0667,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6031",
+      "seed": 6031,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 536,
+      "total_reward": -0.997091,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6031,
+          "tick": 697,
+          "policy_ticks": 536,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.5417,
+          "outward_speed": 0.5153,
+          "signed_edge_distance": 0.1524,
+          "referee_edge_distance": 0.1524,
+          "min_edge_distance_in_window": 0.1524,
+          "opponent_min_distance_in_window": 1.7499,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "driving_outward_fast"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "driving_outward_fast": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6032",
+      "seed": 6032,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2219,
+      "total_reward": -0.265789,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6033",
+      "seed": 6033,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2223,
+      "total_reward": -0.219421,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6034",
+      "seed": 6034,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 418,
+      "total_reward": 1.022939,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 590,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 590,
+          "last_contact_role": "us",
+          "max_contact_time": 0.05,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 12,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.2957,
+          "them_distance_to_block_at_exit": 1.0376,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_us": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/fsm/6035",
+      "seed": 6035,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 615,
+      "total_reward": -0.997699,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6035,
+          "tick": 796,
+          "policy_ticks": 615,
+          "action": null,
+          "command_v": 0,
+          "command_w": -1.2,
+          "speed": 0.015,
+          "outward_speed": 0.0033,
+          "signed_edge_distance": 0.1476,
+          "referee_edge_distance": 0.1476,
+          "min_edge_distance_in_window": 0.1476,
+          "opponent_min_distance_in_window": 2.1227,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "slow_drift_over_edge"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "slow_drift_over_edge": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6036",
+      "seed": 6036,
+      "target_index": -1,
+      "target_name": null,
+      "no_score_block": true,
+      "policy_ticks": 0,
+      "total_reward": 0.0,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6037",
+      "seed": 6037,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 324,
+      "total_reward": 1.036688,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 567,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 567,
+          "last_contact_role": "us",
+          "max_contact_time": 0.05,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 10,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.2961,
+          "them_distance_to_block_at_exit": 0.7835,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_us": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/fsm/6038",
+      "seed": 6038,
+      "target_index": -1,
+      "target_name": null,
+      "no_score_block": true,
+      "policy_ticks": 0,
+      "total_reward": 0.0,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6039",
+      "seed": 6039,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 497,
+      "total_reward": 1.014326,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 507,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "single_contact_us",
+          "last_contact_tick": 507,
+          "last_contact_role": "us",
+          "max_contact_time": 0.005,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 1,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.3237,
+          "them_distance_to_block_at_exit": 0.5788,
+          "us_on_stage_at_exit": true
+        },
+        {
+          "tick": 678,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 678,
+          "last_contact_role": "us",
+          "max_contact_time": 0.015,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 3,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.251,
+          "them_distance_to_block_at_exit": 0.4746,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_us": 2
+      }
+    },
+    {
+      "source": "final_holdout_v2/fsm/6040",
+      "seed": 6040,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 186,
+      "total_reward": 0.045864,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6040,
+          "tick": 363,
+          "policy_ticks": 186,
+          "action": null,
+          "command_v": 0,
+          "command_w": 0,
+          "speed": 0.059,
+          "outward_speed": 0.0427,
+          "signed_edge_distance": 0.2577,
+          "referee_edge_distance": 0.2577,
+          "min_edge_distance_in_window": 0.2577,
+          "opponent_min_distance_in_window": 2.065,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 348,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "them",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "single_contact_them",
+          "last_contact_tick": 346,
+          "last_contact_role": "them",
+          "max_contact_time": 0.05,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 4,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 2.6133,
+          "them_distance_to_block_at_exit": 0.2991,
+          "us_on_stage_at_exit": true
+        },
+        {
+          "tick": 363,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 362,
+          "last_contact_role": "us",
+          "max_contact_time": 0.045,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 2,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.3044,
+          "them_distance_to_block_at_exit": 2.857,
+          "us_on_stage_at_exit": false
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_them": 1,
+        "single_contact_us": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/fsm/6041",
+      "seed": 6041,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 222,
+      "total_reward": -0.960519,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6041,
+          "tick": 391,
+          "policy_ticks": 222,
+          "action": null,
+          "command_v": -0.4,
+          "command_w": 0,
+          "speed": 0.2574,
+          "outward_speed": 0.2007,
+          "signed_edge_distance": 0.2568,
+          "referee_edge_distance": 0.2568,
+          "min_edge_distance_in_window": 0.2568,
+          "opponent_min_distance_in_window": 0.2898,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6042",
+      "seed": 6042,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2235,
+      "total_reward": -0.217808,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6043",
+      "seed": 6043,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2227,
+      "total_reward": -0.268613,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6044",
+      "seed": 6044,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 404,
+      "total_reward": -1.004855,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6044,
+          "tick": 570,
+          "policy_ticks": 404,
+          "action": null,
+          "command_v": 0.35,
+          "command_w": 2,
+          "speed": 0.4681,
+          "outward_speed": 0.2429,
+          "signed_edge_distance": 0.2449,
+          "referee_edge_distance": 0.2449,
+          "min_edge_distance_in_window": 0.2449,
+          "opponent_min_distance_in_window": 0.2976,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushed_out_by_opponent_contact"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 567,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "them",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "single_contact_them",
+          "last_contact_tick": 567,
+          "last_contact_role": "them",
+          "max_contact_time": 0.05,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them",
+            "us"
+          ],
+          "record_count_in_tick": 15,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.3191,
+          "them_distance_to_block_at_exit": 0.2515,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushed_out_by_opponent_contact": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_them": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/fsm/6045",
+      "seed": 6045,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2240,
+      "total_reward": -0.240916,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6046",
+      "seed": 6046,
+      "target_index": -1,
+      "target_name": null,
+      "no_score_block": true,
+      "policy_ticks": 0,
+      "total_reward": 0.0,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6047",
+      "seed": 6047,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 234,
+      "total_reward": -0.962174,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6047,
+          "tick": 386,
+          "policy_ticks": 234,
+          "action": null,
+          "command_v": 0.35,
+          "command_w": -0.39371178538123963,
+          "speed": 0.3393,
+          "outward_speed": 0.2481,
+          "signed_edge_distance": 0.2564,
+          "referee_edge_distance": 0.2564,
+          "min_edge_distance_in_window": 0.2564,
+          "opponent_min_distance_in_window": 1.1387,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6048",
+      "seed": 6048,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 360,
+      "total_reward": -1.074229,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6048,
+          "tick": 530,
+          "policy_ticks": 360,
+          "action": null,
+          "command_v": 0,
+          "command_w": -1.257751599995716,
+          "speed": 0.236,
+          "outward_speed": 0.179,
+          "signed_edge_distance": 0.197,
+          "referee_edge_distance": 0.197,
+          "min_edge_distance_in_window": 0.197,
+          "opponent_min_distance_in_window": 0.406,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushed_out_by_opponent_contact"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushed_out_by_opponent_contact": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/fsm/6049",
+      "seed": 6049,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2211,
+      "total_reward": -0.211512,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 507,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "them",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "single_contact_them",
+          "last_contact_tick": 507,
+          "last_contact_role": "them",
+          "max_contact_time": 0.04,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 8,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.9704,
+          "them_distance_to_block_at_exit": 0.2985,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_them": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/fsm/6050",
+      "seed": 6050,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2235,
+      "total_reward": -0.254372,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6001",
+      "seed": 6001,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 115,
+      "total_reward": 1.052597,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 292,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 292,
+          "last_contact_role": "us",
+          "max_contact_time": 0.05,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 10,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.2192,
+          "them_distance_to_block_at_exit": 0.7429,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_us": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/policy/6002",
+      "seed": 6002,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 142,
+      "total_reward": -0.963709,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6002,
+          "tick": 306,
+          "policy_ticks": 142,
+          "action": [
+            -1.0,
+            0.23829182982444763
+          ],
+          "command_v": -1,
+          "command_w": 0.47658365964889526,
+          "speed": 0.5417,
+          "outward_speed": 0.0929,
+          "signed_edge_distance": 0.1517,
+          "referee_edge_distance": 0.1517,
+          "min_edge_distance_in_window": 0.1517,
+          "opponent_min_distance_in_window": 0.6365,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6003",
+      "seed": 6003,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 102,
+      "total_reward": -0.948237,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6003,
+          "tick": 283,
+          "policy_ticks": 102,
+          "action": [
+            -1.0,
+            0.11726448684930801
+          ],
+          "command_v": -1,
+          "command_w": 0.23452897369861603,
+          "speed": 0.938,
+          "outward_speed": 0.5011,
+          "signed_edge_distance": 0.1882,
+          "referee_edge_distance": 0.1882,
+          "min_edge_distance_in_window": 0.1882,
+          "opponent_min_distance_in_window": 1.5203,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6004",
+      "seed": 6004,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2217,
+      "total_reward": -0.191498,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6005",
+      "seed": 6005,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 102,
+      "total_reward": -0.946096,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6005,
+          "tick": 283,
+          "policy_ticks": 102,
+          "action": [
+            -1.0,
+            0.1861943006515503
+          ],
+          "command_v": -1,
+          "command_w": 0.3723886013031006,
+          "speed": 0.8678,
+          "outward_speed": 0.5905,
+          "signed_edge_distance": 0.1812,
+          "referee_edge_distance": 0.1812,
+          "min_edge_distance_in_window": 0.1812,
+          "opponent_min_distance_in_window": 2.6903,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6006",
+      "seed": 6006,
+      "target_index": -1,
+      "target_name": null,
+      "no_score_block": true,
+      "policy_ticks": 0,
+      "total_reward": 0.0,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6007",
+      "seed": 6007,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 115,
+      "total_reward": 1.04943,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 292,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 292,
+          "last_contact_role": "us",
+          "max_contact_time": 0.02,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 4,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.228,
+          "them_distance_to_block_at_exit": 1.5463,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_us": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/policy/6008",
+      "seed": 6008,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2244,
+      "total_reward": -0.241845,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6009",
+      "seed": 6009,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 919,
+      "total_reward": -1.09548,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6009,
+          "tick": 1096,
+          "policy_ticks": 919,
+          "action": [
+            -0.9904516935348511,
+            0.4242226481437683
+          ],
+          "command_v": -0.9904516935348511,
+          "command_w": 0.8484452962875366,
+          "speed": 0.912,
+          "outward_speed": 0.8675,
+          "signed_edge_distance": 0.1511,
+          "referee_edge_distance": 0.1511,
+          "min_edge_distance_in_window": 0.1511,
+          "opponent_min_distance_in_window": 0.6576,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "driving_outward_fast"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "driving_outward_fast": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6010",
+      "seed": 6010,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 127,
+      "total_reward": -1.007764,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6010,
+          "tick": 316,
+          "policy_ticks": 127,
+          "action": [
+            -0.36314257979393005,
+            0.38405275344848633
+          ],
+          "command_v": -0.36314257979393005,
+          "command_w": 0.7681055068969727,
+          "speed": 0.4306,
+          "outward_speed": 0.362,
+          "signed_edge_distance": 0.1893,
+          "referee_edge_distance": 0.1893,
+          "min_edge_distance_in_window": 0.1893,
+          "opponent_min_distance_in_window": 0.6435,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "driving_outward_fast"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "driving_outward_fast": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6011",
+      "seed": 6011,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2231,
+      "total_reward": -0.220768,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 1,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [
+        {
+          "tick": 353,
+          "kind": "BlockOff",
+          "event_reason": "simultaneous",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "multi_point_same_robot_them",
+          "last_contact_tick": 351,
+          "last_contact_role": "simultaneous",
+          "max_contact_time": 0.05,
+          "records_at_max_time": 2,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 4,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.8156,
+          "them_distance_to_block_at_exit": 0.461,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {
+        "multi_point_same_robot_them": 1
+      },
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6012",
+      "seed": 6012,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 102,
+      "total_reward": -0.945847,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6012,
+          "tick": 283,
+          "policy_ticks": 102,
+          "action": [
+            -1.0,
+            0.20127370953559875
+          ],
+          "command_v": -1,
+          "command_w": 0.4025474190711975,
+          "speed": 0.6814,
+          "outward_speed": 0.5082,
+          "signed_edge_distance": 0.1817,
+          "referee_edge_distance": 0.1817,
+          "min_edge_distance_in_window": 0.1817,
+          "opponent_min_distance_in_window": 1.6303,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6013",
+      "seed": 6013,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 168,
+      "total_reward": -0.996556,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6013,
+          "tick": 320,
+          "policy_ticks": 168,
+          "action": [
+            1.0,
+            0.2979969382286072
+          ],
+          "command_v": 1,
+          "command_w": 0.5959938764572144,
+          "speed": 0.318,
+          "outward_speed": 0.2956,
+          "signed_edge_distance": 0.2297,
+          "referee_edge_distance": 0.2297,
+          "min_edge_distance_in_window": 0.2297,
+          "opponent_min_distance_in_window": 0.3623,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushed_out_by_opponent_contact"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushed_out_by_opponent_contact": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6014",
+      "seed": 6014,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2235,
+      "total_reward": -0.207449,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 534,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "them",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "single_contact_them",
+          "last_contact_tick": 534,
+          "last_contact_role": "them",
+          "max_contact_time": 0.03,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 5,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 1.1267,
+          "them_distance_to_block_at_exit": 0.3197,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_them": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/policy/6015",
+      "seed": 6015,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2245,
+      "total_reward": -0.216361,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 391,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "them",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "single_contact_them",
+          "last_contact_tick": 390,
+          "last_contact_role": "them",
+          "max_contact_time": 0.005,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 1,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.9044,
+          "them_distance_to_block_at_exit": 0.3502,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_them": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/policy/6016",
+      "seed": 6016,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 316,
+      "total_reward": 0.032364,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 473,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "them",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_them",
+          "last_contact_tick": 473,
+          "last_contact_role": "them",
+          "max_contact_time": 0.045,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 4,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.8066,
+          "them_distance_to_block_at_exit": 0.3156,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_them": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/policy/6017",
+      "seed": 6017,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 102,
+      "total_reward": -0.946871,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6017,
+          "tick": 283,
+          "policy_ticks": 102,
+          "action": [
+            -1.0,
+            0.10333334654569626
+          ],
+          "command_v": -1,
+          "command_w": 0.20666669309139252,
+          "speed": 0.5221,
+          "outward_speed": 0.3821,
+          "signed_edge_distance": 0.1863,
+          "referee_edge_distance": 0.1863,
+          "min_edge_distance_in_window": 0.1863,
+          "opponent_min_distance_in_window": 0.6202,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6018",
+      "seed": 6018,
+      "target_index": -1,
+      "target_name": null,
+      "no_score_block": true,
+      "policy_ticks": 0,
+      "total_reward": 0.0,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6019",
+      "seed": 6019,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 90,
+      "total_reward": -0.951583,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6019,
+          "tick": 253,
+          "policy_ticks": 90,
+          "action": [
+            -1.0,
+            0.18508988618850708
+          ],
+          "command_v": -1,
+          "command_w": 0.37017977237701416,
+          "speed": 0.7621,
+          "outward_speed": 0.4819,
+          "signed_edge_distance": 0.1873,
+          "referee_edge_distance": 0.1873,
+          "min_edge_distance_in_window": 0.1873,
+          "opponent_min_distance_in_window": 1.9289,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6020",
+      "seed": 6020,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 102,
+      "total_reward": -0.945843,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6020,
+          "tick": 283,
+          "policy_ticks": 102,
+          "action": [
+            -1.0,
+            0.20126308500766754
+          ],
+          "command_v": -1,
+          "command_w": 0.4025261700153351,
+          "speed": 0.6814,
+          "outward_speed": 0.5081,
+          "signed_edge_distance": 0.1817,
+          "referee_edge_distance": 0.1817,
+          "min_edge_distance_in_window": 0.1817,
+          "opponent_min_distance_in_window": 0.9756,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6021",
+      "seed": 6021,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 88,
+      "total_reward": 1.054641,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 256,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 256,
+          "last_contact_role": "us",
+          "max_contact_time": 0.05,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 1,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.2266,
+          "them_distance_to_block_at_exit": 2.3616,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_us": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/policy/6022",
+      "seed": 6022,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 171,
+      "total_reward": -0.452472,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 1,
+      "target_block_offs_counter": 1,
+      "drops": [],
+      "block_offs": [
+        {
+          "tick": 338,
+          "kind": "BlockOff",
+          "event_reason": "simultaneous",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "multi_point_same_robot_us",
+          "last_contact_tick": 260,
+          "last_contact_role": "simultaneous",
+          "max_contact_time": 0.045,
+          "records_at_max_time": 4,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 8,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.8165,
+          "them_distance_to_block_at_exit": 0.4145,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {
+        "multi_point_same_robot_us": 1
+      },
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6023",
+      "seed": 6023,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 281,
+      "total_reward": -1.018627,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6023,
+          "tick": 441,
+          "policy_ticks": 281,
+          "action": [
+            1.0,
+            0.23129074275493622
+          ],
+          "command_v": 1,
+          "command_w": 0.46258148550987244,
+          "speed": 0.0037,
+          "outward_speed": 0.003,
+          "signed_edge_distance": 0.2521,
+          "referee_edge_distance": 0.2521,
+          "min_edge_distance_in_window": 0.2521,
+          "opponent_min_distance_in_window": 0.4122,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "slow_drift_over_edge"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "slow_drift_over_edge": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6024",
+      "seed": 6024,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 241,
+      "total_reward": -0.969467,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6024,
+          "tick": 408,
+          "policy_ticks": 241,
+          "action": [
+            -1.0,
+            0.1089068055152893
+          ],
+          "command_v": -1,
+          "command_w": 0.2178136110305786,
+          "speed": 0.4604,
+          "outward_speed": 0.2633,
+          "signed_edge_distance": 0.1868,
+          "referee_edge_distance": 0.1868,
+          "min_edge_distance_in_window": 0.1868,
+          "opponent_min_distance_in_window": 0.4786,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 379,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "them",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "single_contact_them",
+          "last_contact_tick": 379,
+          "last_contact_role": "them",
+          "max_contact_time": 0.03,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 5,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 1.1926,
+          "them_distance_to_block_at_exit": 0.2894,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_them": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/policy/6025",
+      "seed": 6025,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 255,
+      "total_reward": -1.02333,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6025,
+          "tick": 421,
+          "policy_ticks": 255,
+          "action": [
+            -1.0,
+            0.8492811918258667
+          ],
+          "command_v": -1,
+          "command_w": 1.6985623836517334,
+          "speed": 0.9275,
+          "outward_speed": 0.782,
+          "signed_edge_distance": 0.1746,
+          "referee_edge_distance": 0.1746,
+          "min_edge_distance_in_window": 0.1746,
+          "opponent_min_distance_in_window": 0.6368,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "driving_outward_fast"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "driving_outward_fast": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6026",
+      "seed": 6026,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 90,
+      "total_reward": -0.946472,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6026,
+          "tick": 255,
+          "policy_ticks": 90,
+          "action": [
+            -1.0,
+            0.11330842226743698
+          ],
+          "command_v": -1,
+          "command_w": 0.22661684453487396,
+          "speed": 0.5962,
+          "outward_speed": 0.5046,
+          "signed_edge_distance": 0.1769,
+          "referee_edge_distance": 0.1769,
+          "min_edge_distance_in_window": 0.1769,
+          "opponent_min_distance_in_window": 0.6575,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6027",
+      "seed": 6027,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 813,
+      "total_reward": -1.078753,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6027,
+          "tick": 968,
+          "policy_ticks": 813,
+          "action": [
+            -1.0,
+            0.21140532195568085
+          ],
+          "command_v": -1,
+          "command_w": 0.4228106439113617,
+          "speed": 0.925,
+          "outward_speed": 0.2975,
+          "signed_edge_distance": 0.1731,
+          "referee_edge_distance": 0.1731,
+          "min_edge_distance_in_window": 0.1731,
+          "opponent_min_distance_in_window": 0.9484,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "driving_outward_fast"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "driving_outward_fast": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6028",
+      "seed": 6028,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 87,
+      "total_reward": -0.949262,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6028,
+          "tick": 254,
+          "policy_ticks": 87,
+          "action": [
+            -1.0,
+            0.22456778585910797
+          ],
+          "command_v": -1,
+          "command_w": 0.44913557171821594,
+          "speed": 0.744,
+          "outward_speed": 0.5211,
+          "signed_edge_distance": 0.1939,
+          "referee_edge_distance": 0.1939,
+          "min_edge_distance_in_window": 0.1939,
+          "opponent_min_distance_in_window": 1.81,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6029",
+      "seed": 6029,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2236,
+      "total_reward": -0.204338,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 1,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [
+        {
+          "tick": 395,
+          "kind": "BlockOff",
+          "event_reason": "simultaneous",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "multi_point_same_robot_them",
+          "last_contact_tick": 393,
+          "last_contact_role": "simultaneous",
+          "max_contact_time": 0.03,
+          "records_at_max_time": 2,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 4,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 1.4028,
+          "them_distance_to_block_at_exit": 0.3879,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {
+        "multi_point_same_robot_them": 1
+      },
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6030",
+      "seed": 6030,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 141,
+      "total_reward": -1.008969,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6030,
+          "tick": 305,
+          "policy_ticks": 141,
+          "action": [
+            1.0,
+            0.1446068286895752
+          ],
+          "command_v": 1,
+          "command_w": 0.2892136573791504,
+          "speed": 0.0781,
+          "outward_speed": 0.0497,
+          "signed_edge_distance": 0.2589,
+          "referee_edge_distance": 0.2589,
+          "min_edge_distance_in_window": 0.2589,
+          "opponent_min_distance_in_window": 0.4339,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": true,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "slow_drift_over_edge"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "slow_drift_over_edge": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6031",
+      "seed": 6031,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 1490,
+      "total_reward": -1.084922,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 1,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6031,
+          "tick": 1651,
+          "policy_ticks": 1490,
+          "action": [
+            -1.0,
+            0.0045503852888941765
+          ],
+          "command_v": -1,
+          "command_w": 0.009100770577788353,
+          "speed": 0.6494,
+          "outward_speed": 0.5184,
+          "signed_edge_distance": 0.1846,
+          "referee_edge_distance": 0.1846,
+          "min_edge_distance_in_window": 0.1846,
+          "opponent_min_distance_in_window": 0.656,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [
+        {
+          "tick": 354,
+          "kind": "BlockOff",
+          "event_reason": "simultaneous",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "multi_point_same_robot_them",
+          "last_contact_tick": 352,
+          "last_contact_role": "simultaneous",
+          "max_contact_time": 0.03,
+          "records_at_max_time": 2,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 6,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.6219,
+          "them_distance_to_block_at_exit": 0.3178,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {
+        "multi_point_same_robot_them": 1
+      },
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6032",
+      "seed": 6032,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 102,
+      "total_reward": -0.948579,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6032,
+          "tick": 283,
+          "policy_ticks": 102,
+          "action": [
+            -1.0,
+            0.18781884014606476
+          ],
+          "command_v": -1,
+          "command_w": 0.3756376802921295,
+          "speed": 0.8501,
+          "outward_speed": 0.5908,
+          "signed_edge_distance": 0.1953,
+          "referee_edge_distance": 0.1953,
+          "min_edge_distance_in_window": 0.1953,
+          "opponent_min_distance_in_window": 1.4941,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6033",
+      "seed": 6033,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 111,
+      "total_reward": 1.05293,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 288,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 288,
+          "last_contact_role": "us",
+          "max_contact_time": 0.01,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 2,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.2256,
+          "them_distance_to_block_at_exit": 2.0815,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_us": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/policy/6034",
+      "seed": 6034,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 88,
+      "total_reward": -0.946719,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6034,
+          "tick": 260,
+          "policy_ticks": 88,
+          "action": [
+            -1.0,
+            0.15087774395942688
+          ],
+          "command_v": -1,
+          "command_w": 0.30175548791885376,
+          "speed": 0.7132,
+          "outward_speed": 0.4865,
+          "signed_edge_distance": 0.176,
+          "referee_edge_distance": 0.176,
+          "min_edge_distance_in_window": 0.176,
+          "opponent_min_distance_in_window": 1.908,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6035",
+      "seed": 6035,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 102,
+      "total_reward": -0.948249,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6035,
+          "tick": 283,
+          "policy_ticks": 102,
+          "action": [
+            -1.0,
+            0.11746978014707565
+          ],
+          "command_v": -1,
+          "command_w": 0.2349395602941513,
+          "speed": 0.9383,
+          "outward_speed": 0.5009,
+          "signed_edge_distance": 0.1882,
+          "referee_edge_distance": 0.1882,
+          "min_edge_distance_in_window": 0.1882,
+          "opponent_min_distance_in_window": 1.5383,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6036",
+      "seed": 6036,
+      "target_index": -1,
+      "target_name": null,
+      "no_score_block": true,
+      "policy_ticks": 0,
+      "total_reward": 0.0,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6037",
+      "seed": 6037,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 74,
+      "total_reward": -0.439777,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 1,
+      "target_block_offs_counter": 1,
+      "drops": [],
+      "block_offs": [
+        {
+          "tick": 317,
+          "kind": "BlockOff",
+          "event_reason": "simultaneous",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "multi_point_same_robot_us",
+          "last_contact_tick": 317,
+          "last_contact_role": "simultaneous",
+          "max_contact_time": 0.05,
+          "records_at_max_time": 2,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 8,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.2177,
+          "them_distance_to_block_at_exit": 1.7819,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {
+        "multi_point_same_robot_us": 1
+      },
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6038",
+      "seed": 6038,
+      "target_index": -1,
+      "target_name": null,
+      "no_score_block": true,
+      "policy_ticks": 0,
+      "total_reward": 0.0,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6039",
+      "seed": 6039,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 102,
+      "total_reward": -0.946379,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6039,
+          "tick": 283,
+          "policy_ticks": 102,
+          "action": [
+            -1.0,
+            0.09286634624004364
+          ],
+          "command_v": -1,
+          "command_w": 0.18573269248008728,
+          "speed": 0.5164,
+          "outward_speed": 0.3597,
+          "signed_edge_distance": 0.1872,
+          "referee_edge_distance": 0.1872,
+          "min_edge_distance_in_window": 0.1872,
+          "opponent_min_distance_in_window": 1.8493,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6040",
+      "seed": 6040,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 111,
+      "total_reward": -0.447516,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 1,
+      "target_block_offs_counter": 1,
+      "drops": [],
+      "block_offs": [
+        {
+          "tick": 288,
+          "kind": "BlockOff",
+          "event_reason": "simultaneous",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "multi_point_same_robot_us",
+          "last_contact_tick": 288,
+          "last_contact_role": "simultaneous",
+          "max_contact_time": 0.03,
+          "records_at_max_time": 2,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 14,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.2321,
+          "them_distance_to_block_at_exit": 0.6323,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {
+        "multi_point_same_robot_us": 1
+      },
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6041",
+      "seed": 6041,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 98,
+      "total_reward": -0.947896,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6041,
+          "tick": 267,
+          "policy_ticks": 98,
+          "action": [
+            -1.0,
+            0.17969472706317902
+          ],
+          "command_v": -1,
+          "command_w": 0.35938945412635803,
+          "speed": 0.6594,
+          "outward_speed": 0.4628,
+          "signed_edge_distance": 0.1915,
+          "referee_edge_distance": 0.1915,
+          "min_edge_distance_in_window": 0.1915,
+          "opponent_min_distance_in_window": 1.8742,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6042",
+      "seed": 6042,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 87,
+      "total_reward": -0.949144,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6042,
+          "tick": 252,
+          "policy_ticks": 87,
+          "action": [
+            -1.0,
+            0.2607037425041199
+          ],
+          "command_v": -1,
+          "command_w": 0.5214074850082397,
+          "speed": 0.9007,
+          "outward_speed": 0.6482,
+          "signed_edge_distance": 0.1861,
+          "referee_edge_distance": 0.1861,
+          "min_edge_distance_in_window": 0.1861,
+          "opponent_min_distance_in_window": 1.158,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6043",
+      "seed": 6043,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 223,
+      "total_reward": -0.457654,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 1,
+      "target_block_offs_counter": 1,
+      "drops": [],
+      "block_offs": [
+        {
+          "tick": 396,
+          "kind": "BlockOff",
+          "event_reason": "simultaneous",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "multi_point_same_robot_them",
+          "last_contact_tick": 396,
+          "last_contact_role": "simultaneous",
+          "max_contact_time": 0.05,
+          "records_at_max_time": 2,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 17,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.769,
+          "them_distance_to_block_at_exit": 0.295,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "block_scores": [
+        {
+          "tick": 338,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "them",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "single_contact_them",
+          "last_contact_tick": 338,
+          "last_contact_role": "them",
+          "max_contact_time": 0.03,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 2,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.8635,
+          "them_distance_to_block_at_exit": 0.34,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {
+        "multi_point_same_robot_them": 1
+      },
+      "block_score_classifications": {
+        "single_contact_them": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/policy/6044",
+      "seed": 6044,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 142,
+      "total_reward": -0.952929,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6044,
+          "tick": 308,
+          "policy_ticks": 142,
+          "action": [
+            0.9656534194946289,
+            0.6324491500854492
+          ],
+          "command_v": 0.9656534194946289,
+          "command_w": 1.2648983001708984,
+          "speed": 0.7734,
+          "outward_speed": 0.5784,
+          "signed_edge_distance": 0.2552,
+          "referee_edge_distance": 0.2552,
+          "min_edge_distance_in_window": 0.2552,
+          "opponent_min_distance_in_window": 0.3307,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6045",
+      "seed": 6045,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 884,
+      "total_reward": -1.090942,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6045,
+          "tick": 1044,
+          "policy_ticks": 884,
+          "action": [
+            -1.0,
+            0.2544933557510376
+          ],
+          "command_v": -1,
+          "command_w": 0.5089867115020752,
+          "speed": 0.0099,
+          "outward_speed": 0.0099,
+          "signed_edge_distance": 0.2423,
+          "referee_edge_distance": 0.2423,
+          "min_edge_distance_in_window": 0.2423,
+          "opponent_min_distance_in_window": 0.3327,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "slow_drift_over_edge"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [
+        {
+          "tick": 436,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "them",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "single_contact_them",
+          "last_contact_tick": 436,
+          "last_contact_role": "them",
+          "max_contact_time": 0.01,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 2,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 1.064,
+          "them_distance_to_block_at_exit": 0.2503,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "slow_drift_over_edge": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {
+        "single_contact_them": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/policy/6046",
+      "seed": 6046,
+      "target_index": -1,
+      "target_name": null,
+      "no_score_block": true,
+      "policy_ticks": 0,
+      "total_reward": 0.0,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6047",
+      "seed": 6047,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 1189,
+      "total_reward": 0.945531,
+      "locked_target_us_block_scores": 1,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 1,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [
+        {
+          "tick": 330,
+          "kind": "BlockOff",
+          "event_reason": "simultaneous",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "multi_point_same_robot_them",
+          "last_contact_tick": 328,
+          "last_contact_role": "simultaneous",
+          "max_contact_time": 0.035,
+          "records_at_max_time": 2,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 10,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.8182,
+          "them_distance_to_block_at_exit": 0.3224,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "block_scores": [
+        {
+          "tick": 1341,
+          "kind": "BlockScore",
+          "event_reason": "",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "single_contact_us",
+          "last_contact_tick": 1341,
+          "last_contact_role": "us",
+          "max_contact_time": 0.05,
+          "records_at_max_time": 1,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 3,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.2257,
+          "them_distance_to_block_at_exit": 0.8169,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {
+        "multi_point_same_robot_them": 1
+      },
+      "block_score_classifications": {
+        "single_contact_us": 1
+      }
+    },
+    {
+      "source": "final_holdout_v2/policy/6048",
+      "seed": 6048,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 90,
+      "total_reward": -1.44478,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 1,
+      "target_block_offs_counter": 1,
+      "drops": [
+        {
+          "seed": 6048,
+          "tick": 260,
+          "policy_ticks": 90,
+          "action": [
+            -1.0,
+            0.18402476608753204
+          ],
+          "command_v": -1,
+          "command_w": 0.3680495321750641,
+          "speed": 0.6291,
+          "outward_speed": 0.5493,
+          "signed_edge_distance": 0.1727,
+          "referee_edge_distance": 0.1727,
+          "min_edge_distance_in_window": 0.1727,
+          "opponent_min_distance_in_window": 1.8196,
+          "contacting_target_in_window": true,
+          "opponent_contacting_target_in_window": false,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "pushing_target_inside_slow_zone"
+        }
+      ],
+      "block_offs": [
+        {
+          "tick": 260,
+          "kind": "BlockOff",
+          "event_reason": "simultaneous",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 0,
+          "block_is_target": true,
+          "classification": "multi_point_same_robot_us",
+          "last_contact_tick": 260,
+          "last_contact_role": "simultaneous",
+          "max_contact_time": 0.05,
+          "records_at_max_time": 4,
+          "roles_at_max_time": [
+            "us"
+          ],
+          "roles_in_tick": [
+            "us"
+          ],
+          "record_count_in_tick": 17,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.2227,
+          "them_distance_to_block_at_exit": 2.1641,
+          "us_on_stage_at_exit": false
+        }
+      ],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "pushing_target_inside_slow_zone": 1
+      },
+      "block_off_classifications": {
+        "multi_point_same_robot_us": 1
+      },
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6049",
+      "seed": 6049,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 2211,
+      "total_reward": -0.15146,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 0,
+      "unowned_block_offs_counter": 1,
+      "target_block_offs_counter": 0,
+      "drops": [],
+      "block_offs": [
+        {
+          "tick": 558,
+          "kind": "BlockOff",
+          "event_reason": "simultaneous",
+          "event_role": "us",
+          "event_block_name": "增益块",
+          "block_index": 1,
+          "block_is_target": false,
+          "classification": "multi_point_same_robot_them",
+          "last_contact_tick": 558,
+          "last_contact_role": "simultaneous",
+          "max_contact_time": 0.045,
+          "records_at_max_time": 2,
+          "roles_at_max_time": [
+            "them"
+          ],
+          "roles_in_tick": [
+            "them"
+          ],
+          "record_count_in_tick": 13,
+          "block_kind": "Buff",
+          "us_distance_to_block_at_exit": 0.5902,
+          "them_distance_to_block_at_exit": 0.3049,
+          "us_on_stage_at_exit": true
+        }
+      ],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {},
+      "block_off_classifications": {
+        "multi_point_same_robot_them": 1
+      },
+      "block_score_classifications": {}
+    },
+    {
+      "source": "final_holdout_v2/policy/6050",
+      "seed": 6050,
+      "target_index": 0,
+      "target_name": "增益块",
+      "no_score_block": false,
+      "policy_ticks": 203,
+      "total_reward": -1.008449,
+      "locked_target_us_block_scores": 0,
+      "us_drops_counter": 1,
+      "unowned_block_offs_counter": 0,
+      "target_block_offs_counter": 0,
+      "drops": [
+        {
+          "seed": 6050,
+          "tick": 368,
+          "policy_ticks": 203,
+          "action": [
+            1.0,
+            0.2042260318994522
+          ],
+          "command_v": 1,
+          "command_w": 0.4084520637989044,
+          "speed": 0.22,
+          "outward_speed": 0.1445,
+          "signed_edge_distance": 0.2438,
+          "referee_edge_distance": 0.2438,
+          "min_edge_distance_in_window": 0.2438,
+          "opponent_min_distance_in_window": 0.4666,
+          "contacting_target_in_window": false,
+          "opponent_contacting_target_in_window": true,
+          "inside_fsm_guard_zone": true,
+          "inside_fsm_slow_zone": true,
+          "label": "slow_drift_over_edge"
+        }
+      ],
+      "block_offs": [],
+      "block_scores": [],
+      "pairing_ambiguous": 0,
+      "drop_labels": {
+        "slow_drift_over_edge": 1
+      },
+      "block_off_classifications": {},
+      "block_score_classifications": {}
+    }
+  ],
+  "recorded_cross_check": {
+    "recorded_file": "D:\\project\\robot-simulator\\.trellis\\tasks\\archive\\2026-09\\09-26-score-block-ppo-checkpoint-round\\evidence\\final-holdout-v2.json",
+    "recorded_sha256": "38776f8457480b1135797c7017c78ba4dc06b864896e58f5f134ea58342c7df0",
+    "pairs_recorded": 100,
+    "pairs_collected": 100,
+    "fields": [
+      "locked_target_us_block_scores",
+      "policy_ticks",
+      "total_reward",
+      "unowned_block_offs",
+      "us_drops"
+    ],
+    "mismatches": [],
+    "reproduces": true
+  }
+}

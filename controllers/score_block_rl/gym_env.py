@@ -37,10 +37,13 @@ class ScoreBlockEnv(gym.Env):
 
     def __init__(self, dotnet_exe: str, cli_dll: str, scenario_path: str,
                  duration: float = 120.0, seed_pool: Optional[list[int]] = None,
-                 max_policy_ticks: int = MAX_POLICY_TICKS):
+                 max_policy_ticks: int = MAX_POLICY_TICKS, trace: bool = False):
         super().__init__()
         if seed_pool is not None and not seed_pool:
             raise ValueError("seed_pool must contain at least one seed")
+        #: Opt-in diagnostic trace. Off by default so training/evaluation requests
+        #: (and therefore the rl-env response shape) stay byte-identical.
+        self._trace = bool(trace)
         self._dotnet = str(dotnet_exe)
         self._cli = str(cli_dll)
         self._scenario = str(scenario_path)
@@ -114,7 +117,10 @@ class ScoreBlockEnv(gym.Env):
     def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
         chosen = int(seed) if seed is not None else self._next_seed()
-        reply = self._send({"op": "reset", "seed": chosen})
+        request: dict[str, Any] = {"op": "reset", "seed": chosen}
+        if self._trace:
+            request["trace"] = True
+        reply = self._send(request)
         if reply.get("type") != "reset":
             raise RuntimeError(f"expected reset response, got {reply.get('type')!r}")
         obs = self._observation(reply)

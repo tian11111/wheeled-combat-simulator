@@ -72,6 +72,38 @@ dotnet build RobotSimulator.sln -m:1
 - 输出保留全部 `no_score_block`、掉台、归因歧义与 fault 样本；`ac4_claim_eligible` 恒为 `false`（上一轮 AC4 已关闭），新盲验结果记在 `new_round_blind_gate_passed`，不能追认为上一轮 AC4。
 - 最终比分和 episode 回报只作参考，不能替代锁定目标 `BlockScore`。
 
+## 失败诊断（`diagnose.py`）
+
+只诊断、不修复：`diagnose.py` 消费 `rl-env` 的**可选、显式开启**逐 tick 轨迹，对已揭示的 seed 集
+（仅作分析输入，永不作为门槛证据）分类掉台与块出界归属。默认关闭轨迹时 `rl-env` 的响应与之前逐位一致。
+
+```powershell
+$py = "$env:TEMP\score-block-rl-venv-11d\Scripts\python.exe"
+$out = "$env:TEMP\score-block-rl-diagnose"
+$model = "$env:TEMP\score-block-rl-v2-500k-20260926\checkpoints\rl_model_307200_steps.zip"
+
+# 采集：逐 tick 轨迹落到 <out>/traces/<tag>-<mode>-<seed>.jsonl.gz（大体积，不入 Git）
+& $py -X utf8 controllers/score_block_rl/diagnose.py collect --mode both `
+    --split final_holdout_v2 --model $model --dotnet <dotnet.exe> --out $out --force
+
+# 分析：逐 episode 分类 + 与既有评测结果逐 seed 复现核对（不一致会告警）
+& $py -X utf8 controllers/score_block_rl/diagnose.py analyze --out $out --tag final_holdout_v2 `
+    --compare-recorded <final-holdout-v2.json>
+
+# 回归：证明轨迹开关不改变默认路径的观测/奖励/info
+& $py -X utf8 controllers/score_block_rl/diagnose.py default-off-check --seed 6001 --ticks 300 `
+    --dotnet <dotnet.exe> --out $out
+
+# 把决定性原始轨迹摘录成 markdown
+& $py -X utf8 controllers/score_block_rl/diagnose.py excerpts --out $out
+```
+
+结论（任务 `09-26-score-block-failure-diagnosis`）：归属缺陷是 `Physics.FinalizeBlockContacts`
+用**接触记录条数**而非**不同角色数**判定 `"simultaneous"`，导致单台机器人多点接触出界不计分
+（两轮 14 次 `BlockOff` 全部如此，真双方争抢 0 次）；掉台缺口来自接近台沿时的速度与转角
+（速度 > 0.4 m/s 的掉台占 82% vs FSM 14%）。报告见
+`.trellis/tasks/09-26-score-block-failure-diagnosis/report.md`。
+
 ## 定向验证
 
 ```powershell

@@ -56,7 +56,11 @@ public static class RlEnvCommand
                     {
                         case "reset":
                             var seed = root.GetProperty("seed").GetInt32();
-                            var reset = Reset(factory, scenarioPath, seed, duration, state, ref engine);
+                            // Opt-in per-episode diagnostic trace. Absent or false keeps the
+                            // training/evaluation response shape byte-identical.
+                            var trace = root.TryGetProperty("trace", out var traceElement)
+                                        && traceElement.ValueKind == JsonValueKind.True;
+                            var reset = Reset(factory, scenarioPath, seed, duration, state, ref engine, trace);
                             Emit(new { type = "reset", obs = reset.Obs, info = reset.Info });
                             break;
                         case "step":
@@ -137,6 +141,10 @@ public static class RlEnvCommand
     {
         public Scenario Scenario = new();
         public bool NoScoreBlock;
+
+        /// <summary>Diagnostic trace opt-in (set per episode by the <c>reset</c> request).</summary>
+        public bool Trace;
+
         public long LastSeq;
         public int Seed;
         public int EntryTick;
@@ -165,7 +173,7 @@ public static class RlEnvCommand
 
     private static (double[] Obs, Dictionary<string, object?> Info) Reset(
         MujocoTrainingPhysicsBackendFactory factory, string scenarioPath, int seed,
-        double duration, EpisodeState state, ref MatchEngine? engineRef)
+        double duration, EpisodeState state, ref MatchEngine? engineRef, bool trace)
     {
         engineRef?.Dispose();
         engineRef = null;
@@ -176,6 +184,7 @@ public static class RlEnvCommand
         engine.Arm();
 
         state.NoScoreBlock = false;
+        state.Trace = trace;
         state.Seed = seed;
         state.PolicyTicks = 0;
         state.LastSeq = LatestEventSequence(engine);
@@ -212,6 +221,7 @@ public static class RlEnvCommand
             var info = Info(engine, state, seed, null);
             info["no_score_block"] = true;
             info["pre_roll_ticks"] = guard;
+            AttachTrace(info, engine, state);
             return (new double[ObservationSize], info);
         }
 
@@ -224,6 +234,7 @@ public static class RlEnvCommand
             noTargetInfo["no_score_block"] = true;
             noTargetInfo["reason"] = "score_block_without_valid_buff_target";
             noTargetInfo["pre_roll_ticks"] = guard;
+            AttachTrace(noTargetInfo, engine, state);
             return (new double[ObservationSize], noTargetInfo);
         }
         if (state.TargetIndex >= 0)
@@ -237,6 +248,7 @@ public static class RlEnvCommand
         var (obs, entryInfo) = BuildObservation(engine, state, seed, snap.Robots[RoleNames.Us].OnPlatform, snap.Timer);
         var infoOut = Info(engine, state, seed, null);
         foreach (var kv in entryInfo) infoOut[kv.Key] = kv.Value;
+        AttachTrace(infoOut, engine, state);
         return (obs, infoOut);
     }
 
@@ -248,6 +260,7 @@ public static class RlEnvCommand
             // 未进入阶段的 seed: 首个 step 不执行动作, 立即零成功终止(保留该 seed 于评测)。
             var zeroInfo = Info(engine, state, state.Seed, null);
             zeroInfo["no_score_block"] = true;
+            AttachTrace(zeroInfo, engine, state);
             return (new double[ObservationSize], 0.0, true, false, zeroInfo);
         }
 
@@ -312,6 +325,7 @@ public static class RlEnvCommand
         info["target_lost_not_ours"] = targetLost;
         info["attribution_ambiguous_this_step"] = attributionAmbiguous;
         info["us_dropped"] = usDropped;
+        AttachTrace(info, engine, state, events);
         return (obs, reward, terminated, truncated, info);
     }
 
@@ -481,5 +495,118 @@ public static class RlEnvCommand
             info["target_edge_distance"] = double.IsFinite(distance) ? distance : (double?)null;
         }
         return info;
+    }
+
+    // ---------- opt-in diagnostic trace ----------
+
+    /// <summary>
+    /// Adds the per-tick diagnostic trace to <paramref name="info"/> only when the episode
+    /// opted in. The trace is a read-only projection of referee-visible state: it consumes
+    /// no randomness and mutates nothing, so determinism is unaffected and the default
+    /// (non-trace) response shape stays byte-identical.
+    /// </summary>
+    private static void AttachTrace(Dictionary<string, object?> info, MatchEngine engine,
+        EpisodeState state, IReadOnlyList<CoreEvent>? events = null)
+    {
+        if (!state.Trace) return;
+        info["trace"] = BuildTrace(engine, state, events ?? Array.Empty<CoreEvent>());
+    }
+
+    private static Dictionary<string, object?> BuildTrace(MatchEngine engine, EpisodeState state,
+        IReadOnlyList<CoreEvent> events)
+    {
+        var blocks = new List<object?>(engine.Blocks.Count);
+        foreach (var block in engine.Blocks)
+        {
+            blocks.Add(BlockTrace(engine, block));
+        }
+        var eventTraces = new List<object?>(events.Count);
+        foreach (var evt in events)
+        {
+            eventTraces.Add(EventTrace(evt));
+        }
+        return new Dictionary<string, object?>
+        {
+            ["tick"] = engine.TickIndex,
+            ["policy_ticks"] = state.PolicyTicks,
+            ["seed"] = state.Seed,
+            ["us"] = RobotTrace(engine, engine.Us),
+            ["them"] = RobotTrace(engine, engine.Them),
+            ["target_index"] = state.TargetIndex,
+            ["blocks"] = blocks,
+            ["events"] = eventTraces,
+        };
+    }
+
+    private static Dictionary<string, object?> RobotTrace(MatchEngine engine, RobotRuntime robot) => new()
+    {
+        ["x"] = robot.X,
+        ["y"] = robot.Y,
+        ["th"] = robot.Th,
+        // V/W are the kernel-clamped requested commands: for the policy path these are the
+        // accepted actions, for the FSM path the FSM request. One unit for both paths.
+        ["v"] = robot.V,
+        ["w"] = robot.W,
+        ["vx"] = robot.Vx,
+        ["vy"] = robot.Vy,
+        ["on_stage"] = engine.PhysicsBackend.OnStage(robot),
+        ["edge_distance"] = engine.Field.DistToNearestEdge(robot.X, robot.Y),
+    };
+
+    private static Dictionary<string, object?> BlockTrace(MatchEngine engine, BlockRuntime block)
+    {
+        var contacts = new List<object?>(block.ContactThisStep.Count);
+        foreach (var (role, t) in block.ContactThisStep)
+        {
+            contacts.Add(new Dictionary<string, object?> { ["r"] = role, ["t"] = t });
+        }
+        return new Dictionary<string, object?>
+        {
+            ["name"] = block.Name,
+            ["kind"] = block.Kind.ToString(),
+            ["x"] = block.X,
+            ["y"] = block.Y,
+            ["vx"] = block.Vx,
+            ["vy"] = block.Vy,
+            ["out"] = block.Out,
+            ["was_on"] = block.WasOn,
+            ["edge_distance"] = engine.Field.DistToNearestEdge(block.X, block.Y),
+            ["last_contact_role"] = block.LastContactRole ?? "",
+            ["contacts"] = contacts,
+        };
+    }
+
+    private static Dictionary<string, object?> EventTrace(CoreEvent evt)
+    {
+        string? block = null;
+        string? reason = null;
+        if (evt.Data is not null)
+        {
+            var payload = JsonSerializer.SerializeToElement(evt.Data, JsonOptions());
+            if (payload.ValueKind == JsonValueKind.Object)
+            {
+                if (payload.TryGetProperty("block", out var blockElement)
+                    && blockElement.ValueKind == JsonValueKind.String)
+                {
+                    block = blockElement.GetString();
+                }
+                if (payload.TryGetProperty("reason", out var reasonElement)
+                    && reasonElement.ValueKind == JsonValueKind.String)
+                {
+                    reason = reasonElement.GetString();
+                }
+            }
+        }
+        return new Dictionary<string, object?>
+        {
+            ["seq"] = evt.Seq,
+            ["tick"] = evt.Tick,
+            ["kind"] = evt.Kind.ToString(),
+            ["role"] = evt.Robot.Role,
+            ["is_us"] = evt.Robot.IsUs,
+            ["neutral"] = evt.Neutral,
+            ["block"] = block ?? "",
+            ["reason"] = reason ?? "",
+        };
     }
 }

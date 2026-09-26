@@ -1,0 +1,10 @@
+{
+  "stage": "default-off-check",
+  "seed": 6001,
+  "rows_compared": 147,
+  "scripted_action_source": "v=0.6*sin(0.05*tick), w=0.3*cos(0.03*tick)",
+  "trace_absent_when_off": true,
+  "trace_present_when_on": true,
+  "problems": [],
+  "identical": true
+}

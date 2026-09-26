@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "Sim 层铁律：确定性契约、协议只加不改、渲染不复刻规则、MuJoCo 后端与 rl-env 训练专用例外、观测维度与 split 预注册纪律。诊断改 rl-env 与写诊断脚本前必读。"}
+{"file": ".trellis/tasks/archive/2026-09/09-26-score-block-ppo-checkpoint-round/report.md", "reason": "第二轮（6001–6050）盲验的失败事实与逐 seed 指标：策略得分 5/掉台 28/无归属 BlockOff 5+10，FSM 8/21/0+1。诊断的基线数字与失败原因清单来源。"}
+{"file": ".trellis/tasks/archive/2026-09/09-25-mujoco-score-rl-pilot/report.md", "reason": "第一轮（4001–4010）AC4 失败结案与 11 维观测/奖励常量、资源与性能证据；跨轮对照与特权状态边界来源。"}
+{"file": "controllers/score_block_rl/README.md", "reason": "已有 split v2 划分、训练/评测/自测命令与 checkpoint/选模纪律，诊断脚本必须复用同一路由而不是新造 seed 列表。"}
