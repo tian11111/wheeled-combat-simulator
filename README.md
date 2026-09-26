@@ -9,7 +9,7 @@
 
 ```bash
 dotnet build                                   # 构建
-dotnet test                                    # 315 个回归测试(规则/确定性/回放/跨端/视图/场地布局/标定)
+dotnet test                                    # 运行回归测试
 
 # 无头比赛(内置 FSM)
 dotnet run --project src/Sim.Cli -- match --seed 42
@@ -38,6 +38,14 @@ dotnet run --project src/Sim.Cli -- sensor-calibration import --data-dir <MBri/d
 如反僵局铲刃微调：正面顶牛的同型机器人由种子派生初相的慢速正弦铲刃微调周期性触发楔入
 （`antiStallBladeAmp` 默认 0.006 m，**0=关闭逐位恢复旧行为**，周期 2.1/2.7 s；有意偏差，
 见 `docs/PORTING_NOTES.md`）。
+
+## 强化学习试点（SCORE_BLOCK，离线）
+
+`controllers/score_block_rl/` 提供官方 MuJoCo 场景的 Gymnasium 环境、Stable-Baselines3 PPO 训练和配对评测。11 维观测包含仿真真值块坐标，训练出的模型不能直接用于真机，也不会替换默认 FSM。完整复现命令见[训练与评测说明](controllers/score_block_rl/README.md)。
+
+当前试点采用单环境、小型 MLP；MuJoCo 仿真在 .NET 进程中运行，每步通过 JSONL 与 Python 通信。Stable-Baselines3 自动选择策略网络设备，已有训练记录为 CPU。GPU 只可能加速网络计算，无法加速这部分仿真和通信；项目尚未做 CPU/GPU 同条件性能对比。设备检查方法见上述训练文档。
+
+最新 split v3 的单次盲验**未通过**：PPO 取得 2 次锁定目标真实 `BlockScore`，同入口 FSM 取得 6 次；我方掉台为 25 次，对照 FSM 的 29 次。详情见[验收报告](.trellis/tasks/archive/2026-09/09-26-score-block-v3-edge-speed-retrain/report.md)。
 
 ## 桌面端(Godot 4 .NET)
 
