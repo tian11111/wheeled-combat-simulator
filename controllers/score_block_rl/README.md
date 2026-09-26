@@ -17,6 +17,12 @@ dotnet build RobotSimulator.sln -m:1
 
 `rl-env` 的 JSONL 输入/输出和逐集 CSV 固定为 UTF-8；Windows 训练命令须带 `-X utf8`，脚本会在编码不符时立即报错。脚本优先查找 PATH 中的 `dotnet`，也可给 `train.py`、`evaluate.py` 和 `benchmark.py` 传 `--dotnet <dotnet.exe 的绝对路径>`。
 
+### 为什么训练主要使用 CPU？
+
+`train.py` 创建 `PPO("MlpPolicy", ...)` 时没有显式指定 `device`，由 Stable-Baselines3 自动选择。已记录的训练运行使用的是 CPU 版 PyTorch，因此策略网络在 CPU 上。实际设备会写入训练产物 `run-config.json` 的 `ppo_parameters.device`；也可在**同一个训练虚拟环境**中运行 `python -c "import torch; print(torch.cuda.is_available())"` 检查 CUDA 是否可用。
+
+本试点只有一个环境、11 维观测和较小的 MLP。MuJoCo 场景由 .NET 的 `rl-env` 进程推进，Python 每步通过 JSONL 与它通信；把 PPO 网络放到 GPU 不会加速仿真或进程通信，且小批量计算可能被 CPU/GPU 数据传输开销抵消。若要尝试 CUDA，需先安装支持 CUDA 的 PyTorch，再用相同场景和步数实测墙钟时间与 `time/fps`；目前没有 CPU/GPU 对比结果，不能据此声称 GPU 一定更快或更慢。
+
 ## 数据划分（split v3）
 
 `controllers/score_block_rl/splits.py` 是划分的唯一来源，`train.py`、`evaluate.py`、`selftest.py` 共用，避免三处各写一份 seed 列表。
