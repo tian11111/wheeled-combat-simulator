@@ -24,6 +24,7 @@ public static class Program
                 "sensor-calibration" => SensorCalibrationCommand.Run(args),
                 "vision" => VisionCommand.Run(args),
                 "batch" => BatchCommand.Run(args),
+                "rl-env" => RunRlEnv(args),
                 "--help" or "-h" => Help(),
                 _ => Unknown(args[0]),
             };
@@ -33,6 +34,14 @@ public static class Program
             Console.Error.WriteLine($"error: {ex.Message}");
             return 1;
         }
+    }
+
+    private static int RunRlEnv(string[] args)
+    {
+        // JSONL pipes use UTF-8 regardless of the Windows console code page.
+        Console.InputEncoding = new System.Text.UTF8Encoding(false);
+        Console.OutputEncoding = new System.Text.UTF8Encoding(false);
+        return RlEnvCommand.Run(args);
     }
 
     // ---------- option plumbing ----------

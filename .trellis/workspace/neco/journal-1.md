@@ -614,3 +614,134 @@ MOUNT_SPEED 0.806 主导(慢速登台更稳, 与台沿物理互证); holdout 改
 ### Status
 
 [OK] **Completed**
+
+
+## Session 19: SCORE_BLOCK PPO checkpoint round
+
+**Date**: 2026-09-26
+**Task**: SCORE_BLOCK PPO checkpoint round
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+Archived the completed checkpoint and split-v2 workflow task. The new 6001-6050 blind performance gate failed; the prior PPO AC4 remains failed and active.
+
+### Main Changes
+
+- Recorded official SB3 v2.9.0 handoff and preserved the previous pilot result.
+- Archived the new PPO checkpoint task after verifying AC1-AC6 evidence.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `465b1c4` | (see git log) |
+| `cf169c3` | (see git log) |
+| `b9c6b0c` | (see git log) |
+
+### Testing
+
+- [OK] New task report records 33/33 selftests, 382/382 Sim.Tests, and replay checks; no tests rerun during this finish step.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Keep 09-25-mujoco-score-rl-pilot open; use fresh seeds for any further model work.
+
+## Session 20: SCORE_BLOCK 归属判定修复与 split v3 预注册
+
+**Date**: 2026-09-26
+**Task**: 09-26-score-block-attribution-fix-split-v3
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+Implemented the single fix identified by the archived diagnosis, then pre-registered brand-new
+development/final-holdout splits. `PhysicsWorld.FinalizeBlockContacts` now decides a block's
+last-contact role from the *distinct roles* at the maximum contact time instead of the number of
+contact records; MuJoCo reports several contact points for one robot, so a lone pusher used to be
+labelled `simultaneous` and scored nothing (14/14 `BlockOff` events across both blind rounds).
+No training was run and no gate is claimed.
+
+### Main Changes
+
+- `src/Sim.Core/Physics.cs`: one behavioural line changed (`roles.Count == 1 ? roles[0] : "simultaneous"`).
+  legacy 2D writes exactly one contact record per robot per tick, so `Distinct()` is a no-op there.
+- `src/Sim.Tests/BlockAttributionTests.cs` (new, 6 tests): same-role multi-point attribution,
+  genuine two-robot simultaneity, earlier-tie precedence, empty contact set, and a MuJoCo end-to-end
+  test that a lone pusher pushing the buff block off the edge must be credited to us.
+  Negative control: stashing the fix makes 2 of the 6 fail with the defect's own message.
+- `controllers/score_block_rl/splits.py`: `score-block-split-v3`; `development_v3` 7001-7020 (default),
+  `final_holdout_v3` 8001-8050 (only blind split); every earlier split demoted to revealed/analysis-only
+  and added to `REVEALED_SEEDS`.
+- `evaluate.py` / `train.py` / `selftest.py` / `README.md`: freeze and selection scopes moved to v3;
+  revealed holdouts now require `--analysis-only` and are written with `gate_evidence_eligible: false`.
+- `.trellis/spec/sim/index.md`: split contract updated to v3 plus the attribution rule and the warning
+  that the fix feeds back into the opponent FSM.
+
+### Measured delta (revealed sets, analysis only)
+
+- `unowned_block_offs`: 10 -> 0 (policy 6001-6050), 1 -> 0 (FSM), 2 -> 0 and 1 -> 0 (4001-4010).
+- `us_drops` unchanged in all four cells: 28 / 21 / 8 / 7.
+- Locked-target scores: 5 -> 8 (policy 6001-6050), 8 -> 8 (FSM), 1 -> 1 (policy 4001-4010), 0 -> 1 (FSM).
+- The projected 5 -> 9 was NOT reached: seed 6047 lost its score because the new attribution fires
+  `Gain`/`HandleBuffScored`, which changes the opponent FSM command at the same tick (verified per tick).
+- Reward corruption confirmed: seeds 6022/6037/6040/6048 gained exactly +1.500000 `total_reward`
+  (penalty -0.5 replaced by reward +1.0), seed 6043 +0.500000.
+
+### Testing
+
+- [OK] `dotnet build RobotSimulator.sln -m:1 --no-incremental`: 0 errors / 6 warnings (all pre-existing,
+  in untouched files).
+- [OK] `dotnet test RobotSimulator.sln -m:1 --no-restore`: 388/388 passed.
+- [OK] `replay-check` on all 6 `replays/*.json`: bit-for-bit PASS.
+- [OK] `selftest.py`: 31 passed / 0 failed / 8 skipped (skips are artifact checks needing `--train-dir`).
+- [OK] New `BlockAttributionTests`: 6/6 pass with the fix, 2/6 fail without it.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- The drop gap is untouched and is the only remaining blocker: our Drop must not exceed FSM
+  (28 > 21 and 8 > 7). Diagnostics point at speed/turn discipline near the edge.
+- Retrain on `development_v3` (7001-7020) under the corrected reward, freeze one candidate, then
+  open `final_holdout_v3` (8001-8050) exactly once.
+- Do not quote the projected 5 -> 9; the end-to-end measured value is 8.
+
+
+## Session 20: SCORE_BLOCK v3 重训验收收尾
+
+**Date**: 2026-09-26
+**Task**: SCORE_BLOCK v3 重训验收收尾
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+修复 PPO 得分追溯盲验门槛；无防护基线完成训练并在 v3 单次盲验中以真实得分 2 比 6 未达 FSM；收尾复跑 Python 自测 40 通过、0 失败、0 跳过，任务已归档。
+
+### Main Changes
+
+- evaluate.py 的 gate_passed 纳入得分位姿/事件交叉核验，补回归自测和仿真规范。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `079480a` | (see git log) |
+
+### Testing
+
+- [OK] Python selftest 40/0/0；Sim.Tests 388/0/0；六份 legacy 回放与 MuJoCo 回放通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 若继续优化得分，另建任务并预注册新的开发集与盲验集；v3 已揭示，仅作诊断。

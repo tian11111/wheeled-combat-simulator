@@ -10,6 +10,17 @@
 | [Farama-Foundation/Gymnasium-Robotics](https://github.com/Farama-Foundation/Gymnasium-Robotics) | Fetch Push 等 goal-conditioned pushing 环境把任务成败与目标距离/进展拆开；适度 dense shaping 能辅助稀疏成功事件。Fetch 是机械臂，任务状态和接触物理与本项目不同。 | 只借鉴真实成功事件 + potential progress 奖励原则；按 BlockScore 记成功，按块至最近台沿距离变化塑形，不复制 Fetch 奖励常数或动作模型。 |
 | [google-deepmind/mujoco_playground](https://github.com/google-deepmind/mujoco_playground) | 使用 MuJoCo/MJX 与 JAX 的可加速 GPU 环境组织方式。 | 当前模拟器是 .NET 经官方 MuJoCo C API 运行；本任务先复用它的确定性内核。MJX/JAX 需另建等价性与物理验证任务，暂缓。 |
 
+## SB3 v2.9.0 官方资料核对（2026-09-26）
+
+本项目锁定 Stable-Baselines3 2.9.0；以下结论直接核对该版本官方仓库，不把通用建议误写成本项目已验证效果。
+
+- [RL Tips](https://github.com/DLR-RM/stable-baselines3/blob/v2.9.0/docs/guide/rl_tips.md)：建议用独立测试环境定期评估，通常每次 5–20 集，并对 PPO 尝试 `predict(..., deterministic=True)`；还提醒单个随机种子运行不能支持稳健的量化结论。本项目现有 deterministic 逐 seed 评测符合其中一部分，训练期间缺少定期候选快照。后续若只跑一个训练 RNG seed，报告须明确结论限于该次运行。
+- [Callbacks](https://github.com/DLR-RM/stable-baselines3/blob/v2.9.0/docs/guide/callbacks.md)：`CheckpointCallback` 可按 `env.step()` 调用数保存模型，`EvalCallback` 可用独立环境周期评估。当前只有一个环境，保存间隔与训练步数相同；不需引入向量环境。
+- [Logger](https://github.com/DLR-RM/stable-baselines3/blob/v2.9.0/docs/common/logger.md) 与 [PPO 源码](https://github.com/DLR-RM/stable-baselines3/blob/v2.9.0/stable_baselines3/ppo/ppo.py)：CSV logger 可保留 `train/approx_kl`、`clip_fraction`、`explained_variance`、`value_loss` 等诊断。本项目现有 Monitor 逐集 CSV 主要记录回报和裁判信息，不能替代 PPO 优化过程日志；这些诊断用于解释训练，不是裁判得分证据。
+- [EvalCallback 源码](https://github.com/DLR-RM/stable-baselines3/blob/v2.9.0/stable_baselines3/common/callbacks.py)：默认 `best_model` 按平均 episode reward 更新。本任务 AC4 按锁定目标的真实 `BlockScore` 和我方 `Drop` 判定，因此下一轮可借用定期 checkpoint 与独立评测方式，但须继续用项目指标选模，不能直接采用默认的回报最佳模型。
+
+下一轮的具体 seed、checkpoint、冻结和盲验步骤见 [../report.md](../report.md)；这是未实施建议，不改变本轮 AC4 失败结论。
+
 ## 本仓库接口核实
 
 - src/Sim.Core/MatchEngine.cs 已有 Arm()、Tick(RobotAction?, RobotAction?)、Done、Scores、Events、Blocks 与 Field。传入我方动作会让我方逐 tick 进入 manual 控制，null 使对手留在内置 FSM；每个 episode 可通过新引擎获得清洁 reset。

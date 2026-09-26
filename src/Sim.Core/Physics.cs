@@ -617,7 +617,16 @@ public sealed class PhysicsWorld : IPhysicsBackend
         o.ContactThisStep.Add((role, time));
     }
 
-    /// <summary>Derives each block's last-contact role from this step's contact set.</summary>
+    /// <summary>
+    /// Derives each block's last-contact role from this step's contact set.
+    /// </summary>
+    /// <remarks>
+    /// The role is decided by the *distinct roles* at the largest contact time, not by the
+    /// number of contact records: a backend may report several contact points for a single
+    /// robot (the MuJoCo backend does not deduplicate geom pairs), and a lone pusher must
+    /// still be attributed to that pusher. Only two distinct roles at the same instant mean
+    /// a genuine simultaneous touch.
+    /// </remarks>
     public static void FinalizeBlockContacts(List<BlockRuntime> blocks)
     {
         foreach (var o in blocks)
@@ -628,7 +637,8 @@ public sealed class PhysicsWorld : IPhysicsBackend
             }
             var maxT = o.ContactThisStep.Max(c => c.T);
             var last = o.ContactThisStep.Where(c => Math.Abs(c.T - maxT) <= 1e-6).ToList();
-            o.LastContactRole = last.Count == 1 ? last[0].Role : "simultaneous";
+            var roles = last.Select(c => c.Role).Distinct().ToList();
+            o.LastContactRole = roles.Count == 1 ? roles[0] : "simultaneous";
         }
     }
 

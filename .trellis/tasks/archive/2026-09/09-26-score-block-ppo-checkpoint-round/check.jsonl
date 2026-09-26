@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "检查训练/评测改动是否越过 rl-env 例外边界（普通比赛仍每场独立模型/数据）"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "检查回归证据（dotnet test、replay-check）与确定性门禁是否满足"}
+{"file": ".trellis/tasks/09-26-score-block-ppo-checkpoint-round/prd.md", "reason": "逐条核对 AC1-AC6 是否有可复核证据，失败项是否如实记录"}
+{"file": ".trellis/tasks/09-26-score-block-ppo-checkpoint-round/design.md", "reason": "核对 split 路由/互斥、选模排序键、冻结与单次盲验守卫是否按设计实现"}
+{"file": ".trellis/tasks/09-25-mujoco-score-rl-pilot/report.md", "reason": "确认上一轮 AC4 失败结论未被改写，且新结果未被追认为通过"}

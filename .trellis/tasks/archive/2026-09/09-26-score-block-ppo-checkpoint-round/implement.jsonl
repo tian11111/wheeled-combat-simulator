@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "仿真层铁律与 rl-env 训练例外（模型复用/UTF-8/观测维度）；改训练或评测脚本前必读"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "构建、测试与确定性门禁；回归命令与通过标准"}
+{"file": ".trellis/tasks/09-25-mujoco-score-rl-pilot/report.md", "reason": "上一轮 AC4 失败结论、冻结模型哈希、开发/最终集用法与 seed 纪律（不得改写）"}
+{"file": ".trellis/tasks/09-25-mujoco-score-rl-pilot/research/references.md", "reason": "SB3/Gymnasium 借鉴边界与下一轮 seed/checkpoint/盲验预注册方案"}
+{"file": ".trellis/tasks/09-26-score-block-ppo-checkpoint-round/research/sb3-checkpoint-diagnostics.md", "reason": "本轮对 SB3 2.9.0 CheckpointCallback/CSVLogger/EvalCallback 的源码核实结论"}
+{"file": ".trellis/tasks/09-26-score-block-ppo-checkpoint-round/prd.md", "reason": "本轮需求与 AC1-AC6，实现必须逐项对齐"}
+{"file": ".trellis/tasks/09-26-score-block-ppo-checkpoint-round/design.md", "reason": "split v2 契约、评测/选模/冻结流程与 CLI 语义"}

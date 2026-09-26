@@ -1,0 +1,91 @@
+
+===== final_holdout_v2 6001-6050 / policy =====
+    episodes                                             50 -> 50
+    no_score_block_episodes                               5 -> 5
+ ** episodes_with_locked_target_us_block_score            5 -> 8
+ ** total_locked_target_us_block_scores                   5 -> 8
+ ** total_us_block_score_events                           5 -> 8
+ ** total_them_block_score_events                         6 -> 12
+ ** total_target_block_offs                               5 -> 0
+ ** total_unowned_block_offs                             10 -> 0
+    total_us_drops                                       28 -> 28
+ ** final_score_us_sum                                  123 -> 129
+ ** final_score_them_sum                                 77 -> 100
+    ambiguous_attribution_episodes                        0 -> 0
+ per-seed rows changed: 22/50
+  seed 6004: {'target_last_contact_role': ('simultaneous', 'them')}
+  seed 6006: {'final_score_them': (3, 6)}
+  seed 6009: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6011: {'them_block_score_events': (0, 1), 'unowned_block_offs': (1, 0), 'final_score_them': (0, 3)}
+  seed 6012: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6017: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6019: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6020: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6022: {'locked_target_us_block_scores': (0, 1), 'us_block_score_events': (0, 1), 'target_block_offs': (1, 0), 'unowned_block_offs': (1, 0), 'final_score_us': (0, 3), 'total_reward': (-0.452472, 1.047528), 'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6023: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6026: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6029: {'them_block_score_events': (0, 1), 'unowned_block_offs': (1, 0), 'final_score_them': (0, 3), 'target_last_contact_role': ('simultaneous', 'them')}
+  seed 6031: {'them_block_score_events': (0, 1), 'unowned_block_offs': (1, 0), 'final_score_them': (0, 3)}
+  seed 6034: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6036: {'final_score_them': (3, 6)}
+  seed 6037: {'locked_target_us_block_scores': (0, 1), 'us_block_score_events': (0, 1), 'target_block_offs': (1, 0), 'unowned_block_offs': (1, 0), 'final_score_us': (0, 3), 'total_reward': (-0.439777, 1.060223), 'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6040: {'locked_target_us_block_scores': (0, 1), 'us_block_score_events': (0, 1), 'target_block_offs': (1, 0), 'unowned_block_offs': (1, 0), 'final_score_us': (0, 3), 'total_reward': (-0.447516, 1.052484), 'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6043: {'them_block_score_events': (1, 2), 'target_block_offs': (1, 0), 'unowned_block_offs': (1, 0), 'final_score_them': (3, 6), 'total_reward': (-0.457654, 0.042346), 'target_last_contact_role': ('simultaneous', 'them')}
+  seed 6047: {'locked_target_us_block_scores': (1, 0), 'us_block_score_events': (1, 0), 'them_block_score_events': (0, 1), 'unowned_block_offs': (1, 0), 'final_score_us': (13, 12), 'final_score_them': (0, 3), 'policy_ticks': (1189, 2248), 'total_reward': (0.945531, -0.186123), 'target_out': (True, False), 'target_outcome_tick': (1341, -1), 'done_reason': ('', '比赛时间结束(手动模式)')}
+  seed 6048: {'locked_target_us_block_scores': (0, 1), 'us_block_score_events': (0, 1), 'target_block_offs': (1, 0), 'unowned_block_offs': (1, 0), 'final_score_us': (0, 3), 'total_reward': (-1.44478, 0.05522), 'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6049: {'them_block_score_events': (0, 1), 'unowned_block_offs': (1, 0), 'final_score_us': (15, 10), 'final_score_them': (4, 6), 'total_reward': (-0.15146, -0.163315)}
+  seed 6050: {'target_last_contact_role': ('simultaneous', 'them')}
+
+===== final_holdout_v2 6001-6050 / fsm =====
+    episodes                                             50 -> 50
+    no_score_block_episodes                               5 -> 5
+    episodes_with_locked_target_us_block_score            8 -> 8
+    total_locked_target_us_block_scores                   8 -> 8
+    total_us_block_score_events                           9 -> 9
+ ** total_them_block_score_events                         6 -> 7
+    total_target_block_offs                               0 -> 0
+ ** total_unowned_block_offs                              1 -> 0
+    total_us_drops                                       21 -> 21
+    final_score_us_sum                                   66 -> 66
+ ** final_score_them_sum                                 67 -> 76
+    ambiguous_attribution_episodes                        0 -> 0
+ per-seed rows changed: 11/50
+  seed 6006: {'final_score_them': (3, 6)}
+  seed 6007: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6012: {'them_block_score_events': (0, 1), 'unowned_block_offs': (1, 0), 'final_score_them': (0, 3)}
+  seed 6013: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6024: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6025: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6029: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6032: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6033: {'target_last_contact_role': ('simultaneous', 'us')}
+  seed 6036: {'final_score_them': (3, 6)}
+  seed 6043: {'target_last_contact_role': ('simultaneous', 'us')}
+
+===== legacy_final_holdout 4001-4010 (summary only: archived schema is older) =====
+ -- policy
+     episodes                                             10 -> 10
+     no_score_block_episodes                               0 -> 0
+     episodes_with_locked_target_us_block_score            1 -> 1
+     total_locked_target_us_block_scores                   1 -> 1
+     total_us_block_score_events                           1 -> 1
+  ** total_them_block_score_events                         2 -> 4
+     total_target_block_offs                               0 -> 0
+  ** total_unowned_block_offs                              2 -> 0
+     total_us_drops                                        8 -> 8
+     final_score_us_sum                                   18 -> 18
+  ** final_score_them_sum                                 14 -> 20
+     ambiguous_attribution_episodes                        1 -> 1
+ -- fsm_baseline
+     episodes                                             10 -> 10
+     no_score_block_episodes                               0 -> 0
+  ** episodes_with_locked_target_us_block_score            0 -> 1
+  ** total_locked_target_us_block_scores                   0 -> 1
+  ** total_us_block_score_events                           0 -> 1
+     total_them_block_score_events                         0 -> 0
+  ** total_target_block_offs                               1 -> 0
+  ** total_unowned_block_offs                              1 -> 0
+     total_us_drops                                        7 -> 7
+  ** final_score_us_sum                                   14 -> 17
+     final_score_them_sum                                  9 -> 9
+     ambiguous_attribution_episodes                        0 -> 0

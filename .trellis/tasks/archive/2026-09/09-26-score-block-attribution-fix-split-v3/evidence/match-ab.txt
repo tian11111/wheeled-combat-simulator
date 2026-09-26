@@ -1,0 +1,45 @@
+Full-match A/B of the no_score_block policy seeds whose referee score moved.
+pre-fix  DLL: %TEMP%\score-block-prefix-cli\Sim.Cli.dll (Physics.FinalizeBlockContacts by record count)
+post-fix DLL: src\Sim.Cli\bin\Debug\net8.0\Sim.Cli.dll (by distinct roles)
+command: Sim.Cli match --seed <seed> --scenario scenarios/wushu-ring-2026-mujoco.json --events
+seeds 6018 and 6038 are byte-identical in both builds (0 differing lines).
+
+=== seed 6006: differing lines = 4 ===
+=> [  38] t= 273.00 BlockScore       [对手] [score] 增益块被推下擂台! 对手 +3 (0:6)
+=> seed=6006 ticks=2400 score 我方 0 : 6 对手 done=比赛时间结束 faults(us/them)=0/0 penalties=0/0
+<= [  38] t= 273.00 BlockOff         [我方] [score] 双方同时接触增益块并将其推出台外, 按规则不计分
+<= seed=6006 ticks=2400 score 我方 0 : 3 对手 done=比赛时间结束 faults(us/them)=0/0 penalties=0/0
+
+=== seed 6036: differing lines = 4 ===
+=> [  44] t= 287.00 BlockScore       [对手] [score] 增益块被推下擂台! 对手 +3 (0:6)
+=> seed=6036 ticks=873 score 我方 0 : 6 对手 done=恢复次数超限 → 停车 faults(us/them)=0/0 penalties=0/0
+<= [  44] t= 249.00 BlockOff         [我方] [score] 双方同时接触增益块并将其推出台外, 按规则不计分
+<= seed=6036 ticks=873 score 我方 0 : 3 对手 done=恢复次数超限 → 停车 faults(us/them)=0/0 penalties=0/0
+
+=== seed 6018: differing lines = 0 ===
+
+=== seed 6038: differing lines = 0 ===
+
+=== seed 6036 event neighbourhood (emission order identical; only #44 changes) ===
+pre-fix:
+[  40] t= 249.00 Fsm              [我方] [fsm] RECOVER: 贴边回中完成(第4次) → 重新摆位
+[  41] t= 249.00 End              [我方] [fsm] FINISHED: 恢复次数超限 → 停车
+[  42] t= 283.00 Fsm              [对手] [fsm] RECOVER: 摆位超时 → 贴边回中
+[  43] t= 285.00 Fsm              [对手] [fsm] RECOVER: 贴边回中完成(第2次) → 重新摆位
+[  44] t= 249.00 BlockOff         [我方] [score] 双方同时接触增益块并将其推出台外, 按规则不计分
+[  45] t= 289.00 Drop             [对手] [score] 掉台时另一方不在台上, 按规则本次不计分
+[  46] t= 335.00 Fsm              [对手] [fsm] RECOVER: 摆位超时 → 贴边回中
+[  47] t= 361.00 Fsm              [对手] [fsm] RECOVER: 贴边回中完成(第3次) → 重新摆位
+[  48] t= 411.00 Fsm              [对手] [fsm] RECOVER: 摆位超时 → 贴边回中
+[  49] t= 436.00 Fsm              [对手] [fsm] RECOVER: 贴边回中完成(第4次) → 重新摆位
+post-fix:
+[  40] t= 249.00 Fsm              [我方] [fsm] RECOVER: 贴边回中完成(第4次) → 重新摆位
+[  41] t= 249.00 End              [我方] [fsm] FINISHED: 恢复次数超限 → 停车
+[  42] t= 283.00 Fsm              [对手] [fsm] RECOVER: 摆位超时 → 贴边回中
+[  43] t= 285.00 Fsm              [对手] [fsm] RECOVER: 贴边回中完成(第2次) → 重新摆位
+[  44] t= 287.00 BlockScore       [对手] [score] 增益块被推下擂台! 对手 +3 (0:6)
+[  45] t= 289.00 Drop             [对手] [score] 掉台时另一方不在台上, 按规则本次不计分
+[  46] t= 335.00 Fsm              [对手] [fsm] RECOVER: 摆位超时 → 贴边回中
+[  47] t= 361.00 Fsm              [对手] [fsm] RECOVER: 贴边回中完成(第3次) → 重新摆位
+[  48] t= 411.00 Fsm              [对手] [fsm] RECOVER: 摆位超时 → 贴边回中
+[  49] t= 436.00 Fsm              [对手] [fsm] RECOVER: 贴边回中完成(第4次) → 重新摆位

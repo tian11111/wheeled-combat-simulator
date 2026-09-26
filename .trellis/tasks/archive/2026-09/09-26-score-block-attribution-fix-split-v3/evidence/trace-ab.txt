@@ -1,0 +1,66 @@
+seeds with a pre-fix trace: 50
+ seed  steps p/f  label@  behav@  outcome@  note
+ 6001    117/117     177    None      None  label blk1:simultaneous->them
+ 6002    144/144     227    None      None  label blk0:simultaneous->us
+ 6003    104/104     181    None      None  label blk1:simultaneous->them
+ 6004  2219/2219     278    None      None  label blk1:simultaneous->them
+ 6005    104/104     187    None      None  label blk0:simultaneous->us
+ 6006        2/2    None    None      None  
+ 6007    117/117     177    None      None  label blk1:simultaneous->them
+ 6008  2246/2246     228    None      None  label blk1:simultaneous->them
+ 6009    921/921     178    None      None  label blk1:simultaneous->them
+ 6010    129/129     189    None      None  label blk1:simultaneous->them
+ 6011  2233/2233     169     353      None  label blk1:simultaneous->them | behav events: (('BlockOff', None, False, 353, '增益块', 'simultaneous', None),) -> (('BlockScore', None, False, 353, '增益块
+ 6012    104/104     181    None      None  label blk1:simultaneous->them
+ 6013    170/170     153    None      None  label blk1:simultaneous->them
+ 6014  2237/2237     165    None      None  label blk1:simultaneous->them
+ 6015  2247/2247     155    None      None  label blk1:simultaneous->them
+ 6016    318/318     158    None      None  label blk1:simultaneous->them
+ 6017    104/104     187    None      None  label blk0:simultaneous->us
+ 6018        2/2    None    None      None  
+ 6019      92/92     163    None      None  label blk1:simultaneous->them
+ 6020    104/104     187    None      None  label blk0:simultaneous->us
+ 6021      90/90     168    None      None  label blk1:simultaneous->them
+ 6022    173/173     167     338       338  label blk1:simultaneous->them | behav events: (('BlockOff', None, False, 338, '增益块', 'simultaneous', None),) -> (('BlockScore', None, False, 338, '增益块
+ 6023    283/283     160    None      None  label blk1:simultaneous->them
+ 6024    243/243     167    None      None  label blk1:simultaneous->them
+ 6025    257/257     168    None      None  label blk1:simultaneous->them
+ 6026      92/92     191    None      None  label blk1:simultaneous->them
+ 6027    815/815     228    None      None  label blk1:simultaneous->them
+ 6028      89/89     167    None      None  label blk1:simultaneous->them
+ 6029  2238/2238     164     395      None  label blk1:simultaneous->them | behav events: (('BlockOff', None, False, 395, '增益块', 'simultaneous', None),) -> (('BlockScore', None, False, 395, '增益块
+ 6030    143/143     173    None      None  label blk0:simultaneous->us
+ 6031  1492/1492     168     354      None  label blk0:simultaneous->us | behav events: (('BlockOff', None, False, 354, '增益块', 'simultaneous', None),) -> (('BlockScore', None, False, 354, '增益块',
+ 6032    104/104     181    None      None  label blk1:simultaneous->them
+ 6033    113/113     177    None      None  label blk1:simultaneous->them
+ 6034      90/90     173    None      None  label blk1:simultaneous->them
+ 6035    104/104     181    None      None  label blk1:simultaneous->them
+ 6036        2/2    None    None      None  
+ 6037      76/76     243     317       317  label blk0:simultaneous->us | behav events: (('BlockOff', None, False, 317, '增益块', 'simultaneous', None),) -> (('BlockScore', None, False, 317, '增益块',
+ 6038        2/2    None    None      None  
+ 6039    104/104     181    None      None  label blk1:simultaneous->them
+ 6040    113/113     187     288       288  label blk1:simultaneous->them | behav events: (('BlockOff', None, False, 288, '增益块', 'simultaneous', None),) -> (('BlockScore', None, False, 288, '增益块
+ 6041    100/100     179    None      None  label blk0:simultaneous->us
+ 6042      89/89     172    None      None  label blk0:simultaneous->us
+ 6043    225/225     173     396       396  label blk1:simultaneous->them | behav them: (0.98853072, 0.991303402, -1.557427535, 0.35, 0.076528862, 0.004905855, -0.379683579) -> (0.98853072, 0.99
+ 6044    144/144     166    None      None  label blk1:simultaneous->them
+ 6045    886/886     160    None      None  label blk1:simultaneous->them
+ 6046        2/2    1565    None      None  label blk1:simultaneous->them, blk2:simultaneous->them
+ 6047  1191/2250     152     330       334  label blk1:simultaneous->them | behav them: (0.971728108, 1.169228664, -2.526885415, -0.4, 0, 0.111801303, -0.049274806) -> (0.971728108, 1.169228664,
+ 6048      92/92     170     260       260  label blk1:simultaneous->them | behav events: (('BlockOff', None, False, 260, '增益块', 'simultaneous', None), ('Drop', None, False, 260, '', '', None)) 
+ 6049  2213/2213     208     558       560  label blk1:simultaneous->them | behav them: (1.103183549, 0.964210055, -0.871402104, 0.35, -0.790046128, 0.150389826, -0.055862424) -> (1.103183549, 0
+ 6050    205/205     165    None      None  label blk1:simultaneous->them
+
+bit-identical (no label change at all): 4 -> [6006, 6018, 6036, 6038]
+label-only change (behaviour identical): 36 -> [6001, 6002, 6003, 6004, 6005, 6007, 6008, 6009, 6010, 6012, 6013, 6014, 6015, 6016, 6017, 6019, 6020, 6021, 6023, 6024, 6025, 6026, 6027, 6028, 6030, 6032, 6033, 6034, 6035, 6039, 6041, 6042, 6044, 6045, 6046, 6050]
+behavioural divergence: 10
+  seed 6011: label@169 behaviour@353 label blk1:simultaneous->them | behav events: (('BlockOff', None, False, 353, '增益块', 'simultaneous', None),) -> (('BlockScore', None, False, 353, '增益块', '', None),)
+  seed 6022: label@167 behaviour@338 label blk1:simultaneous->them | behav events: (('BlockOff', None, False, 338, '增益块', 'simultaneous', None),) -> (('BlockScore', None, False, 338, '增益块', '', None),)
+  seed 6029: label@164 behaviour@395 label blk1:simultaneous->them | behav events: (('BlockOff', None, False, 395, '增益块', 'simultaneous', None),) -> (('BlockScore', None, False, 395, '增益块', '', None),)
+  seed 6031: label@168 behaviour@354 label blk0:simultaneous->us | behav events: (('BlockOff', None, False, 354, '增益块', 'simultaneous', None),) -> (('BlockScore', None, False, 354, '增益块', '', None),)
+  seed 6037: label@243 behaviour@317 label blk0:simultaneous->us | behav events: (('BlockOff', None, False, 317, '增益块', 'simultaneous', None),) -> (('BlockScore', None, False, 317, '增益块', '', None),)
+  seed 6040: label@187 behaviour@288 label blk1:simultaneous->them | behav events: (('BlockOff', None, False, 288, '增益块', 'simultaneous', None),) -> (('BlockScore', None, False, 288, '增益块', '', None),)
+  seed 6043: label@173 behaviour@396 label blk1:simultaneous->them | behav them: (0.98853072, 0.991303402, -1.557427535, 0.35, 0.076528862, 0.004905855, -0.379683579) -> (0.98853072, 0.991303402, -1.557427535, 0, 0, 0.004905855, -0.37968
+  seed 6047: label@152 behaviour@330 label blk1:simultaneous->them | behav them: (0.971728108, 1.169228664, -2.526885415, -0.4, 0, 0.111801303, -0.049274806) -> (0.971728108, 1.169228664, -2.526885415, 0, 0, 0.111801303, -0.049274806); e
+  seed 6048: label@170 behaviour@260 label blk1:simultaneous->them | behav events: (('BlockOff', None, False, 260, '增益块', 'simultaneous', None), ('Drop', None, False, 260, '', '', None)) -> (('BlockScore', None, False, 260, '增益块', '', No
+  seed 6049: label@208 behaviour@558 label blk1:simultaneous->them | behav them: (1.103183549, 0.964210055, -0.871402104, 0.35, -0.790046128, 0.150389826, -0.055862424) -> (1.103183549, 0.964210055, -0.871402104, 0, 0, 0.150389826, -0.05

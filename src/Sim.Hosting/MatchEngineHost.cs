@@ -16,6 +16,16 @@ public static class MatchEngineHost
             : new MatchEngine(scenario, visionAdapter);
     }
 
+    /// <summary>训练/评测专用: 显式注入 physics factory(如 mjModel 会话级复用)。
+    /// 普通比赛入口 Create(scenario, visionAdapter) 语义不变。</summary>
+    public static MatchEngine Create(Scenario scenario, IVisionAdapter? visionAdapter,
+        IPhysicsBackendFactory factory)
+    {
+        ArgumentNullException.ThrowIfNull(scenario);
+        ArgumentNullException.ThrowIfNull(factory);
+        return new MatchEngine(scenario, visionAdapter, factory);
+    }
+
     public static MatchEngine CreateForReplay(ReplayFile file)
     {
         ArgumentNullException.ThrowIfNull(file);

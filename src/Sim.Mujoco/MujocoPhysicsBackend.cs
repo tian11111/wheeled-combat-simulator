@@ -21,6 +21,7 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     // SearchTurnCompensationTests 候选对照保留。
     internal static double InPlaceTurnCompensation = 4.0;
     private IntPtr _model;
+    private bool _ownsModel = true;
     private IntPtr _data;
     private bool _disposed;
 
@@ -31,16 +32,10 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     internal MujocoPhysicsBackend(PhysicsBackendContext context)
     {
         _context = context;
-        if (Math.Abs(context.Scenario.Field.TickSeconds - 0.05) > 1e-12)
-        {
-            throw new ArgumentException("MuJoCo model v1 requires field.tickSeconds=0.05.", nameof(context));
-        }
-        if (context.Blocks.Count != 3)
-        {
-            throw new ArgumentException("MuJoCo model v1 requires exactly three energy blocks.", nameof(context));
-        }
+        Validate(context);
         var (xml, hash) = MujocoModel.Generate(context);
         ModelSha256 = hash;
+        _ownsModel = true;
         try
         {
             _model = MujocoNative.CreateModel(xml);
@@ -58,6 +53,47 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
         {
             Dispose();
             throw;
+        }
+    }
+
+    /// <summary>训练专用: 复用会话持有的已编译 mjModel(本 backend 不拥有模型,
+    /// Dispose 只释放 mjData)。每集独立 mjData, 模型由训练 factory 统一释放。</summary>
+    internal MujocoPhysicsBackend(PhysicsBackendContext context, IntPtr externalModel)
+    {
+        _context = context;
+        Validate(context);
+        var (_, hash) = MujocoModel.Generate(context);
+        ModelSha256 = hash;
+        _ownsModel = false;
+        try
+        {
+            _model = externalModel;
+            _data = MujocoNative.MakeData(_model);
+            if (_data == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("MuJoCo could not allocate per-match simulation data.");
+            }
+            CheckStateShape();
+            RegisterGeoms();
+            MujocoNative.Forward(_model, _data);
+            CopyStateToRuntime();
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
+    }
+
+    private static void Validate(PhysicsBackendContext context)
+    {
+        if (Math.Abs(context.Scenario.Field.TickSeconds - 0.05) > 1e-12)
+        {
+            throw new ArgumentException("MuJoCo model v1 requires field.tickSeconds=0.05.", nameof(context));
+        }
+        if (context.Blocks.Count != 3)
+        {
+            throw new ArgumentException("MuJoCo model v1 requires exactly three energy blocks.", nameof(context));
         }
     }
 
@@ -363,6 +399,6 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
         if (_disposed) return;
         _disposed = true;
         if (_data != IntPtr.Zero) { MujocoNative.DeleteData(_data); _data = IntPtr.Zero; }
-        if (_model != IntPtr.Zero) { MujocoNative.DeleteModel(_model); _model = IntPtr.Zero; }
+        if (_ownsModel && _model != IntPtr.Zero) { MujocoNative.DeleteModel(_model); _model = IntPtr.Zero; }
     }
 }

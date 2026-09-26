@@ -1,0 +1,207 @@
+{
+  "checks": [
+    {
+      "name": "split routing: named seed lists",
+      "status": "passed",
+      "detail": "6 named splits match the pre-registered seed lists"
+    },
+    {
+      "name": "split registry: disjointness",
+      "status": "passed",
+      "detail": "160 split seeds, disjoint from the training pool"
+    },
+    {
+      "name": "split routing: default is the new development set",
+      "status": "passed",
+      "detail": "default split is development_v3 (7001-7020)"
+    },
+    {
+      "name": "split routing: --final-holdout keeps its historical meaning",
+      "status": "passed",
+      "detail": "--final-holdout still resolves to 4001-4010"
+    },
+    {
+      "name": "split routing: new blind split label",
+      "status": "passed",
+      "detail": "final_holdout_v3 is flagged as the one-shot blind split with 50 seeds"
+    },
+    {
+      "name": "split routing: revealed holdouts are analysis-only",
+      "status": "passed",
+      "detail": "v2/legacy holdouts are revealed and can never be blind again"
+    },
+    {
+      "name": "split registry: revealed set is complete",
+      "status": "passed",
+      "detail": "REVEALED_SEEDS covers every v2 seed and excludes the v3 splits"
+    },
+    {
+      "name": "split routing: custom seeds are exploratory only",
+      "status": "passed",
+      "detail": "custom seeds are labelled exploratory and never gate-eligible"
+    },
+    {
+      "name": "selection: untraceable score fails gate",
+      "status": "passed",
+      "detail": "an untraceable real score cannot pass the blind gate"
+    },
+    {
+      "name": "mutex: holdout + split",
+      "status": "passed",
+      "detail": "rejected with 'cannot be combined with --split'"
+    },
+    {
+      "name": "mutex: holdout + custom seeds",
+      "status": "passed",
+      "detail": "rejected with 'cannot be combined with custom --seeds'"
+    },
+    {
+      "name": "mutex: split + custom seeds",
+      "status": "passed",
+      "detail": "rejected with '--seeds cannot be combined with --split'"
+    },
+    {
+      "name": "mutex: custom seeds reuse new development split",
+      "status": "passed",
+      "detail": "rejected with 'cannot reuse pre-registered split seeds'"
+    },
+    {
+      "name": "mutex: custom seeds reuse previous development split",
+      "status": "passed",
+      "detail": "rejected with 'cannot reuse pre-registered split seeds'"
+    },
+    {
+      "name": "mutex: custom seeds reuse legacy development split",
+      "status": "passed",
+      "detail": "rejected with 'cannot reuse pre-registered split seeds'"
+    },
+    {
+      "name": "mutex: custom seeds reuse legacy final holdout",
+      "status": "passed",
+      "detail": "rejected with 'cannot reuse pre-registered split seeds'"
+    },
+    {
+      "name": "mutex: custom seeds reuse previous final holdout",
+      "status": "passed",
+      "detail": "rejected with 'cannot reuse pre-registered split seeds'"
+    },
+    {
+      "name": "mutex: custom seeds reuse the new final holdout",
+      "status": "passed",
+      "detail": "rejected with 'cannot reuse pre-registered split seeds'"
+    },
+    {
+      "name": "mutex: custom seeds hit the training pool",
+      "status": "passed",
+      "detail": "rejected with 'overlap the training episode pool'"
+    },
+    {
+      "name": "mutex: custom seeds hit the training range",
+      "status": "passed",
+      "detail": "rejected with 'overlap the training episode pool'"
+    },
+    {
+      "name": "mutex: custom seeds too short",
+      "status": "passed",
+      "detail": "rejected with 'at least 10 distinct seeds'"
+    },
+    {
+      "name": "mutex: custom seeds with duplicates",
+      "status": "passed",
+      "detail": "rejected with 'must not repeat'"
+    },
+    {
+      "name": "mutex: unknown split",
+      "status": "passed",
+      "detail": "rejected with 'unknown split'"
+    },
+    {
+      "name": "checkpoint: step parsing",
+      "status": "passed",
+      "detail": "checkpoint filename step parsing"
+    },
+    {
+      "name": "checkpoint: discovery, SHA-256, step uniqueness",
+      "status": "passed",
+      "detail": "discovery + SHA-256 + step-uniqueness invariant"
+    },
+    {
+      "name": "checkpoint: frozen training defaults",
+      "status": "passed",
+      "detail": "default snapshot interval 51200 single-env steps; train seed 20260925"
+    },
+    {
+      "name": "checkpoint: run-config registry vs disk",
+      "status": "passed",
+      "detail": "9 checkpoints, steps and SHA-256 match disk"
+    },
+    {
+      "name": "run-config: split version and checkpoint interval",
+      "status": "passed",
+      "detail": "split version, interval 51200 consistent with 9 checkpoints, no EvalCallback best model"
+    },
+    {
+      "name": "progress.csv: PPO diagnostics readable",
+      "status": "passed",
+      "detail": "245 rows, 17 columns"
+    },
+    {
+      "name": "episodes.monitor.csv: referee info readable",
+      "status": "passed",
+      "detail": "926 episode rows; info fields present"
+    },
+    {
+      "name": "run-config: checkpoint audit ok",
+      "status": "passed",
+      "detail": "audit ok: 9 checkpoints, progress rows=245, monitor rows=926"
+    },
+    {
+      "name": "CLI guard: blind holdout needs a freeze record",
+      "status": "passed",
+      "detail": "blind holdout without --require-freeze is rejected"
+    },
+    {
+      "name": "CLI guard: --require-freeze split scoping",
+      "status": "passed",
+      "detail": "--require-freeze outside the blind split is rejected"
+    },
+    {
+      "name": "CLI guard: revealed holdouts are analysis-only",
+      "status": "passed",
+      "detail": "revealed holdouts require --analysis-only; the flag is rejected elsewhere"
+    },
+    {
+      "name": "CLI guard: split mixing rejected",
+      "status": "passed",
+      "detail": "--final-holdout plus --split is rejected"
+    },
+    {
+      "name": "CLI guard: custom seeds cannot reuse a named split",
+      "status": "passed",
+      "detail": "custom seeds reusing a named split are rejected"
+    },
+    {
+      "name": "CLI guard: pre-registered split runs once",
+      "status": "passed",
+      "detail": "an existing result file is not overwritten without --force"
+    },
+    {
+      "name": "gym: check_env contract",
+      "status": "passed",
+      "detail": "Gymnasium check_env passed; observation_space=(11,)"
+    },
+    {
+      "name": "gym: seed 42 reset/action determinism",
+      "status": "passed",
+      "detail": "101 frames bit-identical across two seed-42 episodes"
+    },
+    {
+      "name": "selection: freeze matches the development sweep",
+      "status": "passed",
+      "detail": "candidate ppo_score_block.zip at 501760 steps frozen with matching SHA-256"
+    }
+  ],
+  "passed": 40,
+  "failed": 0,
+  "skipped": 0
+}

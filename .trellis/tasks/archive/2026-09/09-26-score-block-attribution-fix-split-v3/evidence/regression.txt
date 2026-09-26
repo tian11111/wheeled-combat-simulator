@@ -1,0 +1,36 @@
+Regression after the attribution fix + split v3 (dotnet 8.0.425, workdir D:\project\robot-simulator)
+
+$ dotnet build RobotSimulator.sln -m:1 --no-incremental (full rebuild)
+    6 个警告
+    0 个错误
+
+$ dotnet test RobotSimulator.sln -m:1 --no-restore
+已通过! - 失败:     0，通过:   388，已跳过:     0，总计:   388，持续时间: 5 s - Sim.Tests.dll (net8.0)
+
+$ dotnet src/Sim.Cli/bin/Debug/net8.0/Sim.Cli.dll replay-check <each replays/*.json>
+  arena-layout-audit-seed42.json: exit=0  PASS: replay reproduces the recorded match bit-for-bit.
+  godot-parity-seed42.json: exit=0  PASS: replay reproduces the recorded match bit-for-bit.
+  rotated-seed42.json: exit=0  PASS: replay reproduces the recorded match bit-for-bit.
+  seed-42-pyus.json: exit=0  PASS: replay reproduces the recorded match bit-for-bit.
+  seed-42.json: exit=0  PASS: replay reproduces the recorded match bit-for-bit.
+  task-one-review-seed42.json: exit=0  PASS: replay reproduces the recorded match bit-for-bit.
+
+$ python controllers/score_block_rl/selftest.py
+31 passed, 0 failed, 8 skipped
+
+New tests: src/Sim.Tests/BlockAttributionTests.cs
+$ dotnet test src/Sim.Tests/Sim.Tests.csproj --filter FullyQualifiedName~BlockAttributionTests
+已通过! - 失败:     0，通过:     6，已跳过:     0，总计:     6，持续时间: 144 ms - Sim.Tests.dll (net8.0)
+
+Negative control: with the fix stashed, 2 of the 6 new tests fail
+  SeveralRecordsFromOneRobot_AreAttributedToThatRobot  -> Assert.Equal() Failure: 'simultaneous' != 'us'
+  MujocoSinglePusher_PushingTheBlockOffStage_ScoresForUs -> 'a lone pusher was not credited; block offs seen:
+      [[score] 双方同时接触增益块并将其推出台外, 按规则不计分 | ... ]'
+
+The 6 warnings are pre-existing and all live in files this task did not touch:
+  src/Sim.Tests/BatchCommandTests.cs(159,160,161,162)      CS8601 x5
+  src/Sim.Tests/SensorCalibrationImportTests.cs(60)        xUnit1013 x1
+No new warning was introduced.
+
+Sim.Core behavioural change is exactly one line:
+  src/Sim.Core/Physics.cs:641  o.LastContactRole = roles.Count == 1 ? roles[0] : "simultaneous";

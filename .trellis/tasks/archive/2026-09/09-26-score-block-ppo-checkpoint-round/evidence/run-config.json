@@ -1,0 +1,297 @@
+{
+  "status": "completed",
+  "algorithm": "Stable-Baselines3 PPO MlpPolicy",
+  "python": "3.12.10",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "dependencies": {
+    "numpy": "2.5.0",
+    "gymnasium": "1.3.0",
+    "stable-baselines3": "2.9.0",
+    "torch": "2.13.0"
+  },
+  "total_timesteps_requested": 500000,
+  "train_seed": 20260925,
+  "train_episode_seed_pool": {
+    "fixed": [
+      42
+    ],
+    "inclusive_range": [
+      1000,
+      1999
+    ]
+  },
+  "initial_sb3_reset_episode_seed": 20260925,
+  "split_version": "score-block-split-v2",
+  "training_split": {
+    "split_version": "score-block-split-v2",
+    "fixed": [
+      42
+    ],
+    "inclusive_range": [
+      1000,
+      1999
+    ],
+    "initial_sb3_reset_episode_seed": 20260925
+  },
+  "evaluation_seed_splits": {
+    "legacy_development": [
+      3001,
+      3002,
+      3003,
+      3004,
+      3005,
+      3006,
+      3007,
+      3008,
+      3009,
+      3010
+    ],
+    "legacy_final_holdout": [
+      4001,
+      4002,
+      4003,
+      4004,
+      4005,
+      4006,
+      4007,
+      4008,
+      4009,
+      4010
+    ],
+    "development_v2": [
+      5001,
+      5002,
+      5003,
+      5004,
+      5005,
+      5006,
+      5007,
+      5008,
+      5009,
+      5010,
+      5011,
+      5012,
+      5013,
+      5014,
+      5015,
+      5016,
+      5017,
+      5018,
+      5019,
+      5020
+    ],
+    "final_holdout_v2": [
+      6001,
+      6002,
+      6003,
+      6004,
+      6005,
+      6006,
+      6007,
+      6008,
+      6009,
+      6010,
+      6011,
+      6012,
+      6013,
+      6014,
+      6015,
+      6016,
+      6017,
+      6018,
+      6019,
+      6020,
+      6021,
+      6022,
+      6023,
+      6024,
+      6025,
+      6026,
+      6027,
+      6028,
+      6029,
+      6030,
+      6031,
+      6032,
+      6033,
+      6034,
+      6035,
+      6036,
+      6037,
+      6038,
+      6039,
+      6040,
+      6041,
+      6042,
+      6043,
+      6044,
+      6045,
+      6046,
+      6047,
+      6048,
+      6049,
+      6050
+    ]
+  },
+  "evaluation_split_usage": {
+    "legacy_development": "non-blind",
+    "legacy_final_holdout": "non-blind",
+    "development_v2": "non-blind",
+    "final_holdout_v2": "blind holdout"
+  },
+  "scenario": "D:\\project\\robot-simulator\\scenarios\\wushu-ring-2026-mujoco.json",
+  "scenario_sha256": "52ec978e001e0ca09b1ce4b3620d89e356cbc70ffccd8b9ad9e8389bbecff7d3",
+  "cli_dll": "D:\\project\\robot-simulator\\src\\Sim.Cli\\bin\\Debug\\net8.0\\Sim.Cli.dll",
+  "cli_dll_sha256": "b3d4fd0142e6dc4c20648a42dc339b8f27ca2d1e324c4b67e49b6c087b9dfadf",
+  "dotnet_executable": "C:\\Users\\Neco\\AppData\\Local\\Temp\\robot-simulator-dotnet-sdk\\dotnet.exe",
+  "monitor_csv": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\episodes.monitor.csv",
+  "progress_csv": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\progress.csv",
+  "episode_info_fields": [
+    "seed",
+    "entry_tick",
+    "policy_ticks",
+    "target_index",
+    "us_block_scores",
+    "us_block_score_events",
+    "them_block_score_events",
+    "target_block_offs",
+    "unowned_block_offs",
+    "us_drops",
+    "attribution_ambiguous",
+    "done_reason",
+    "faults",
+    "score_us",
+    "score_them"
+  ],
+  "checkpoint_dir": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\checkpoints",
+  "checkpoint_interval_single_env_steps": 51200,
+  "checkpoint_callback": {
+    "class": "stable_baselines3.common.callbacks.CheckpointCallback",
+    "save_freq_env_step_calls": 51200,
+    "n_envs": 1,
+    "save_freq_divided_by_n_envs": false,
+    "name_prefix": "rl_model",
+    "note": "save_freq counts env.step() calls; with n_envs=1 that equals single-env steps"
+  },
+  "logger": {
+    "class": "stable_baselines3.common.logger.Logger + CSVOutputFormat",
+    "progress_csv": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\progress.csv",
+    "note": "SB3's default configure_logger installs no writers at verbose=0 without tensorboard_log, so the CSV logger is set explicitly",
+    "log_interval": 1
+  },
+  "best_model_selection": {
+    "uses_eval_callback_mean_reward": false,
+    "note": "EvalCallback's default best_model rule ranks by mean episode reward; this pilot selects models on referee events in evaluate.py instead"
+  },
+  "ppo_parameters": {
+    "policy": "MlpPolicy",
+    "defaults_from_installed_sb3_version": true,
+    "seed": 20260925,
+    "n_envs": 1,
+    "n_steps": 2048,
+    "batch_size": 64,
+    "n_epochs": 10,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2,
+    "normalize_advantage": true,
+    "ent_coef": 0.0,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "learning_rate_initial": 0.0003,
+    "target_kl": null,
+    "use_sde": false,
+    "device": "cpu"
+  },
+  "observation": {
+    "dimension": 11,
+    "privileged_state": true,
+    "fields": [
+      "target_relative_forward/platform_side",
+      "target_relative_left/platform_side",
+      "target_x/platform_side",
+      "target_y/platform_side",
+      "us_forward_speed/vehicle_max_speed",
+      "us_yaw_rate/vehicle_max_turn_rate",
+      "us_on_platform",
+      "target_on_platform",
+      "remaining_match_time_ratio",
+      "us_x_from_platform_center/platform_half_side",
+      "us_y_from_platform_center/platform_half_side"
+    ],
+    "block_coordinates_are_simulator_ground_truth": true
+  },
+  "action": "Box(-1,1)^2 -> v=action[0] m/s, w=2*action[1] rad/s",
+  "elapsed_seconds": 704.298,
+  "total_timesteps_trained": 501760,
+  "steps_per_second": 712.426,
+  "model_zip_sha256": "10e91af9d13b04647b02f9b00668738dd1ba58142da53d5d3fa86c4f13f21dc3",
+  "episode_log_rows": 728,
+  "checkpoints": [
+    {
+      "path": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\checkpoints\\rl_model_51200_steps.zip",
+      "filename": "rl_model_51200_steps.zip",
+      "training_steps": 51200,
+      "sha256": "9e247bbcbb2b157e11b29f8072194125f8629182fecd0dd573854e84677dafee"
+    },
+    {
+      "path": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\checkpoints\\rl_model_102400_steps.zip",
+      "filename": "rl_model_102400_steps.zip",
+      "training_steps": 102400,
+      "sha256": "174d93b3baa08cf6e2eb7039eba798fe2351e178ac2f19524b5b2ac8f9920123"
+    },
+    {
+      "path": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\checkpoints\\rl_model_153600_steps.zip",
+      "filename": "rl_model_153600_steps.zip",
+      "training_steps": 153600,
+      "sha256": "a89f61d24c96a68ac5a9022b381812ea9c9a32bc50081dda9e9812530bb35393"
+    },
+    {
+      "path": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\checkpoints\\rl_model_204800_steps.zip",
+      "filename": "rl_model_204800_steps.zip",
+      "training_steps": 204800,
+      "sha256": "44dce7a2b880a4c6772f2cccf9c844207b868ee59bb87e41a80a847accf25c54"
+    },
+    {
+      "path": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\checkpoints\\rl_model_256000_steps.zip",
+      "filename": "rl_model_256000_steps.zip",
+      "training_steps": 256000,
+      "sha256": "617d08f4affd7f2dac17e6a3a869c8d7604ff5cb83d73cc4cac0aed74d89fbe1"
+    },
+    {
+      "path": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\checkpoints\\rl_model_307200_steps.zip",
+      "filename": "rl_model_307200_steps.zip",
+      "training_steps": 307200,
+      "sha256": "6ed360757633d63553978285e1455c980f66993a3685ae727ef6ddc4ed2bd829"
+    },
+    {
+      "path": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\checkpoints\\rl_model_358400_steps.zip",
+      "filename": "rl_model_358400_steps.zip",
+      "training_steps": 358400,
+      "sha256": "ea1b47bf3031c85d4fd1ad9432f646bd15b360d7331cda073ed7405a734ebdd5"
+    },
+    {
+      "path": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\checkpoints\\rl_model_409600_steps.zip",
+      "filename": "rl_model_409600_steps.zip",
+      "training_steps": 409600,
+      "sha256": "33a96674a7ed9a43360b6916fa48752ab2b3a2ca5b256d4f4d4c8ddaa49ede9a"
+    },
+    {
+      "path": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\checkpoints\\rl_model_460800_steps.zip",
+      "filename": "rl_model_460800_steps.zip",
+      "training_steps": 460800,
+      "sha256": "2ba235df1c39497045d29ebf4d594b9bdc06f8412ac816df9faa20632dbfd270"
+    }
+  ],
+  "checkpoint_count": 9,
+  "checkpoint_audit": {
+    "ok": true,
+    "issues": [],
+    "registered_checkpoints": 9,
+    "checkpoints_on_disk": 9,
+    "final_model": "C:\\Users\\Neco\\AppData\\Local\\Temp\\score-block-rl-v2-500k-20260926\\ppo_score_block.zip",
+    "final_model_sha256": "10e91af9d13b04647b02f9b00668738dd1ba58142da53d5d3fa86c4f13f21dc3",
+    "progress_csv_rows": 245,
+    "monitor_csv_rows": 728
+  }
+}
