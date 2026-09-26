@@ -29,7 +29,9 @@ def base_obs() -> dict:
                        "dLB": 0.6, "dRB": 1.2},
         "objects": {"buffs": [{"X": 1.35, "Y": 1.35}],
                     "debuff": {"X": 1.6, "Y": 2.4}},
-        "vehicle": {"maxSpeed": 1.5, "maxTurnRate": 4.0},
+        # 真实 Observation 结构: vehicle 嵌套在 robot 内
+        "robot": {"x": 1.9, "y": 1.9, "th": 0.0,
+                  "vehicle": {"maxSpeed": 1.5, "maxTurnRate": 4.0}},
     }
 
 
@@ -154,6 +156,35 @@ def test_calibrated_motion_clamped_to_vehicle_limits():
     print("OK vehicle clamp (maxSpeed/maxTurnRate)")
 
 
+def test_vehicle_limits_read_from_robot_vehicle():
+    stub = StubController(5000, 9000)
+    adapter = make_oracle_adapter(stub)
+    adapter.mode = "calibrated"
+    adapter.k = 0.00055
+    adapter.track_width = 0.18
+    obs = base_obs() | {"robot": {"x": 1.9, "y": 1.9, "th": 0.0,
+                                  "vehicle": {"maxSpeed": 1.0, "maxTurnRate": 2.0}}}
+    reply = adapter.handle(obs)
+    # 未标定限幅常量 1.5/4.0 不再生效: 必须读取 robot.vehicle 的 1.0/2.0
+    assert reply["v"] == 1.0 and reply["w"] == 2.0, reply
+    print("OK vehicle limits read from robot.vehicle (1.0/2.0)")
+
+
+def test_tick_jump_returns_zero_action_and_healthy_false():
+    stub = StubController(1000, 1000)
+    adapter = make_oracle_adapter(stub)
+    adapter.mode = "calibrated"
+    adapter.k = 0.00055
+    adapter.track_width = 0.18
+    adapter.handle(base_obs())  # tick 10
+    obs = base_obs() | {"tick": 14, "requestId": 9}  # 跳帧
+    reply = adapter.handle(obs)
+    assert reply == {"v": 0.0, "w": 0.0, "requestId": 9}, reply
+    # 车端仍被调用且收到 healthy=False(状态机/滤波需要看到断流)
+    assert stub.last_args["healthy"] is False
+    print("OK tick jump -> zero action + healthy=False to car")
+
+
 def test_calibrated_without_k_fails_startup():
     try:
         MbriAdapter(mode="calibrated", k=None, track_width=None,
@@ -182,6 +213,8 @@ if __name__ == "__main__":
     test_tick_fault_on_non_monotonic()
     test_request_id_echo_and_calibrated_motion()
     test_calibrated_motion_clamped_to_vehicle_limits()
+    test_vehicle_limits_read_from_robot_vehicle()
+    test_tick_jump_returns_zero_action_and_healthy_false()
     test_calibrated_without_k_fails_startup()
     test_smoke_mode_zero_action_no_car_import()
     print("ALL ADAPTER SELFTESTS PASSED")

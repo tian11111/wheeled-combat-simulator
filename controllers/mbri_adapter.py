@@ -99,19 +99,30 @@ class MbriAdapter:
             return {"v": 0.0, "w": 0.0, "requestId": request_id}
 
         tick = obs.get("tick")
-        fault = self._check_tick(tick)
+        tick_fault = self._check_tick(tick)
         try:
             gray_raw, digi, analog = self._car_sensor_inputs(obs)
             vision = self._car_vision_input(obs)
             now = float(obs.get("t") or 0.0)  # 仿真时间注入, 禁用墙钟
+            v_limit, w_limit = self._vehicle_limits(obs)
         except KeyError as exc:
             self.faults += 1
-            print(f"[mbri-adapter] frame fault: missing channel {exc}", file=sys.stderr)
+            print(f"[mbri-adapter] frame fault: missing field {exc}", file=sys.stderr)
+            return {"v": 0.0, "w": 0.0, "requestId": request_id}
+
+        if tick_fault:
+            # 跳帧/重复 tick: 帧异常 —— 让车端以 healthy=False 感知(状态机/滤波
+            # 需要看到断流), 但动作回零, 不采信异常帧上的决策。
+            try:
+                self.controller.update(gray_raw, digi, analog, shovel=None,
+                                       vision=vision, now=now, healthy=False)
+            except Exception as exc:
+                print(f"[mbri-adapter] car update fault on bad frame: {exc}", file=sys.stderr)
             return {"v": 0.0, "w": 0.0, "requestId": request_id}
 
         try:
             result = self.controller.update(gray_raw, digi, analog, shovel=None,
-                                            vision=vision, now=now, healthy=not fault)
+                                            vision=vision, now=now, healthy=True)
         except Exception as exc:
             self.faults += 1
             print(f"[mbri-adapter] car decision fault: {exc}", file=sys.stderr)
@@ -120,9 +131,6 @@ class MbriAdapter:
         left = float(result["left"])
         right = float(result["right"])
         if self.mode == "calibrated" and self.k and self.track_width:
-            vehicle = obs.get("vehicle") or {}
-            v_limit = float(vehicle.get("maxSpeed", 1.5))
-            w_limit = float(vehicle.get("maxTurnRate", 4.0))
             v = (left + right) / 2.0 * self.k
             w = (right - left) * self.k / self.track_width
             reply = {"v": clamp(v, -v_limit, v_limit),
@@ -132,6 +140,12 @@ class MbriAdapter:
             # oracle 模式: 决策可跑但无标定系数 → 拒绝物理动作映射, 动作恒为零。
             reply = {"v": 0.0, "w": 0.0, "requestId": request_id}
         return reply
+
+    @staticmethod
+    def _vehicle_limits(obs: dict) -> tuple[float, float]:
+        """限幅只从 obs.robot.vehicle 读取(真实观测结构); 缺失视为帧错误。"""
+        vehicle = (obs.get("robot") or {}).get("vehicle") or {}
+        return (float(vehicle["maxSpeed"]), float(vehicle["maxTurnRate"]))
 
     def _check_tick(self, tick) -> bool:
         """返回 True=本帧带故障(重复/非单调/步长异常); 仍按零动作应答。"""
@@ -147,6 +161,7 @@ class MbriAdapter:
                 print(f"[mbri-adapter] protocol fault: tick jump {self._last_tick} -> {tick}",
                       file=sys.stderr)
                 self.faults += 1
+                return True
         self._last_tick = tick
         return False
 
