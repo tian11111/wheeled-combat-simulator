@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "铁律与确定性契约：Sim.Core 不得引入引擎/IO；rl-env 专用例外；SCORE_BLOCK 预注册 seed 划分契约与选模口径；块出界归属判定必须按不同角色数，且修复会经裁判计分反馈进 FSM。"}
+{"file": ".trellis/tasks/archive/2026-09/09-26-score-block-failure-diagnosis/report.md", "reason": "本任务唯一改动来源：诊断已判定 FinalizeBlockContacts 用记录条数而非不同角色数，14/14 BlockOff 均为单机多点误判，并给出 5→9 / 8→8 / 1→1 / 0→1 的投影。"}
+{"file": ".trellis/tasks/archive/2026-09/09-26-score-block-failure-diagnosis/evidence/misattribution-projection.json", "reason": "逐 seed 投影明细，用于与本任务实测的 5→8 差异做逐项对照。"}
+{"file": ".trellis/tasks/archive/2026-09/09-26-score-block-failure-diagnosis/evidence/decisive-excerpt.md", "reason": "三个决定性样本（6037/6048/4005）的原始轨迹摘录，是回归测试断言的事实依据。"}
+{"file": ".trellis/tasks/archive/2026-09/09-26-score-block-ppo-checkpoint-round/prd.md", "reason": "门槛结构冻结于此：锁定目标我方真实 BlockScore ≥ 1 且不低于 FSM，且我方 Drop 不高于 FSM；不得放宽或排除 seed。"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "构建/测试/回放门禁与诚实性报告口径。"}

@@ -1,0 +1,217 @@
+{
+  "task": "09-26-score-block-attribution-fix-split-v3",
+  "fix": {
+    "file": "src/Sim.Core/Physics.cs",
+    "function": "PhysicsWorld.FinalizeBlockContacts",
+    "before": "o.LastContactRole = last.Count == 1 ? last[0].Role : \"simultaneous\";",
+    "after": "distinct roles at max contact time; one role -> that role, several -> simultaneous",
+    "sim_core_sha256": "7fab254ae4fb3ad285226ade18783af62da6b52380762d685274de4f6e18beb3"
+  },
+  "artifacts": {
+    "post_fix_cli_dll_sha256": "72e22e1c3d0762c5b1d9eaf35bb97d27c1c94b7bd76398afde5d8403eaa6aa89",
+    "pre_fix_cli_dll_sha256": "63ea210333cef5c70c5bc09d2557928a99722f22c5b50f2800ff68b60fa22b41",
+    "scenario_sha256": "52ec978e001e0ca09b1ce4b3620d89e356cbc70ffccd8b9ad9e8389bbecff7d3",
+    "round2_model_sha256": "6ed360757633d63553978285e1455c980f66993a3685ae727ef6ddc4ed2bd829",
+    "round1_model_sha256": "b943a92d2bee0095cd2be04535be07086ea4dbbeb61915afe15c4c23860104b7"
+  },
+  "projection_from_diagnosis": {
+    "final_holdout_v2_policy_locked_target": [
+      5,
+      9
+    ],
+    "final_holdout_v2_fsm_locked_target": [
+      8,
+      8
+    ],
+    "legacy_final_holdout_policy_locked_target": [
+      1,
+      1
+    ],
+    "legacy_final_holdout_fsm_locked_target": [
+      0,
+      1
+    ],
+    "unowned_block_offs_all_cells": [
+      ">0",
+      0
+    ]
+  },
+  "measured": {
+    "final_holdout_v2_policy": {
+      "pre_fix": {
+        "episodes": 50,
+        "no_score_block_episodes": 5,
+        "episodes_with_locked_target_us_block_score": 5,
+        "total_locked_target_us_block_scores": 5,
+        "total_us_block_score_events": 5,
+        "total_them_block_score_events": 6,
+        "total_target_block_offs": 5,
+        "total_unowned_block_offs": 10,
+        "total_us_drops": 28,
+        "total_controller_faults": 0,
+        "final_score_us_sum": 123,
+        "final_score_them_sum": 77,
+        "ambiguous_attribution_episodes": 0
+      },
+      "post_fix": {
+        "episodes": 50,
+        "no_score_block_episodes": 5,
+        "episodes_with_locked_target_us_block_score": 8,
+        "total_locked_target_us_block_scores": 8,
+        "total_us_block_score_events": 8,
+        "total_them_block_score_events": 12,
+        "total_target_block_offs": 0,
+        "total_unowned_block_offs": 0,
+        "total_us_drops": 28,
+        "total_controller_faults": 0,
+        "final_score_us_sum": 129,
+        "final_score_them_sum": 100,
+        "ambiguous_attribution_episodes": 0
+      },
+      "changed": [
+        "episodes_with_locked_target_us_block_score",
+        "total_locked_target_us_block_scores",
+        "total_us_block_score_events",
+        "total_them_block_score_events",
+        "total_target_block_offs",
+        "total_unowned_block_offs",
+        "final_score_us_sum",
+        "final_score_them_sum"
+      ]
+    },
+    "final_holdout_v2_fsm": {
+      "pre_fix": {
+        "episodes": 50,
+        "no_score_block_episodes": 5,
+        "episodes_with_locked_target_us_block_score": 8,
+        "total_locked_target_us_block_scores": 8,
+        "total_us_block_score_events": 9,
+        "total_them_block_score_events": 6,
+        "total_target_block_offs": 0,
+        "total_unowned_block_offs": 1,
+        "total_us_drops": 21,
+        "total_controller_faults": 0,
+        "final_score_us_sum": 66,
+        "final_score_them_sum": 67,
+        "ambiguous_attribution_episodes": 0
+      },
+      "post_fix": {
+        "episodes": 50,
+        "no_score_block_episodes": 5,
+        "episodes_with_locked_target_us_block_score": 8,
+        "total_locked_target_us_block_scores": 8,
+        "total_us_block_score_events": 9,
+        "total_them_block_score_events": 7,
+        "total_target_block_offs": 0,
+        "total_unowned_block_offs": 0,
+        "total_us_drops": 21,
+        "total_controller_faults": 0,
+        "final_score_us_sum": 66,
+        "final_score_them_sum": 76,
+        "ambiguous_attribution_episodes": 0
+      },
+      "changed": [
+        "total_them_block_score_events",
+        "total_unowned_block_offs",
+        "final_score_them_sum"
+      ]
+    },
+    "legacy_final_holdout_policy": {
+      "pre_fix": {
+        "episodes": 10,
+        "no_score_block_episodes": 0,
+        "episodes_with_locked_target_us_block_score": 1,
+        "total_locked_target_us_block_scores": 1,
+        "total_us_block_score_events": 1,
+        "total_them_block_score_events": 2,
+        "total_target_block_offs": 0,
+        "total_unowned_block_offs": 2,
+        "total_us_drops": 8,
+        "total_controller_faults": 0,
+        "final_score_us_sum": 18,
+        "final_score_them_sum": 14,
+        "ambiguous_attribution_episodes": 1
+      },
+      "post_fix": {
+        "episodes": 10,
+        "no_score_block_episodes": 0,
+        "episodes_with_locked_target_us_block_score": 1,
+        "total_locked_target_us_block_scores": 1,
+        "total_us_block_score_events": 1,
+        "total_them_block_score_events": 4,
+        "total_target_block_offs": 0,
+        "total_unowned_block_offs": 0,
+        "total_us_drops": 8,
+        "total_controller_faults": 0,
+        "final_score_us_sum": 18,
+        "final_score_them_sum": 20,
+        "ambiguous_attribution_episodes": 1
+      },
+      "changed": [
+        "total_them_block_score_events",
+        "total_unowned_block_offs",
+        "final_score_them_sum"
+      ]
+    },
+    "legacy_final_holdout_fsm": {
+      "pre_fix": {
+        "episodes": 10,
+        "no_score_block_episodes": 0,
+        "episodes_with_locked_target_us_block_score": 0,
+        "total_locked_target_us_block_scores": 0,
+        "total_us_block_score_events": 0,
+        "total_them_block_score_events": 0,
+        "total_target_block_offs": 1,
+        "total_unowned_block_offs": 1,
+        "total_us_drops": 7,
+        "total_controller_faults": 0,
+        "final_score_us_sum": 14,
+        "final_score_them_sum": 9,
+        "ambiguous_attribution_episodes": 0
+      },
+      "post_fix": {
+        "episodes": 10,
+        "no_score_block_episodes": 0,
+        "episodes_with_locked_target_us_block_score": 1,
+        "total_locked_target_us_block_scores": 1,
+        "total_us_block_score_events": 1,
+        "total_them_block_score_events": 0,
+        "total_target_block_offs": 0,
+        "total_unowned_block_offs": 0,
+        "total_us_drops": 7,
+        "total_controller_faults": 0,
+        "final_score_us_sum": 17,
+        "final_score_them_sum": 9,
+        "ambiguous_attribution_episodes": 0
+      },
+      "changed": [
+        "episodes_with_locked_target_us_block_score",
+        "total_locked_target_us_block_scores",
+        "total_us_block_score_events",
+        "total_target_block_offs",
+        "total_unowned_block_offs",
+        "final_score_us_sum"
+      ]
+    }
+  },
+  "analysis_only_flags": {
+    "evaluation_split": "final_holdout_v2",
+    "split_version": "score-block-split-v3",
+    "analysis_only": true,
+    "gate_evidence_eligible": false,
+    "is_blind_holdout": false,
+    "is_revealed_holdout": true,
+    "new_round_blind_gate_passed": null
+  },
+  "verdicts": {
+    "not_gate_evidence": "the revealed-set re-runs are analysis-only and cannot be quoted as gate evidence; the drop condition (our Drop <= FSM) still fails",
+    "unowned_block_offs_zero_in_all_four_cells": true,
+    "us_drops_unchanged_in_all_four_cells": true,
+    "locked_target_projection_matches": {
+      "final_holdout_v2_policy_expected_9": false,
+      "final_holdout_v2_fsm_expected_8": true,
+      "legacy_final_holdout_policy_expected_1": true,
+      "legacy_final_holdout_fsm_expected_1": true
+    }
+  }
+}

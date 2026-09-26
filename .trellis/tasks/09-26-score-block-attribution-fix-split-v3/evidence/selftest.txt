@@ -1,0 +1,41 @@
+[ passed] split routing: named seed lists: 6 named splits match the pre-registered seed lists
+[ passed] split registry: disjointness: 160 split seeds, disjoint from the training pool
+[ passed] split routing: default is the new development set: default split is development_v3 (7001-7020)
+[ passed] split routing: --final-holdout keeps its historical meaning: --final-holdout still resolves to 4001-4010
+[ passed] split routing: new blind split label: final_holdout_v3 is flagged as the one-shot blind split with 50 seeds
+[ passed] split routing: revealed holdouts are analysis-only: v2/legacy holdouts are revealed and can never be blind again
+[ passed] split registry: revealed set is complete: REVEALED_SEEDS covers every v2 seed and excludes the v3 splits
+[ passed] split routing: custom seeds are exploratory only: custom seeds are labelled exploratory and never gate-eligible
+[ passed] mutex: holdout + split: rejected with 'cannot be combined with --split'
+[ passed] mutex: holdout + custom seeds: rejected with 'cannot be combined with custom --seeds'
+[ passed] mutex: split + custom seeds: rejected with '--seeds cannot be combined with --split'
+[ passed] mutex: custom seeds reuse new development split: rejected with 'cannot reuse pre-registered split seeds'
+[ passed] mutex: custom seeds reuse previous development split: rejected with 'cannot reuse pre-registered split seeds'
+[ passed] mutex: custom seeds reuse legacy development split: rejected with 'cannot reuse pre-registered split seeds'
+[ passed] mutex: custom seeds reuse legacy final holdout: rejected with 'cannot reuse pre-registered split seeds'
+[ passed] mutex: custom seeds reuse previous final holdout: rejected with 'cannot reuse pre-registered split seeds'
+[ passed] mutex: custom seeds reuse the new final holdout: rejected with 'cannot reuse pre-registered split seeds'
+[ passed] mutex: custom seeds hit the training pool: rejected with 'overlap the training episode pool'
+[ passed] mutex: custom seeds hit the training range: rejected with 'overlap the training episode pool'
+[ passed] mutex: custom seeds too short: rejected with 'at least 10 distinct seeds'
+[ passed] mutex: custom seeds with duplicates: rejected with 'must not repeat'
+[ passed] mutex: unknown split: rejected with 'unknown split'
+[ passed] checkpoint: step parsing: checkpoint filename step parsing
+[ passed] checkpoint: discovery, SHA-256, step uniqueness: discovery + SHA-256 + step-uniqueness invariant
+[ passed] checkpoint: frozen training defaults: default snapshot interval 51200 single-env steps; train seed 20260925
+[skipped] checkpoint: run-config registry vs disk: no --train-dir given
+[skipped] run-config: split version and checkpoint interval: no --train-dir given
+[skipped] progress.csv: PPO diagnostics readable: no --train-dir given
+[skipped] episodes.monitor.csv: referee info readable: no --train-dir given
+[skipped] run-config: checkpoint audit ok: no --train-dir given
+[ passed] CLI guard: blind holdout needs a freeze record: blind holdout without --require-freeze is rejected
+[ passed] CLI guard: --require-freeze split scoping: --require-freeze outside the blind split is rejected
+[ passed] CLI guard: revealed holdouts are analysis-only: revealed holdouts require --analysis-only; the flag is rejected elsewhere
+[ passed] CLI guard: split mixing rejected: --final-holdout plus --split is rejected
+[ passed] CLI guard: custom seeds cannot reuse a named split: custom seeds reusing a named split are rejected
+[ passed] CLI guard: pre-registered split runs once: an existing result file is not overwritten without --force
+[skipped] gym: check_env contract: no --gym-check given
+[skipped] gym: seed 42 reset/action determinism: no --gym-check given
+[skipped] selection: freeze matches the development sweep: no --dev-sweep given
+
+31 passed, 0 failed, 8 skipped

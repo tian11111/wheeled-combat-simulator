@@ -35,7 +35,14 @@ from stable_baselines3.common.logger import CSVOutputFormat, Logger
 from stable_baselines3.common.monitor import Monitor
 
 from gym_env import ScoreBlockEnv, resolve_dotnet_executable
-from splits import FINAL_HOLDOUT_V2, NAMED_SPLITS, SPLIT_SEEDS, SPLIT_VERSION, training_pool_manifest
+from splits import (
+    FINAL_HOLDOUT_V3,
+    NAMED_SPLITS,
+    REVEALED_HOLDOUT_SPLITS,
+    SPLIT_SEEDS,
+    SPLIT_VERSION,
+    training_pool_manifest,
+)
 from train_artifacts import (
     CHECKPOINT_DIR_NAME,
     CHECKPOINT_NAME_PREFIX,
@@ -116,7 +123,9 @@ def main() -> None:
         "training_split": training_pool_manifest(),
         "evaluation_seed_splits": {name: list(SPLIT_SEEDS[name]) for name in NAMED_SPLITS},
         "evaluation_split_usage": {
-            name: ("blind holdout" if name == FINAL_HOLDOUT_V2 else "non-blind")
+            name: ("blind holdout" if name == FINAL_HOLDOUT_V3
+                   else "revealed holdout; analysis only" if name in REVEALED_HOLDOUT_SPLITS
+                   else "non-blind")
             for name in NAMED_SPLITS
         },
         "scenario": str(scenario),

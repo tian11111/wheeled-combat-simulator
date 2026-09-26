@@ -34,8 +34,10 @@ from pathlib import Path
 import splits
 from splits import (
     DEVELOPMENT_V2,
+    DEVELOPMENT_V3,
     EXPLORATORY,
     FINAL_HOLDOUT_V2,
+    FINAL_HOLDOUT_V3,
     LEGACY_DEVELOPMENT,
     LEGACY_FINAL_HOLDOUT,
     SPLIT_SEEDS,
@@ -64,7 +66,11 @@ EXPECTED_SPLIT_SEEDS = {
     LEGACY_FINAL_HOLDOUT: list(range(4001, 4011)),
     DEVELOPMENT_V2: list(range(5001, 5021)),
     FINAL_HOLDOUT_V2: list(range(6001, 6051)),
+    DEVELOPMENT_V3: list(range(7001, 7021)),
+    FINAL_HOLDOUT_V3: list(range(8001, 8051)),
 }
+#: Seeds used only as "free range" fixtures: never registered, never in the training pool.
+FREE_EXPLORATORY_SEEDS = list(range(9001, 9011))
 #: PPO optimisation diagnostics the CSV logger must expose.
 REQUIRED_PROGRESS_COLUMNS = (
     "train/approx_kl",
@@ -121,8 +127,8 @@ def pure_checks(harness: Harness) -> None:
             actual = splits.seeds_for(split)
             assert actual == expected, f"{split}: {actual} != {expected}"
         assert SPLIT_SEEDS == EXPECTED_SPLIT_SEEDS, "registry drifted from the pre-registered lists"
-        assert SPLIT_VERSION == "score-block-split-v2", SPLIT_VERSION
-        return "4 named splits match the pre-registered seed lists"
+        assert SPLIT_VERSION == "score-block-split-v3", SPLIT_VERSION
+        return "6 named splits match the pre-registered seed lists"
 
     harness.check("split routing: named seed lists", routing)
 
@@ -140,10 +146,10 @@ def pure_checks(harness: Harness) -> None:
 
     def defaults() -> str:
         selection = resolve_selection()
-        assert selection.split == DEVELOPMENT_V2, selection.split
-        assert selection.seeds == list(range(5001, 5021)), selection.seeds
+        assert selection.split == DEVELOPMENT_V3, selection.split
+        assert selection.seeds == list(range(7001, 7021)), selection.seeds
         assert not selection.is_blind_holdout and not selection.is_exploratory
-        return "default split is development_v2 (5001-5020)"
+        return "default split is development_v3 (7001-7020)"
 
     harness.check("split routing: default is the new development set", defaults)
 
@@ -157,15 +163,35 @@ def pure_checks(harness: Harness) -> None:
     harness.check("split routing: --final-holdout keeps its historical meaning", legacy_holdout)
 
     def blind_label() -> str:
-        selection = resolve_selection(split=FINAL_HOLDOUT_V2)
+        selection = resolve_selection(split=FINAL_HOLDOUT_V3)
         assert selection.is_blind_holdout and len(selection.seeds) == 50
-        assert selection.manifest()["evaluation_split"] == FINAL_HOLDOUT_V2
-        return "final_holdout_v2 is flagged as the one-shot blind split with 50 seeds"
+        assert selection.manifest()["evaluation_split"] == FINAL_HOLDOUT_V3
+        return "final_holdout_v3 is flagged as the one-shot blind split with 50 seeds"
 
     harness.check("split routing: new blind split label", blind_label)
 
+    def revealed_holdouts_are_not_blind() -> str:
+        for split in (LEGACY_FINAL_HOLDOUT, FINAL_HOLDOUT_V2):
+            selection = resolve_selection(split=split)
+            assert not selection.is_blind_holdout, f"{split} is still flagged blind"
+            assert selection.is_revealed_holdout, f"{split} is not flagged as revealed"
+            assert set(selection.seeds) <= splits.REVEALED_SEEDS, f"{split} seeds not revealed"
+        assert splits.BLIND_SPLITS == (FINAL_HOLDOUT_V3,), splits.BLIND_SPLITS
+        return "v2/legacy holdouts are revealed and can never be blind again"
+
+    harness.check("split routing: revealed holdouts are analysis-only", revealed_holdouts_are_not_blind)
+
+    def revealed_covers_v2() -> str:
+        assert set(SPLIT_SEEDS[DEVELOPMENT_V2]) <= splits.REVEALED_SEEDS
+        assert set(SPLIT_SEEDS[FINAL_HOLDOUT_V2]) <= splits.REVEALED_SEEDS
+        assert set(SPLIT_SEEDS[DEVELOPMENT_V3]) & splits.REVEALED_SEEDS == set()
+        assert set(SPLIT_SEEDS[FINAL_HOLDOUT_V3]) & splits.REVEALED_SEEDS == set()
+        return "REVEALED_SEEDS covers every v2 seed and excludes the v3 splits"
+
+    harness.check("split registry: revealed set is complete", revealed_covers_v2)
+
     def exploratory_label() -> str:
-        selection = resolve_selection(custom_seeds=list(range(7001, 7011)))
+        selection = resolve_selection(custom_seeds=list(FREE_EXPLORATORY_SEEDS))
         assert selection.split == EXPLORATORY and selection.is_exploratory
         assert not selection.is_blind_holdout
         return "custom seeds are labelled exploratory and never gate-eligible"
@@ -173,28 +199,34 @@ def pure_checks(harness: Harness) -> None:
     harness.check("split routing: custom seeds are exploratory only", exploratory_label)
 
     mutex_cases = [
-        ("holdout + split", {"split": DEVELOPMENT_V2, "final_holdout": True},
+        ("holdout + split", {"split": DEVELOPMENT_V3, "final_holdout": True},
          "cannot be combined with --split"),
-        ("holdout + custom seeds", {"final_holdout": True, "custom_seeds": list(range(7001, 7011))},
+        ("holdout + custom seeds", {"final_holdout": True, "custom_seeds": list(FREE_EXPLORATORY_SEEDS)},
          "cannot be combined with custom --seeds"),
         ("split + custom seeds",
-         {"split": DEVELOPMENT_V2, "custom_seeds": list(range(7001, 7011))},
+         {"split": DEVELOPMENT_V3, "custom_seeds": list(FREE_EXPLORATORY_SEEDS)},
          "--seeds cannot be combined with --split"),
         ("custom seeds reuse new development split",
+         {"custom_seeds": list(range(7001, 7011))}, "cannot reuse pre-registered split seeds"),
+        ("custom seeds reuse previous development split",
          {"custom_seeds": list(range(5001, 5011))}, "cannot reuse pre-registered split seeds"),
         ("custom seeds reuse legacy development split",
          {"custom_seeds": list(range(3001, 3011))}, "cannot reuse pre-registered split seeds"),
         ("custom seeds reuse legacy final holdout",
          {"custom_seeds": list(range(4001, 4011))}, "cannot reuse pre-registered split seeds"),
+        ("custom seeds reuse previous final holdout",
+         {"custom_seeds": list(range(6001, 6011))}, "cannot reuse pre-registered split seeds"),
+        ("custom seeds reuse the new final holdout",
+         {"custom_seeds": list(range(8001, 8011))}, "cannot reuse pre-registered split seeds"),
         ("custom seeds hit the training pool",
-         {"custom_seeds": [42, *range(7001, 7010)]}, "overlap the training episode pool"),
+         {"custom_seeds": [42, *FREE_EXPLORATORY_SEEDS[:9]]}, "overlap the training episode pool"),
         ("custom seeds hit the training range",
          {"custom_seeds": list(range(1000, 1010))}, "overlap the training episode pool"),
-        ("custom seeds too short", {"custom_seeds": list(range(7001, 7006))},
+        ("custom seeds too short", {"custom_seeds": FREE_EXPLORATORY_SEEDS[:5]},
          "at least 10 distinct seeds"),
-        ("custom seeds with duplicates", {"custom_seeds": [7001] * 10},
+        ("custom seeds with duplicates", {"custom_seeds": [FREE_EXPLORATORY_SEEDS[0]] * 10},
          "must not repeat"),
-        ("unknown split", {"split": "development_v3"}, "unknown split"),
+        ("unknown split", {"split": "development_v4"}, "unknown split"),
     ]
     for name, kwargs, fragment in mutex_cases:
         harness.check(f"mutex: {name}", (lambda k=kwargs, f=fragment, n=name: (
@@ -356,7 +388,7 @@ def cli_guard_checks(harness: Harness) -> None:
             cwd=str(SCRIPT_DIR))
 
     def no_freeze() -> str:
-        result = run_cli(["--model", "does-not-matter.zip", "--split", FINAL_HOLDOUT_V2,
+        result = run_cli(["--model", "does-not-matter.zip", "--split", FINAL_HOLDOUT_V3,
                           "--out", str(Path(tempfile.gettempdir()) / "score-block-unused.json")])
         assert result.returncode != 0, "blind holdout ran without a freeze record"
         assert "--require-freeze" in (result.stderr + result.stdout), result.stderr
@@ -365,14 +397,29 @@ def cli_guard_checks(harness: Harness) -> None:
     harness.check("CLI guard: blind holdout needs a freeze record", no_freeze)
 
     def freeze_wrong_split() -> str:
-        result = run_cli(["--model", "does-not-matter.zip", "--split", DEVELOPMENT_V2,
+        result = run_cli(["--model", "does-not-matter.zip", "--split", DEVELOPMENT_V3,
                           "--require-freeze", "freeze.json",
                           "--out", str(Path(tempfile.gettempdir()) / "score-block-unused.json")])
-        assert result.returncode != 0, "--require-freeze accepted outside final_holdout_v2"
+        assert result.returncode != 0, "--require-freeze accepted outside final_holdout_v3"
         assert "only valid with" in (result.stderr + result.stdout), result.stderr
         return "--require-freeze outside the blind split is rejected"
 
     harness.check("CLI guard: --require-freeze split scoping", freeze_wrong_split)
+
+    def revealed_holdout_needs_analysis_only() -> str:
+        for split in (LEGACY_FINAL_HOLDOUT, FINAL_HOLDOUT_V2):
+            result = run_cli(["--model", "does-not-matter.zip", "--split", split,
+                              "--out", str(Path(tempfile.gettempdir()) / "score-block-unused.json")])
+            assert result.returncode != 0, f"{split} ran without --analysis-only"
+            assert "--analysis-only" in (result.stderr + result.stdout), result.stderr
+        result = run_cli(["--model", "does-not-matter.zip", "--split", DEVELOPMENT_V3,
+                          "--analysis-only",
+                          "--out", str(Path(tempfile.gettempdir()) / "score-block-unused.json")])
+        assert result.returncode != 0, "--analysis-only accepted on a non-revealed split"
+        assert "only meaningful" in (result.stderr + result.stdout), result.stderr
+        return "revealed holdouts require --analysis-only; the flag is rejected elsewhere"
+
+    harness.check("CLI guard: revealed holdouts are analysis-only", revealed_holdout_needs_analysis_only)
 
     def mixed_split_flags() -> str:
         result = run_cli(["--model", "does-not-matter.zip", "--final-holdout",
@@ -399,7 +446,7 @@ def cli_guard_checks(harness: Harness) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "already.json"
             out.write_text("{}", encoding="utf-8")
-            result = run_cli(["--model", "does-not-matter.zip", "--split", DEVELOPMENT_V2,
+            result = run_cli(["--model", "does-not-matter.zip", "--split", DEVELOPMENT_V3,
                               "--out", str(out)])
             assert result.returncode != 0, "existing --out was overwritten without --force"
             assert "already exists" in (result.stderr + result.stdout), result.stderr
@@ -434,7 +481,7 @@ def sweep_checks(harness: Harness, dev_sweep: Path | None, freeze: Path | None) 
             assert record["candidate"]["sha256"] == candidate["sha256"], "freeze/model sha256 drift"
             assert record["candidate"]["training_steps"] == candidate["training_steps"]
             assert record["split_version"] == SPLIT_VERSION
-            assert record["final_holdout_split"] == FINAL_HOLDOUT_V2
+            assert record["final_holdout_split"] == FINAL_HOLDOUT_V3
             assert record["frozen_before_final_holdout"] is True
             assert sha256_file(Path(candidate["path"])) == candidate["sha256"]
         return (f"candidate {candidate['filename']} at {candidate['training_steps']} steps "
@@ -509,7 +556,7 @@ def main() -> int:
     parser.add_argument("--train-dir", default=None,
                         help="training output dir (enables checkpoint/CSV artifact checks)")
     parser.add_argument("--dev-sweep", default=None,
-                        help="development_v2 sweep JSON (enables selection/freeze checks)")
+                        help="development_v3 sweep JSON (enables selection/freeze checks)")
     parser.add_argument("--freeze", default=None, help="freeze record JSON")
     parser.add_argument("--out", default=None, help="write the check report as JSON")
     parser.add_argument("--gym-check", action="store_true",

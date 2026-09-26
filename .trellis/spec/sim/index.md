@@ -50,12 +50,18 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   SCORE_BLOCK 试点观测前 9 项顺序不变，末尾追加相对平台中心、按半边长
   归一化的我方 x/y；改维度后旧 PPO 模型必须重训，不能静默加载。
 - SCORE_BLOCK PPO 的评测 seed 划分是**预注册契约**，唯一来源为
-  `controllers/score_block_rl/splits.py`（`split_version = score-block-split-v2`）：
+  `controllers/score_block_rl/splits.py`（`split_version = score-block-split-v3`）：
   训练池 42/1000–1999 且 SB3 RNG 与首次 reset 为 20260925；**已揭示**的
-  3001–3010、4001–4010 只能作历史对照（`--final-holdout` 永远只指
-  4001–4010，不得改称新模型盲验）；本轮开发集 5001–5020、盲验集 6001–6050。
+  3001–3010、4001–4010、5001–5020、6001–6050 只能作历史/分析对照
+  （`--final-holdout` 永远只指 4001–4010，不得改称新模型盲验；已揭示留出集还需
+  `--analysis-only` 且结果标 `gate_evidence_eligible=false`）；本轮开发集
+  7001–7020、盲验集 8001–8050，`BLIND_SPLITS` 只含 8001–8050。
   评测入口必须显式标注 split、拒绝 split 混用与任何 seed 重叠；盲验集必须先
   冻结候选（路径/步数/SHA-256/场景与 CLI 哈希）并拒绝覆盖已有结果。
+- 块出界归属只按"max 接触时刻处的**不同角色数**"判定（`PhysicsWorld.FinalizeBlockContacts`）：
+  同一机器人的多个接触几何体不得被读成"双方同时接触"。修此判定会经
+  `Gain`/`OppGain`/`HandleBuffScored` 反馈进对手 FSM，故它不是纯观测改动，
+  跨版本轨迹只在首次归属变化前可比。
 - 选模只看锁定目标我方**真实** `BlockScore` 与我方 `Drop`（合格者按目标得分多、
   掉台少、训练步数多排序），**禁用** `EvalCallback` 默认的平均回报选模；训练侧
   `CheckpointCallback` 只做无偏快照（每 51,200 个单环境 step，`n_envs=1` 下

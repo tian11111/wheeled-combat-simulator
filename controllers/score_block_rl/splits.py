@@ -2,20 +2,25 @@
 # -*- coding: utf-8 -*-
 """Pre-registered evaluation seed splits for the SCORE_BLOCK PPO pilot.
 
-Single source of truth for `train.py`, `evaluate.py` and `selftest.py`, so the
-seed lists and the mutual-exclusion rules cannot drift between scripts.
+Single source of truth for `train.py`, `evaluate.py`, `selftest.py` and `diagnose.py`,
+so the seed lists and the mutual-exclusion rules cannot drift between scripts.
 
-Split history (see the parent pilot report, which must not be rewritten):
+Split history (see the archived round reports, which must not be rewritten):
 
 * ``legacy_development`` (3001-3010) was already used for v1/v2 reward debugging.
-* ``legacy_final_holdout`` (4001-4010) was the previous round's pre-registered
-  blind holdout. It was revealed and its AC4 gate failed, so it can never serve
-  as a blind set again. ``--final-holdout`` keeps pointing at *this* split only.
-* ``development_v2`` (5001-5020) is this round's model-selection set.
-* ``final_holdout_v2`` (6001-6050) is this round's one-shot blind set.
+* ``legacy_final_holdout`` (4001-4010) was the first round's pre-registered blind
+  holdout. It was revealed and its AC4 gate failed, so it can never serve as a blind
+  set again. ``--final-holdout`` keeps pointing at *this* split only.
+* ``development_v2`` (5001-5020) was the second round's model-selection set.
+* ``final_holdout_v2`` (6001-6050) was the second round's one-shot blind set. It was
+  revealed by the checkpoint round (`new_round_blind_gate_passed=false`) and is now
+  **analysis-only**: like ``legacy_final_holdout`` it may never be a blind set again.
+* ``development_v3`` (7001-7020) is the next round's model-selection set.
+* ``final_holdout_v3`` (8001-8050) is the next round's one-shot blind set; it is the
+  only split for which :attr:`Selection.is_blind_holdout` is true.
 
-Every named split is disjoint from the training episode pool and from every
-other split; :func:`assert_registry_is_disjoint` checks that invariant.
+Every named split is disjoint from the training episode pool and from every other
+split; :func:`assert_registry_is_disjoint` checks that invariant.
 """
 
 from __future__ import annotations
@@ -23,12 +28,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Optional, Sequence
 
-SPLIT_VERSION = "score-block-split-v2"
+SPLIT_VERSION = "score-block-split-v3"
 
 LEGACY_DEVELOPMENT = "legacy_development"
 LEGACY_FINAL_HOLDOUT = "legacy_final_holdout"
 DEVELOPMENT_V2 = "development_v2"
 FINAL_HOLDOUT_V2 = "final_holdout_v2"
+DEVELOPMENT_V3 = "development_v3"
+FINAL_HOLDOUT_V3 = "final_holdout_v3"
 EXPLORATORY = "exploratory"
 
 #: Named splits and their exact, pre-registered seed lists.
@@ -37,9 +44,15 @@ SPLIT_SEEDS: dict[str, list[int]] = {
     LEGACY_FINAL_HOLDOUT: list(range(4001, 4011)),
     DEVELOPMENT_V2: list(range(5001, 5021)),
     FINAL_HOLDOUT_V2: list(range(6001, 6051)),
+    DEVELOPMENT_V3: list(range(7001, 7021)),
+    FINAL_HOLDOUT_V3: list(range(8001, 8051)),
 }
 NAMED_SPLITS: tuple[str, ...] = tuple(SPLIT_SEEDS)
-BLIND_SPLITS: tuple[str, ...] = (LEGACY_FINAL_HOLDOUT, FINAL_HOLDOUT_V2)
+#: Only the newest, not-yet-revealed holdout counts as blind.
+BLIND_SPLITS: tuple[str, ...] = (FINAL_HOLDOUT_V3,)
+#: Holdouts that were already opened. They stay reachable for analysis, but an
+#: evaluation on them must ask for ``--analysis-only`` and is never gate evidence.
+REVEALED_HOLDOUT_SPLITS: tuple[str, ...] = (LEGACY_FINAL_HOLDOUT, FINAL_HOLDOUT_V2)
 
 #: Episode seed pool used by ``train.py``: fixed seed 42 plus the inclusive
 #: range 1000-1999. The SB3 RNG seed / first reset seed (20260925) is reserved
@@ -48,9 +61,13 @@ TRAIN_SEED_POOL_FIXED = [42]
 TRAIN_SEED_POOL_RANGE = [1000, 1999]
 TRAIN_EPISODE_SEEDS = frozenset({42, 20260925, *range(1000, 2000)})
 
-#: Seeds already revealed by earlier rounds. Never usable as a blind set.
+#: Seeds already revealed by earlier rounds, including every v2 split. Never usable
+#: as a blind set.
 HISTORICAL_SPLIT_SEEDS = frozenset(
-    SPLIT_SEEDS[LEGACY_DEVELOPMENT] + SPLIT_SEEDS[LEGACY_FINAL_HOLDOUT])
+    SPLIT_SEEDS[LEGACY_DEVELOPMENT]
+    + SPLIT_SEEDS[LEGACY_FINAL_HOLDOUT]
+    + SPLIT_SEEDS[DEVELOPMENT_V2]
+    + SPLIT_SEEDS[FINAL_HOLDOUT_V2])
 REVEALED_SEEDS = frozenset(TRAIN_EPISODE_SEEDS | HISTORICAL_SPLIT_SEEDS)
 
 #: Custom exploratory lists must be at least this long and fully distinct.
@@ -60,8 +77,10 @@ MIN_CUSTOM_SEEDS = 10
 SPLIT_USAGE: dict[str, str] = {
     LEGACY_DEVELOPMENT: "historical development set (already revealed); comparison only",
     LEGACY_FINAL_HOLDOUT: "historical final holdout (already revealed); --final-holdout semantics",
-    DEVELOPMENT_V2: "current-round model-selection development set",
-    FINAL_HOLDOUT_V2: "current-round one-shot blind holdout; requires a freeze record",
+    DEVELOPMENT_V2: "previous round's development set (already revealed); analysis only",
+    FINAL_HOLDOUT_V2: "previous round's blind holdout (already revealed); analysis only",
+    DEVELOPMENT_V3: "current-round model-selection development set",
+    FINAL_HOLDOUT_V3: "current-round one-shot blind holdout; requires a freeze record",
     EXPLORATORY: "caller-supplied exploratory seeds; never gate evidence",
 }
 
@@ -84,8 +103,13 @@ class Selection:
 
     @property
     def is_blind_holdout(self) -> bool:
-        """True only for a pre-registered blind holdout, never for custom seeds."""
+        """True only for the pre-registered, not-yet-revealed blind holdout."""
         return self.split in BLIND_SPLITS
+
+    @property
+    def is_revealed_holdout(self) -> bool:
+        """True for a holdout that was already opened; analysis-only from now on."""
+        return self.split in REVEALED_HOLDOUT_SPLITS
 
     @property
     def usage(self) -> str:
@@ -100,6 +124,7 @@ class Selection:
             "seeds": list(self.seeds),
             "is_exploratory": self.is_exploratory,
             "is_blind_holdout": self.is_blind_holdout,
+            "is_revealed_holdout": self.is_revealed_holdout,
         }
 
 
@@ -163,9 +188,9 @@ def resolve_selection(
         return Selection(split=EXPLORATORY, seeds=seeds)
 
     if split is None:
-        # This round's default is the *new* development split. The previous
-        # default (3001-3010) is still reachable via --split legacy_development.
-        split = DEVELOPMENT_V2
+        # This round's default is the newest development split. The previous
+        # defaults (3001-3010, 5001-5020) stay reachable via --split.
+        split = DEVELOPMENT_V3
     seeds = seeds_for(split)
     if len(seeds) < MIN_CUSTOM_SEEDS:
         raise SplitError(f"split {split} has fewer than {MIN_CUSTOM_SEEDS} seeds")
