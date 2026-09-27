@@ -3,7 +3,7 @@
   "name": "rl-v4-training-throughput",
   "title": "RL v4 五 seed 训练提速",
   "description": "先并行独立单环境训练，条件性尝试 SubprocVecEnv 与原生 batch，验证 60 分钟门槛",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

@@ -41,19 +41,29 @@ dotnet build RobotSimulator.sln -m:1
 
 已揭示的留出集（包括 `final_holdout_v3`）**不可能再被当作盲验**：`splits.BLIND_SPLITS` 只含 `final_holdout_v4`。评估已揭示集合必须显式传 `--analysis-only`，输出标记 `gate_evidence_eligible: false`、`is_revealed_holdout: true`。自定义 `--seeds` 不能重复使用任何注册 split 或训练 seed。
 
-训练 episode 池仍为 42、1000–1999，SB3 RNG 与首次 reset seed 为 20260925；所有命名 split 与训练池、历史 split 互斥。评测入口拒绝 split 混用（`--final-holdout` + `--split`、`--split` + `--seeds`）与任何 seed 重叠，并拒绝覆盖已存在的结果文件（除非 `--force`）。
+训练 episode 池仍为 42、1000–1999，历史默认训练/首次 reset seed 是 20260925；v4 PPO RNG seeds 是 20260927、20260928、20260929、20260930、20261001。可通过 `--train-seed` 显式指定 PPO RNG seed。预注册的五个 v4 训练 seed 各自获得训练池中互不重叠的 episode seed 分区，SB3 reset seed 不直接用作 MuJoCo episode seed。所有命名 split 与训练池、历史 split 互斥。评测入口拒绝 split 混用（`--final-holdout` + `--split`、`--split` + `--seeds`）与任何 seed 重叠，并拒绝覆盖已存在的结果文件（除非 `--force`）。
 
 ## 训练诊断与 checkpoint
 
-`train.py` 使用锁定 SB3 版本的 PPO 默认参数和单环境，并把实际参数、11 维观测定义、split 版本与 seed 池写入 `run-config.json`。此外：
+`train.py` 默认使用单环境及锁定 SB3 版本的 PPO 参数；可用 `--n-envs` 显式启用 `SubprocVecEnv` 候选。输出目录必须为空或不存在，已有非空目录会拒绝，避免覆盖训练结果。训练 seed、worker episode seed 流、代码/依赖/场景/CLI 哈希、硬件身份、实际 transition 数和产物哈希写入 `run-config.json`。此外：
 
 - `progress.csv`：显式 `CSVLogger`（SB3 在 `verbose=0` 且无 `tensorboard_log` 时**不会**默认写 CSV），保留 `train/approx_kl`、`train/clip_fraction`、`train/explained_variance`、`train/value_loss` 等优化诊断；
 - `episodes.monitor.csv`：Monitor 逐集裁判信息（`INFO_LOG_FIELDS`）；
-- `checkpoints/rl_model_<steps>_steps.zip`：每 51,200 个单环境 step 一个 `CheckpointCallback` 快照；
+- `checkpoints/rl_model_<steps>_steps.zip`：每 51,200 个全局 transition 一个 `CheckpointCallback` 快照；
 - `ppo_score_block.zip`：最终模型；
 - `run-config.json`：`split_version`、每个 checkpoint 的训练步数与 SHA-256、`checkpoint_audit`、场景/CLI/依赖版本与哈希。
 
-`CheckpointCallback.save_freq` 的计数单位是 `env.step()` 调用次数；本任务固定 `n_envs=1`，因此 51,200 直接等于 51,200 个单环境 step（不做 `// n_envs`，`train.py` 会断言单环境）。**不使用** `EvalCallback` 的平均回报选模，选模只看裁判事件。
+每个 PPO update 固定采集 2048 个 transition。`--n-envs` 必须整除 2048 与 checkpoint 间隔；`n_steps=2048 / n_envs`，CheckpointCallback 的调用间隔则是 `51200 / n_envs`，审计按文件名编码的**全局 transition 数**核对。默认旧 seed `20260925` 保持原 episode 顺序；五个 v4 训练 seed 分别获得互斥的训练池分区，多环境再把各自分区互斥地分给 worker，VecMonitor 汇总裁判字段。该模式改变每个 worker 单次 rollout 长度，虽保持全局样本量与 minibatch/epoch 配置，仍须由吞吐任务验证终止语义和确定性；目前不代表已提速或已通过路线门槛。**不使用** `EvalCallback` 的平均回报选模，选模只看裁判事件。
+
+```powershell
+# 复现预注册训练 seed；默认 n_envs=1
+& $py -X utf8 controllers/score_block_rl/train.py --steps 500000 `
+    --train-seed 20260927 --n-envs 1 --out "$env:TEMP\score-block-rl-20260927"
+
+# 显式尝试 4 个子进程环境；产物须使用另一个空目录
+& $py -X utf8 controllers/score_block_rl/train.py --steps 500000 `
+    --train-seed 20260927 --n-envs 4 --out "$env:TEMP\score-block-rl-20260927-n4"
+```
 
 ## 评测与选模
 

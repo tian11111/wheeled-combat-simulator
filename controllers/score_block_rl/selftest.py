@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Targeted self-checks for the SCORE_BLOCK PPO checkpoint round.
+"""Targeted self-checks for the SCORE_BLOCK PPO training and evaluation path.
 
 Covers the machine-decidable parts of the task's acceptance criteria:
 
@@ -431,10 +431,148 @@ def checkpoint_checks(harness: Harness) -> None:
 
         assert train.CHECKPOINT_INTERVAL_STEPS == 51200, train.CHECKPOINT_INTERVAL_STEPS
         assert train.TRAIN_SEED == 20260925, train.TRAIN_SEED
+        assert train.V4_TRAIN_SEEDS == (20260927, 20260928, 20260929, 20260930, 20261001)
         assert train.TRAIN_SEED_POOL == [42, *range(1000, 2000)], "training pool changed"
-        return "default snapshot interval 51200 single-env steps; train seed 20260925"
+        assert train.resolve_vector_config(1) == (2048, 51200)
+        assert train.resolve_vector_config(2) == (1024, 25600)
+        assert train.resolve_vector_config(4) == (512, 12800)
+        for invalid in (0, 3, 128, 1024):
+            try:
+                train.resolve_vector_config(invalid)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"invalid n_envs {invalid} was accepted")
+        try:
+            train.resolve_vector_config(2, 51201)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("non-divisible global checkpoint interval was accepted")
+        return "seed 20260925, single-env defaults, and global rollout/checkpoint divisors"
 
     harness.check("checkpoint: frozen training defaults", default_interval)
+
+    def worker_seed_streams() -> str:
+        import train
+
+        legacy = train.build_episode_seed_streams(train.TRAIN_SEED, 1)
+        assert legacy == [train.TRAIN_SEED_POOL]
+        first = train.build_episode_seed_streams(20260927, 4)
+        repeated = train.build_episode_seed_streams(20260927, 4)
+        changed = train.build_episode_seed_streams(20260928, 4)
+        assert first == repeated, "worker episode seeds are not deterministic"
+        assert first != changed, "train seed does not affect worker episode streams"
+        assert all(first), "worker stream is empty"
+        flattened = [seed for stream in first for seed in stream]
+        assert len(flattened) == len(set(flattened)), "workers share episode seeds"
+        assert sorted(flattened) == sorted(train.build_episode_seed_streams(20260927, 1)[0])
+        assert 20260927 not in flattened, "PPO seed was reused as an episode seed"
+        run_pools = [train.build_episode_seed_streams(seed, 1)[0]
+                     for seed in train.V4_TRAIN_SEEDS]
+        combined = [seed for stream in run_pools for seed in stream]
+        assert len(combined) == len(set(combined)), "v4 training runs share episode seeds"
+        assert sorted(combined) == sorted(train.TRAIN_SEED_POOL)
+        assert sorted(map(len, run_pools)) == [200, 200, 200, 200, 201]
+        return "fixed v4 seeds and workers receive deterministic disjoint episode streams"
+
+    harness.check("training: isolated deterministic worker episode seed streams", worker_seed_streams)
+
+    def initial_episode_seed_is_separate_from_sb3_seed() -> str:
+        import gymnasium as gym
+        import numpy as np
+        from gym_env import ScoreBlockEnv
+
+        def fake_env(initial_episode_seed: int | None, seed_pool: list[int]):
+            env = object.__new__(ScoreBlockEnv)
+            gym.Env.__init__(env)
+            env._initial_episode_seed = initial_episode_seed
+            env._initial_episode_seed_pending = initial_episode_seed is not None
+            env._seed_pool = seed_pool
+            env._pool_idx = 0
+            env._trace = False
+            env._closed = False
+            env.action_space = gym.spaces.Box(-1.0, 1.0, shape=(2,), dtype=np.float32)
+            env.observation_space = gym.spaces.Box(-1.0, 1.0, shape=(11,), dtype=np.float32)
+            sent: list[dict[str, object]] = []
+            env._send = lambda payload: (
+                sent.append(payload) or
+                {"type": "reset", "obs": [0.0] * 11, "info": {}})
+            return env, sent
+
+        env, sent = fake_env(1234, [2345])
+        first_obs, first_info = env.reset(seed=20260927)
+        second_obs, second_info = env.reset()
+        assert first_obs.shape == second_obs.shape == (11,)
+        assert sent[0]["seed"] == first_info["seed"] == 1234
+        assert sent[1]["seed"] == second_info["seed"] == 2345
+
+        legacy_env, legacy_sent = fake_env(None, [42])
+        legacy_env.reset(seed=20260925)
+        assert legacy_sent[0]["seed"] == 20260925
+        return "episode seeds are separate from SB3 RNG while the historical default remains stable"
+
+    harness.check("training: scenario reset stream is independent from SB3 seed",
+                  initial_episode_seed_is_separate_from_sb3_seed)
+
+    def crashed_bridge_close() -> str:
+        from types import SimpleNamespace
+
+        from gym_env import ScoreBlockEnv
+
+        class BrokenPipe:
+            def close(self) -> None:
+                raise OSError("child exited before pipe close")
+
+        env = object.__new__(ScoreBlockEnv)
+        env._closed = False
+        env._proc = SimpleNamespace(poll=lambda: 1, stdin=BrokenPipe(), stdout=BrokenPipe())
+        env.close()
+        assert env._closed
+        return "broken Windows child pipes do not mask the original training failure"
+
+    harness.check("training: crashed bridge close preserves failure record", crashed_bridge_close)
+
+    def global_checkpoint_audit() -> str:
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            checkpoints = out / CHECKPOINT_DIR_NAME
+            checkpoints.mkdir()
+            for step in (51200, 102400):
+                (checkpoints / f"rl_model_{step}_steps.zip").write_bytes(str(step).encode("ascii"))
+            (out / FINAL_MODEL_NAME).write_bytes(b"model")
+            run_config = {
+                "checkpoint_interval_transitions": 51200,
+                "actual_global_transitions": 128000,
+                "model_zip_sha256": sha256_file(out / FINAL_MODEL_NAME),
+                "checkpoints": discover_checkpoints(checkpoints),
+            }
+            audit = audit_checkpoints(run_config, out)
+            assert audit["ok"], audit["issues"]
+            run_config["actual_global_transitions"] = 153600
+            audit = audit_checkpoints(run_config, out)
+            assert not audit["ok"] and any("global-transition cadence" in issue
+                                           for issue in audit["issues"]), audit
+        return "checkpoint filenames are audited against actual global transitions"
+
+    harness.check("checkpoint: global transition cadence audit", global_checkpoint_audit)
+
+    def output_collision_guard() -> str:
+        import train
+
+        with tempfile.TemporaryDirectory() as temporary:
+            fresh = Path(temporary) / "fresh-run"
+            assert train.prepare_output_directory(fresh) == fresh.resolve()
+            (fresh / "run-config.json").write_text("fixture", encoding="utf-8")
+            try:
+                train.prepare_output_directory(fresh)
+            except FileExistsError:
+                pass
+            else:
+                raise AssertionError("non-empty training output directory was reused")
+        return "empty output created; non-empty output rejected"
+
+    harness.check("training: output directory collision guard", output_collision_guard)
 
 
 def artifact_checks(harness: Harness, train_dir: Path | None) -> None:
@@ -479,21 +617,46 @@ def artifact_checks(harness: Harness, train_dir: Path | None) -> None:
         manifest = run_config.get("training_split") or {}
         assert manifest.get("fixed") == [42], manifest
         assert manifest.get("inclusive_range") == [1000, 1999], manifest
-        interval = run_config.get("checkpoint_interval_single_env_steps")
+        assert manifest.get("legacy_default_initial_sb3_reset_episode_seed") == 20260925, manifest
+        assert manifest.get("initial_episode_seeds_for_this_run"), manifest
+        train_seed = run_config.get("train_seed")
+        assert isinstance(train_seed, int) and 0 <= train_seed <= 0xFFFFFFFF, train_seed
+        assert int(run_config.get("actual_global_transitions", 0)) >= int(
+            run_config.get("total_timesteps_requested", 1)), run_config
+        assert run_config.get("faults_total") == 0, run_config.get("faults_total")
+        code = run_config.get("code_identity") or {}
+        assert code.get("git_commit") and isinstance(code.get("git_worktree_dirty"), bool), code
+        assert all(isinstance(code.get(path), str) and len(code[path]) == 64 for path in (
+            "controllers/score_block_rl/train.py",
+            "controllers/score_block_rl/gym_env.py",
+            "controllers/score_block_rl/train_artifacts.py",
+            "controllers/score_block_rl/splits.py",
+        )), code
+        hardware = run_config.get("hardware_identity") or {}
+        assert hardware.get("hostname") and hardware.get("logical_cpu_count"), hardware
+        assert (run_config.get("dotnet_runtime") or {}).get("executable"), run_config.get(
+            "dotnet_runtime")
+        interval = run_config.get("checkpoint_interval_transitions",
+                                  run_config.get("checkpoint_interval_single_env_steps"))
         assert isinstance(interval, int) and interval > 0, interval
         callback = run_config.get("checkpoint_callback") or {}
-        assert callback.get("save_freq_env_step_calls") == interval, callback
-        assert callback.get("n_envs") == 1 and callback.get("save_freq_divided_by_n_envs") is False
+        n_envs = int((run_config.get("ppo_parameters") or {}).get("n_envs", 1))
+        assert callback.get("save_freq_env_step_calls") * n_envs == interval, callback
+        assert callback.get("n_envs") == n_envs, callback
+        assert callback.get("global_transition_interval") == interval, callback
         assert callback.get("name_prefix") == "rl_model", callback
+        n_steps = int((run_config.get("ppo_parameters") or {}).get("n_steps", 2048))
+        assert n_steps * n_envs == run_config.get("global_rollout_transitions_per_update", 2048)
         assert (run_config.get("best_model_selection") or {}).get(
             "uses_eval_callback_mean_reward") is False
         assert (run_config.get("observation") or {}).get("privileged_state") is True
         assert (run_config.get("observation") or {}).get("dimension") == 11
         for row in run_config.get("checkpoints") or []:
             assert row["training_steps"] % interval == 0, \
-                f"checkpoint {row['filename']} is not a multiple of the interval {interval}"
+                f"checkpoint {row['filename']} is not a multiple of global interval {interval}"
         return (f"split version, interval {interval} consistent with "
-                f"{len(run_config.get('checkpoints') or [])} checkpoints, no EvalCallback best model")
+                f"{len(run_config.get('checkpoints') or [])} global-transition checkpoints, "
+                "no EvalCallback best model")
 
     harness.check("run-config: split version and checkpoint interval", split_meta)
 

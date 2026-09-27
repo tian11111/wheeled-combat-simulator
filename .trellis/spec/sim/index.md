@@ -51,7 +51,10 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   归一化的我方 x/y；改维度后旧 PPO 模型必须重训，不能静默加载。
 - SCORE_BLOCK PPO 的评测 seed 划分是**预注册契约**，唯一来源为
   `controllers/score_block_rl/splits.py`（`split_version = score-block-split-v4`）：
-  当前训练 episode 池为 42/1000–1999，训练 RNG 与首次 reset seed 仍为 20260925；
+  当前训练 episode 池为 42/1000–1999；历史默认 PPO/首次 reset seed 为 20260925。
+  RL v4 的训练 RNG seeds 为 20260927、20260928、20260929、20260930、20261001；
+  PPO RNG 与仿真 episode seed 分离，
+  五个预注册训练 seed 从注册训练池获得互不重叠的 episode seed 子集，并写入运行身份；
   3001–3010、4001–4010、5001–5020、6001–6050、7001–7020、8001–8050
   均已揭示。`--final-holdout` 永远只指 4001–4010；已揭示留出集必须显式
   `--analysis-only` 且 `gate_evidence_eligible=false`。v4 开发集为 9001–9020，
@@ -61,6 +64,12 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
 - SCORE_BLOCK PPO 的性能证据由显式运行的 `controllers/score_block_rl/profile.py`
   生成；标准样本数、warm-up、原始轮落盘、无效轮标记及瓶颈门槛见
   [rl-profiling-contract.md](./rl-profiling-contract.md)。
+- SCORE_BLOCK PPO 的**五 seed 训练吞吐门槛**由 `controllers/score_block_rl/run_throughput_suite.py`
+  显式测量：五个固定训练 seed 各 ≥500k transitions 并发，三套墙钟中位数 ≤60 分钟且
+  产物/fault/seed 隔离全部通过才给下游 Go。中断套件必须留记录并同条件重测，
+  不得静默剔除；固定 seed 复现按 `policy.pth`/`policy.optimizer.pth`/`pytorch_variables.pth`
+  内容哈希判断，不用整包 ZIP 哈希。完整字段、有效条件与错误矩阵见
+  [rl-throughput-contract.md](./rl-throughput-contract.md)。
 - 块出界归属只按"max 接触时刻处的**不同角色数**"判定（`PhysicsWorld.FinalizeBlockContacts`）：
   同一机器人的多个接触几何体不得被读成"双方同时接触"。修此判定会经
   `Gain`/`OppGain`/`HandleBuffScored` 反馈进对手 FSM，故它不是纯观测改动，
