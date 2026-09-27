@@ -787,3 +787,25 @@ No training was run and no gate is claimed.
 ### Status
 
 [OK] **Completed**
+
+
+## Session 23: RL v4 五 seed 训练吞吐验收
+
+**Date**: 2026-09-27
+**Task**: RL v4 五 seed 训练吞吐验收
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+完成 RL v4 训练提速：train.py 支持 --train-seed/--n-envs 与完整身份 manifest，新增 run_throughput_suite.py 并发五 seed 套件测量，checkpoint 审计改为全局 transition cadence。三套有效套件墙钟 1247.031/1316.672/1317.766 秒，中位 21.945 分钟 <=60 分钟，15/15 run faults=0 且固定 seed 三套逐位复现；第一轮 suite-03 会话中断已记录并同条件重测。下游多 seed 策略任务 Go；原生 batch 因正式训练 CPU 饱和 No-Go，SubprocVecEnv 未评估。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `726c8c9` | (see git log) |
+| `fdb0b59` | (see git log) |
+
+### Status
+
+[OK] **Completed**
