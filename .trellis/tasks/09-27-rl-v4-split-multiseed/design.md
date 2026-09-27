@@ -2,7 +2,7 @@
 
 ## 运行身份
 
-五个独立 SB3 RNG seed 为 `20260927–20261001`；开发评估 seed 为 `9001–9020`。`splits.py` 是命名评估 seed 的唯一来源。训练 episode seed 流按训练 seed 派生且不触碰任何评估集合。每个训练产物有单独目录、run manifest 和模型/checkpoint 哈希。
+五个独立 SB3 RNG seed 为 `20260927、20260928、20260929、20260930、20261001`；开发评估 seed 为 `9001–9020`。`splits.py` 是命名评估 seed 的唯一来源。训练 episode seed 流按训练 seed 派生且不触碰任何评估集合。每个训练产物有单独目录、run manifest 和模型/checkpoint 哈希。
 
 ## 固定变量
 

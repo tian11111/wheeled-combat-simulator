@@ -12,7 +12,7 @@
 
 ## Requirements
 
-- 训练 RNG seed 固定 `20260927–20261001`，各训练至少 500,000 transitions；固定 11 维特权观测、reward v2、物理、FSM、PPO 超参数和场景。训练与开发 seed 池隔离。
+- 训练 RNG seed 固定 `20260927、20260928、20260929、20260930、20261001`，各训练至少 500,000 transitions；固定 11 维特权观测、reward v2、物理、FSM、PPO 超参数和场景。训练与开发 seed 池隔离。
 - 每个模型在 `development_v4=9001–9020` 上与同场次 FSM 配对比较。单模型通过条件：锁定目标真实 `BlockScore ≥` 配对 FSM、我方 `Drop ≤` 配对 FSM、得分归因可追溯且 fault=0。
 - 仅根据开发集裁判事件按预注册顺序选择 checkpoint 和唯一候选。reward、PPO loss、训练回报和最终集结果不得参与选模。报告五个训练 seed 的逐项分数与分布，不用最佳模型代替稳定性判断。
 - 保留完整运行身份、checkpoint/model SHA-256、评估 JSON 和裁判事件索引；声明特权观测不代表可直接上真机。
