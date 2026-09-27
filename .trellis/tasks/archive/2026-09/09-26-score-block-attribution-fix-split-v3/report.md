@@ -290,7 +290,7 @@ Python 与文档占绝大部分。
 | `evidence/fix-delta.txt` | `compare_fix.py` 输出：四格汇总 + 逐 seed 变化明细 |
 | `evidence/trace-ab.txt` | 50 个 seed 的逐 tick A/B（修复前 vs 修复后轨迹） |
 | `evidence/match-ab.txt` | 4 个 `no_score_block` seed 的完整比赛 A/B（含 6006/6036 的逐事件证据） |
-| `evidence/regression.txt` | 全量构建/测试/回放/selftest 原始输出与负向对照 |
+| `evidence/regression.txt` | 构建/测试/回放/selftest 的命令结果摘要与负向对照摘要；不是完整原始日志 |
 | `evidence/selftest.txt` | `selftest.py` 全量检查输出（31 passed / 8 skipped） |
 | `evidence/compare_fix.py` | 生成 `fix-delta.txt` 的只读对比脚本 |
 | `evidence/diff_traces.py` | 生成 `trace-ab.txt` 的逐 tick 轨迹对比脚本 |
