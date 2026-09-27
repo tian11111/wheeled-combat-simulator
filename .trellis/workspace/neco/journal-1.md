@@ -745,3 +745,24 @@ No training was run and no gate is claimed.
 ### Next Steps
 
 - 若继续优化得分，另建任务并预注册新的开发集与盲验集；v3 已揭示，仅作诊断。
+
+
+## Session 21: RL v4 split guard acceptance
+
+**Date**: 2026-09-27
+**Task**: RL v4 split guard acceptance
+**Branch**: `test/rl-v4-plan`
+
+### Summary
+
+完成 v3 已揭示盲集的仅分析防复用、v4 开发/最终 seed 预注册与冻结/一次性运行守卫；定向自测通过，归档报告 Go 仅解锁 profiling。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `db8ac81` | (see git log) |
+
+### Status
+
+[OK] **Completed**
