@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 21
+- **Total Sessions**: 22
 - **Last Active**: 2026-09-27
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~768 | Active |
+| `journal-1.md` | ~789 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 22 | 2026-09-27 | RL v4 baseline profiling | `1b4fb92` | `test/score-block-ppo-checkpoint-round` |
 | 21 | 2026-09-27 | RL v4 split guard acceptance | `db8ac81` | `test/rl-v4-plan` |
 | 20 | 2026-09-26 | SCORE_BLOCK v3 重训验收收尾 | `079480a` | `test/score-block-ppo-checkpoint-round` |
 | 19 | 2026-09-26 | SCORE_BLOCK PPO checkpoint round | `465b1c4`, `cf169c3`, `b9c6b0c` | `test/score-block-ppo-checkpoint-round` |

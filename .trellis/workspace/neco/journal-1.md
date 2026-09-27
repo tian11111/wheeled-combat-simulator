@@ -766,3 +766,24 @@ No training was run and no gate is claimed.
 ### Status
 
 [OK] **Completed**
+
+
+## Session 22: RL v4 baseline profiling
+
+**Date**: 2026-09-27
+**Task**: RL v4 baseline profiling
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+新增 opt-in rl-env timing 与 profile.py 分阶段测量；5 轮 env/IPC/PPO 全 valid，ipc_fraction 0.2605 擦线通过门槛、CPU 未饱和，报告 Go 仅解锁 training-throughput。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1b4fb92` | (see git log) |
+
+### Status
+
+[OK] **Completed**
