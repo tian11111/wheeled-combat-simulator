@@ -6,7 +6,7 @@
 
 ## 前置报告与 Go / No-Go
 
-- 必须有 `09-27-rl-v4-split-guard/report.md` Go、`09-27-rl-v4-training-throughput/report.md` 下游策略 Go，以及 `09-27-rl-v4-split-multiseed/report.md` 完整负面基线（通过数 <4/5）。若原版达到 4/5，本任务标记条件未触发，不运行。
+- 必须有 `.trellis/tasks/archive/2026-09/09-27-rl-v4-split-guard/report.md` Go、`09-27-rl-v4-training-throughput/report.md` 下游策略 Go，以及 `09-27-rl-v4-split-multiseed/report.md` 完整负面基线（通过数 <4/5）。若原版达到 4/5，本任务标记条件未触发，不运行。
 - 先用轨迹定义可审计的接触归因规则。若无法可靠区分我方、对手和自主运动，不训练变体，报告 No-Go 并停止本轮路线。
 - 前三个固定训练 seed 中至少 2/3 通过开发集门槛，才补齐后两个；若少于 2/3，即使补齐也不可能达到 4/5，立即停止。
 - 五个 seed 中至少 4/5 通过，才允许唯一候选冻结；否则报告负面结论并停止盲验。

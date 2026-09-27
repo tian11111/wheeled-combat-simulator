@@ -6,7 +6,7 @@
 
 ## 前置报告与 Go / No-Go
 
-- 必须先有 `09-27-rl-v4-split-guard/report.md` 的 Go，以及 `09-27-rl-v4-training-throughput/report.md` 的**下游策略 Go**（五个 500k 训练中位总墙钟≤60 分钟，语义与零 fault 通过）。缺一则不启动本任务。
+- 必须先有 `.trellis/tasks/archive/2026-09/09-27-rl-v4-split-guard/report.md` 的 Go，以及 `09-27-rl-v4-training-throughput/report.md` 的**下游策略 Go**（五个 500k 训练中位总墙钟≤60 分钟，语义与零 fault 通过）。缺一则不启动本任务。
 - 本任务可复用提速阶段事先指定、运行身份完全一致的训练产物；若算法、reward、观测、场景、seed、步数、配置或代码哈希任一不同，须按本任务重新训练，不能拼凑产物。
 - **直接冻结 Go**：至少 4/5 个训练 seed 的模型分别通过开发集 20 场门槛。未达标时，本任务可如实完成负面报告，但只允许启动条件性 `reward-credit`，不得冻结或开盲集。
 

@@ -6,7 +6,7 @@
 
 ## 前置报告与 Go / No-Go
 
-- 必须有 `09-27-rl-v4-split-guard/report.md` Go、`09-27-rl-v4-training-throughput/report.md` 下游策略 Go，及以下二者之一：`09-27-rl-v4-split-multiseed/report.md` 记录原版至少 4/5 通过；或原版未达标且 `09-27-rl-v4-reward-credit/report.md` 记录变体至少 4/5 通过。
+- 必须有 `.trellis/tasks/archive/2026-09/09-27-rl-v4-split-guard/report.md` Go、`09-27-rl-v4-training-throughput/report.md` 下游策略 Go，及以下二者之一：`09-27-rl-v4-split-multiseed/report.md` 记录原版至少 4/5 通过；或原版未达标且 `09-27-rl-v4-reward-credit/report.md` 记录变体至少 4/5 通过。
 - 若两条策略路线均未过 4/5、任一身份/哈希不全、v4 最终集已被打开或存在结果泄露，本任务 No-Go，不能运行最终集。
 - 冻结前完成全部开发集选模、代码与配置哈希审计。冻结后不得换模型、改场景、门槛或根据最终集调参。
 

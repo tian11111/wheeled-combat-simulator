@@ -6,7 +6,7 @@
 
 ## 前置报告与 Go / No-Go
 
-- 必须先有 `.trellis/tasks/09-27-rl-v4-split-guard/report.md` 且结论为 **Go**，确认 v3 仅分析、v4 seed 已注册且守卫测试通过。
+- 必须先有 `.trellis/tasks/archive/2026-09/09-27-rl-v4-split-guard/report.md` 且结论为 **Go**，确认 v3 仅分析、v4 seed 已注册且守卫测试通过。
 - 必须核对 `.trellis/tasks/archive/2026-09/09-26-score-block-v3-edge-speed-retrain/report.md` 中的单次结果（307.595 steps/s、500k 请求步、Windows 11/Python 3.12、CPU、n_envs=1）；该值是历史观察，不是性能承诺或统计基线。
 - **Go**：按本 PRD 输出所有预定阶段的重复原始样本、机器/依赖/场景身份、p50/p95 和瓶颈结论。结论可为“未发现 IPC 瓶颈”，但这仍是成功的证据任务。
 - **No-Go**：缺少 split guard Go、测量类别/重复轮次/机器信息不全、测量有 fault 或不可复现，或把一次 307.595 steps/s 当成当前基准。No-Go 时不得启动吞吐优化任务。

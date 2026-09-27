@@ -2,7 +2,7 @@
 
 ## 前置检查与 Go / No-Go
 
-1. 检查 `.trellis/tasks/09-27-rl-v4-split-guard/report.md`；必须明确为 **Go**，且引用已完成的 split/freeze 守卫测试。若不存在或为 No-Go，保持本任务 planning，不运行 profiler。
+1. 检查 `.trellis/tasks/archive/2026-09/09-27-rl-v4-split-guard/report.md`；必须明确为 **Go**，且引用已完成的 split/freeze 守卫测试。若不存在或为 No-Go，保持本任务 planning，不运行 profiler。
 2. 阅读 v3 归档报告第 28–42 行、当前 `controllers/score_block_rl/gym_env.py`、`train.py`、`benchmark.py` 和 `src/Sim.Cli/RlEnvCommand.cs`，记录当前基准结构与真实运行版本。
 
 ## 实施顺序
