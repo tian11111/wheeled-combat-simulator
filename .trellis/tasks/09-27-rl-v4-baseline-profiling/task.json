@@ -3,7 +3,7 @@
   "name": "rl-v4-baseline-profiling",
   "title": "RL v4 基线与吞吐测量",
   "description": "建立可重复的 v3 基线、分解吞吐和 CPU 资源占用，为并行方案提供 Go/No-Go 证据",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

@@ -152,3 +152,16 @@ MuJoCo 后端每 tick 10 个子步且不去重几何体对，单台机器人可�
 ## 性能测量
 
 `dotnet test src/Sim.Tests/Sim.Tests.csproj --filter FullyQualifiedName~TrainingResetPerformanceTests` 比较 20 次冷建模与 100 次热建模；设置 `ROBOT_SIM_RL_PERF_OUTPUT` 为绝对 JSON 路径可保存原始样本。`python controllers/score_block_rl/benchmark.py --out <绝对 JSON 路径>` 记录 100 次完整预推进 reset 和 1000 次策略 step 的原始样本及 p50/p95。性能受机器、杀毒软件和原生 DLL 影响，比较时须记录运行环境。
+
+### 分阶段 profiling
+
+`profile.py` 是默认关闭的独立诊断入口，不改训练配置或请求协议。标准测量命令会在指定绝对目录写入 manifest、摘要、逐轮 JSON 原始样本和资源 CSV：
+
+```powershell
+& $py -X utf8 controllers/score_block_rl/profile.py `
+    --out "D:\score-block-profile" `
+    --rounds 5 --resets 100 --steps 1000 `
+    --ipc-round-trips 1000 --ppo-updates 50
+```
+
+`--quick` 会缩小轮数和样本数，仍实际运行 env、持久 JSONL echo、计时模式 `rl-env`、SB3 PPO 和资源采样，适合数分钟内验证整条链路。需要计时字段时 profiler 才向 `rl-env` 请求 `timing: true`；Gym 环境和训练默认仍不发送该字段。计时字段缺失会保留为 `null` 并将该轮标为降级。SB3 测量按 `learn()` 相同的 rollout → progress update → train 顺序手动计时，详见 [rl-profiling-contract.md](../../.trellis/spec/sim/rl-profiling-contract.md)。

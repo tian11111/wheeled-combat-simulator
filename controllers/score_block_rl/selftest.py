@@ -26,9 +26,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import splits
@@ -135,6 +137,32 @@ def pure_checks(harness: Harness) -> None:
         return "8 named splits match the pre-registered seed lists"
 
     harness.check("split routing: named seed lists", routing)
+
+    def profile_helpers() -> str:
+        from profile import (compute_ipc_fraction, distribution, summarize_records,
+                             validate_manifest)
+
+        stats = distribution([1.0, 2.0, 3.0, 4.0])
+        assert stats["sample_count"] == 4 and stats["p50"] == 2.5 and stats["p95"] == 4.0, stats
+        assert compute_ipc_fraction([10.0, 10.0], [7.0, 7.0]) == 0.3
+        assert compute_ipc_fraction([10.0], [11.0]) == 0.0, "negative overhead must clamp to zero"
+        assert compute_ipc_fraction([], [1.0]) is None
+        invalid = [{"stage": "env", "round": 1, "status": "invalid",
+                    "faults": [{"type": "TimeoutError", "message": "fixture"}],
+                    "samples": {"step_ms": [1.0, 2.0]}}]
+        summary = summarize_records(invalid, "env")
+        metric = summary["metrics"]["step_ms"]
+        assert summary["invalid_rounds"] == [1]
+        assert metric["sample_count"] == 0 and metric["invalid_round_sample_count_retained"] == 2
+        assert metric["per_round"]["1"]["status"] == "invalid"
+        required = ("machine", "python", "dotnet_version", "dotnet_executable", "dependencies",
+                    "scenario", "scenario_sha256", "cli_dll", "cli_dll_sha256",
+                    "ppo_hyperparameters", "warmup", "effective_parameters", "random_seed")
+        assert validate_manifest({key: True for key in required}) == []
+        assert "scenario_sha256" in validate_manifest({"machine": {}})
+        return "percentiles, IPC clamp, invalid-round retention, and manifest fields"
+
+    harness.check("profiling: summary and contract helpers", profile_helpers)
 
     def disjoint() -> str:
         splits.assert_registry_is_disjoint()
@@ -690,6 +718,34 @@ def env_checks(harness: Harness, args) -> None:
         return f"{len(first)} frames bit-identical across two seed-42 episodes"
 
     harness.check(names[1], determinism)
+
+    def profiler_quick() -> str:
+        out_argument = Path(args.out).expanduser().resolve() if args.out else Path.cwd() / "selftest.json"
+        profile_out = out_argument.parent / f"profile-quick-{os.getpid()}-{time.time_ns()}"
+        result = subprocess.run(
+            [sys.executable, "-X", "utf8", str(SCRIPT_DIR / "profile.py"),
+             "--quick", "--out", str(profile_out), "--dotnet", dotnet,
+             "--cli-dll", str(cli_dll), "--scenario", str(scenario)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            cwd=str(SCRIPT_DIR.parents[1]), timeout=300)
+        assert result.returncode == 0, (
+            f"profiler --quick exited {result.returncode}: {result.stdout}\n{result.stderr}")
+        manifest_path, summary_path = profile_out / "manifest.json", profile_out / "summary.json"
+        assert manifest_path.is_file() and summary_path.is_file(), "quick run omitted manifest/summary"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        assert not __import__("profile").validate_manifest(manifest)
+        assert all(summary["stages"][stage]["valid_round_count"] == 1
+                   for stage in ("env", "ipc", "ppo")), summary["stages"]
+        for stage, name in (("env", "env-round-001.json"),
+                            ("ipc", "ipc-round-001.json"),
+                            ("ppo", "ppo-round-001.json")):
+            assert (profile_out / "raw" / name).is_file(), f"missing {stage} raw sample"
+        assert (profile_out / "resources.csv").is_file(), "missing synchronized resource samples"
+        return (f"profile --quick completed; output={profile_out}; "
+                f"samples={summary['stages']}")
+
+    harness.check("profiling: --quick end-to-end", profiler_quick)
 
 
 def main() -> int:

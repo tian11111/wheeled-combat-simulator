@@ -58,6 +58,9 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   唯一盲集为 10001–10050。评测入口拒绝 split 混用及自定义 seed 复用；正式
   盲验须先核验 v4 冻结记录，使用一次性运行索引。完整命令、字段与拒绝矩阵见
   [rl-split-contract.md](./rl-split-contract.md)。
+- SCORE_BLOCK PPO 的性能证据由显式运行的 `controllers/score_block_rl/profile.py`
+  生成；标准样本数、warm-up、原始轮落盘、无效轮标记及瓶颈门槛见
+  [rl-profiling-contract.md](./rl-profiling-contract.md)。
 - 块出界归属只按"max 接触时刻处的**不同角色数**"判定（`PhysicsWorld.FinalizeBlockContacts`）：
   同一机器人的多个接触几何体不得被读成"双方同时接触"。修此判定会经
   `Gain`/`OppGain`/`HandleBuffScored` 反馈进对手 FSM，故它不是纯观测改动，

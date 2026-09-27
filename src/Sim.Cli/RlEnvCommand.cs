@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Sim.Core;
 using Sim.Hosting;
@@ -60,7 +61,9 @@ public static class RlEnvCommand
                             // training/evaluation response shape byte-identical.
                             var trace = root.TryGetProperty("trace", out var traceElement)
                                         && traceElement.ValueKind == JsonValueKind.True;
-                            var reset = Reset(factory, scenarioPath, seed, duration, state, ref engine, trace);
+                            var resetTimingEnabled = root.TryGetProperty("timing", out var resetTimingElement)
+                                                     && resetTimingElement.ValueKind == JsonValueKind.True;
+                            var reset = Reset(factory, scenarioPath, seed, duration, state, ref engine, trace, resetTimingEnabled);
                             Emit(new { type = "reset", obs = reset.Obs, info = reset.Info });
                             break;
                         case "step":
@@ -72,7 +75,9 @@ public static class RlEnvCommand
                             }
                             var v = root.GetProperty("v").GetDouble();
                             var w = root.GetProperty("w").GetDouble();
-                            var step = Step(engine, state, v, w, duration);
+                            var stepTimingEnabled = root.TryGetProperty("timing", out var stepTimingElement)
+                                                    && stepTimingElement.ValueKind == JsonValueKind.True;
+                            var step = Step(engine, state, v, w, duration, stepTimingEnabled);
                             Emit(new { type = "step", obs = step.Obs, reward = step.Reward,
                                        terminated = step.Terminated, truncated = step.Truncated, info = step.Info });
                             break;
@@ -84,7 +89,9 @@ public static class RlEnvCommand
                                 EmitError("step_fsm before reset");
                                 continue;
                             }
-                            var stepFsm = Step(engine, state, null, null, duration);
+                            var fsmTimingEnabled = root.TryGetProperty("timing", out var fsmTimingElement)
+                                                   && fsmTimingElement.ValueKind == JsonValueKind.True;
+                            var stepFsm = Step(engine, state, null, null, duration, fsmTimingEnabled);
                             Emit(new { type = "step", obs = stepFsm.Obs, reward = stepFsm.Reward,
                                        terminated = stepFsm.Terminated, truncated = stepFsm.Truncated, info = stepFsm.Info });
                             break;
@@ -173,8 +180,9 @@ public static class RlEnvCommand
 
     private static (double[] Obs, Dictionary<string, object?> Info) Reset(
         MujocoTrainingPhysicsBackendFactory factory, string scenarioPath, int seed,
-        double duration, EpisodeState state, ref MatchEngine? engineRef, bool trace)
+        double duration, EpisodeState state, ref MatchEngine? engineRef, bool trace, bool timing)
     {
+        var totalTimer = timing ? Stopwatch.StartNew() : null;
         engineRef?.Dispose();
         engineRef = null;
         var scenario = EpisodeScenario(scenarioPath, seed, duration);
@@ -182,6 +190,7 @@ public static class RlEnvCommand
         var engine = MatchEngineHost.Create(scenario, null, factory);
         engineRef = engine;
         engine.Arm();
+        var resetMs = totalTimer?.Elapsed.TotalMilliseconds ?? 0.0;
 
         state.NoScoreBlock = false;
         state.Trace = trace;
@@ -205,6 +214,7 @@ public static class RlEnvCommand
         // 预推进: 双方内置 FSM, 直到我方首次 SCORE_BLOCK 或比赛结束。
         var guard = 0;
         var snap = engine.CommitSnapshot();
+        var prerollTimer = timing ? Stopwatch.StartNew() : null;
         while (!engine.Done && guard < 4800)
         {
             if (engine.Us.Fsm.State == FsmState.ScoreBlock)
@@ -214,6 +224,7 @@ public static class RlEnvCommand
             snap = engine.Tick();
             guard++;
         }
+        prerollTimer?.Stop();
 
         if (engine.Done || engine.Us.Fsm.State != FsmState.ScoreBlock)
         {
@@ -222,6 +233,7 @@ public static class RlEnvCommand
             info["no_score_block"] = true;
             info["pre_roll_ticks"] = guard;
             AttachTrace(info, engine, state);
+            AttachResetTiming(info, timing, resetMs, guard, prerollTimer, totalTimer);
             return (new double[ObservationSize], info);
         }
 
@@ -235,6 +247,7 @@ public static class RlEnvCommand
             noTargetInfo["reason"] = "score_block_without_valid_buff_target";
             noTargetInfo["pre_roll_ticks"] = guard;
             AttachTrace(noTargetInfo, engine, state);
+            AttachResetTiming(noTargetInfo, timing, resetMs, guard, prerollTimer, totalTimer);
             return (new double[ObservationSize], noTargetInfo);
         }
         if (state.TargetIndex >= 0)
@@ -249,27 +262,32 @@ public static class RlEnvCommand
         var infoOut = Info(engine, state, seed, null);
         foreach (var kv in entryInfo) infoOut[kv.Key] = kv.Value;
         AttachTrace(infoOut, engine, state);
+        AttachResetTiming(infoOut, timing, resetMs, guard, prerollTimer, totalTimer);
         return (obs, infoOut);
     }
 
     private static (double[] Obs, double Reward, bool Terminated, bool Truncated, Dictionary<string, object?> Info) Step(
-        MatchEngine engine, EpisodeState state, double? v, double? w, double duration)
+        MatchEngine engine, EpisodeState state, double? v, double? w, double duration, bool timing)
     {
+        var totalTimer = timing ? Stopwatch.StartNew() : null;
         if (state.NoScoreBlock)
         {
             // 未进入阶段的 seed: 首个 step 不执行动作, 立即零成功终止(保留该 seed 于评测)。
             var zeroInfo = Info(engine, state, state.Seed, null);
             zeroInfo["no_score_block"] = true;
             AttachTrace(zeroInfo, engine, state);
+            AttachStepTiming(zeroInfo, timing, tickMs: 0.0, totalTimer);
             return (new double[ObservationSize], 0.0, true, false, zeroInfo);
         }
 
         var edgeBefore = EdgeDistance(engine, state.TargetIndex);
         var wasOut = engine.Blocks.Select(b => b.Out).ToArray();
         state.PolicyTicks++;
+        var tickTimer = timing ? Stopwatch.StartNew() : null;
         var snapshot = v is null
             ? engine.Tick(null, null)   // 内置 FSM 驱动我方(基线对照口径)
             : engine.Tick(new RobotAction { V = v.Value, W = w ?? 0.0 }, null);
+        tickTimer?.Stop();
         var events = engine.Events.Events.Where(e => e.Seq > state.LastSeq).ToList();
         state.LastSeq = LatestEventSequence(engine);
         state.UsBlockScoreEvents += events.Count(e => e.Kind == EventKind.BlockScore && !e.Neutral && e.Robot.IsUs);
@@ -326,7 +344,38 @@ public static class RlEnvCommand
         info["attribution_ambiguous_this_step"] = attributionAmbiguous;
         info["us_dropped"] = usDropped;
         AttachTrace(info, engine, state, events);
+        AttachStepTiming(info, timing, tickTimer?.Elapsed.TotalMilliseconds ?? 0.0, totalTimer);
         return (obs, reward, terminated, truncated, info);
+    }
+
+    private static void AttachResetTiming(Dictionary<string, object?> info, bool timing,
+        double resetMs, int prerollTicks, Stopwatch? prerollTimer, Stopwatch? totalTimer)
+    {
+        if (!timing) return;
+        var timingInfo = new Dictionary<string, object?>
+        {
+            ["kind"] = "reset",
+            ["resetMs"] = Math.Round(resetMs, 4),
+            ["prerollTicks"] = prerollTicks,
+            ["prerollMs"] = Math.Round(prerollTimer!.Elapsed.TotalMilliseconds, 4),
+        };
+        info["timing"] = timingInfo;
+        totalTimer!.Stop();
+        timingInfo["totalMs"] = Math.Round(totalTimer.Elapsed.TotalMilliseconds, 4);
+    }
+
+    private static void AttachStepTiming(Dictionary<string, object?> info, bool timing,
+        double tickMs, Stopwatch? totalTimer)
+    {
+        if (!timing) return;
+        var timingInfo = new Dictionary<string, object?>
+        {
+            ["kind"] = "step",
+            ["tickMs"] = Math.Round(tickMs, 4),
+        };
+        info["timing"] = timingInfo;
+        totalTimer!.Stop();
+        timingInfo["totalMs"] = Math.Round(totalTimer.Elapsed.TotalMilliseconds, 4);
     }
 
     private static int LockTargetIndex(MatchEngine engine)
