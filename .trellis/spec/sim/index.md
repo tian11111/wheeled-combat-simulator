@@ -50,14 +50,14 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   SCORE_BLOCK 试点观测前 9 项顺序不变，末尾追加相对平台中心、按半边长
   归一化的我方 x/y；改维度后旧 PPO 模型必须重训，不能静默加载。
 - SCORE_BLOCK PPO 的评测 seed 划分是**预注册契约**，唯一来源为
-  `controllers/score_block_rl/splits.py`（`split_version = score-block-split-v3`）：
-  训练池 42/1000–1999 且 SB3 RNG 与首次 reset 为 20260925；**已揭示**的
-  3001–3010、4001–4010、5001–5020、6001–6050 只能作历史/分析对照
-  （`--final-holdout` 永远只指 4001–4010，不得改称新模型盲验；已揭示留出集还需
-  `--analysis-only` 且结果标 `gate_evidence_eligible=false`）；本轮开发集
-  7001–7020、盲验集 8001–8050，`BLIND_SPLITS` 只含 8001–8050。
-  评测入口必须显式标注 split、拒绝 split 混用与任何 seed 重叠；盲验集必须先
-  冻结候选（路径/步数/SHA-256/场景与 CLI 哈希）并拒绝覆盖已有结果。
+  `controllers/score_block_rl/splits.py`（`split_version = score-block-split-v4`）：
+  当前训练 episode 池为 42/1000–1999，训练 RNG 与首次 reset seed 仍为 20260925；
+  3001–3010、4001–4010、5001–5020、6001–6050、7001–7020、8001–8050
+  均已揭示。`--final-holdout` 永远只指 4001–4010；已揭示留出集必须显式
+  `--analysis-only` 且 `gate_evidence_eligible=false`。v4 开发集为 9001–9020，
+  唯一盲集为 10001–10050。评测入口拒绝 split 混用及自定义 seed 复用；正式
+  盲验须先核验 v4 冻结记录，使用一次性运行索引。完整命令、字段与拒绝矩阵见
+  [rl-split-contract.md](./rl-split-contract.md)。
 - 块出界归属只按"max 接触时刻处的**不同角色数**"判定（`PhysicsWorld.FinalizeBlockContacts`）：
   同一机器人的多个接触几何体不得被读成"双方同时接触"。修此判定会经
   `Gain`/`OppGain`/`HandleBuffScored` 反馈进对手 FSM，故它不是纯观测改动，

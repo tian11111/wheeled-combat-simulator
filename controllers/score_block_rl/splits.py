@@ -15,9 +15,12 @@ Split history (see the archived round reports, which must not be rewritten):
 * ``final_holdout_v2`` (6001-6050) was the second round's one-shot blind set. It was
   revealed by the checkpoint round (`new_round_blind_gate_passed=false`) and is now
   **analysis-only**: like ``legacy_final_holdout`` it may never be a blind set again.
-* ``development_v3`` (7001-7020) is the next round's model-selection set.
-* ``final_holdout_v3`` (8001-8050) is the next round's one-shot blind set; it is the
-  only split for which :attr:`Selection.is_blind_holdout` is true.
+* ``development_v3`` (7001-7020) was the previous round's model-selection set and
+  is now historical/analysis-only.
+* ``final_holdout_v3`` (8001-8050) was opened and failed the gate. It is permanently
+  analysis-only, just like the earlier revealed holdouts.
+* ``development_v4`` (9001-9020) and ``final_holdout_v4`` (10001-10050) are the
+  pre-registered v4 development and one-shot blind sets.
 
 Every named split is disjoint from the training episode pool and from every other
 split; :func:`assert_registry_is_disjoint` checks that invariant.
@@ -28,7 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Optional, Sequence
 
-SPLIT_VERSION = "score-block-split-v3"
+SPLIT_VERSION = "score-block-split-v4"
 
 LEGACY_DEVELOPMENT = "legacy_development"
 LEGACY_FINAL_HOLDOUT = "legacy_final_holdout"
@@ -36,6 +39,8 @@ DEVELOPMENT_V2 = "development_v2"
 FINAL_HOLDOUT_V2 = "final_holdout_v2"
 DEVELOPMENT_V3 = "development_v3"
 FINAL_HOLDOUT_V3 = "final_holdout_v3"
+DEVELOPMENT_V4 = "development_v4"
+FINAL_HOLDOUT_V4 = "final_holdout_v4"
 EXPLORATORY = "exploratory"
 
 #: Named splits and their exact, pre-registered seed lists.
@@ -46,13 +51,16 @@ SPLIT_SEEDS: dict[str, list[int]] = {
     FINAL_HOLDOUT_V2: list(range(6001, 6051)),
     DEVELOPMENT_V3: list(range(7001, 7021)),
     FINAL_HOLDOUT_V3: list(range(8001, 8051)),
+    DEVELOPMENT_V4: list(range(9001, 9021)),
+    FINAL_HOLDOUT_V4: list(range(10001, 10051)),
 }
 NAMED_SPLITS: tuple[str, ...] = tuple(SPLIT_SEEDS)
 #: Only the newest, not-yet-revealed holdout counts as blind.
-BLIND_SPLITS: tuple[str, ...] = (FINAL_HOLDOUT_V3,)
+BLIND_SPLITS: tuple[str, ...] = (FINAL_HOLDOUT_V4,)
 #: Holdouts that were already opened. They stay reachable for analysis, but an
 #: evaluation on them must ask for ``--analysis-only`` and is never gate evidence.
-REVEALED_HOLDOUT_SPLITS: tuple[str, ...] = (LEGACY_FINAL_HOLDOUT, FINAL_HOLDOUT_V2)
+REVEALED_HOLDOUT_SPLITS: tuple[str, ...] = (
+    LEGACY_FINAL_HOLDOUT, FINAL_HOLDOUT_V2, FINAL_HOLDOUT_V3)
 
 #: Episode seed pool used by ``train.py``: fixed seed 42 plus the inclusive
 #: range 1000-1999. The SB3 RNG seed / first reset seed (20260925) is reserved
@@ -67,7 +75,9 @@ HISTORICAL_SPLIT_SEEDS = frozenset(
     SPLIT_SEEDS[LEGACY_DEVELOPMENT]
     + SPLIT_SEEDS[LEGACY_FINAL_HOLDOUT]
     + SPLIT_SEEDS[DEVELOPMENT_V2]
-    + SPLIT_SEEDS[FINAL_HOLDOUT_V2])
+    + SPLIT_SEEDS[FINAL_HOLDOUT_V2]
+    + SPLIT_SEEDS[DEVELOPMENT_V3]
+    + SPLIT_SEEDS[FINAL_HOLDOUT_V3])
 REVEALED_SEEDS = frozenset(TRAIN_EPISODE_SEEDS | HISTORICAL_SPLIT_SEEDS)
 
 #: Custom exploratory lists must be at least this long and fully distinct.
@@ -79,8 +89,10 @@ SPLIT_USAGE: dict[str, str] = {
     LEGACY_FINAL_HOLDOUT: "historical final holdout (already revealed); --final-holdout semantics",
     DEVELOPMENT_V2: "previous round's development set (already revealed); analysis only",
     FINAL_HOLDOUT_V2: "previous round's blind holdout (already revealed); analysis only",
-    DEVELOPMENT_V3: "current-round model-selection development set",
-    FINAL_HOLDOUT_V3: "current-round one-shot blind holdout; requires a freeze record",
+    DEVELOPMENT_V3: "previous round's development set (already revealed); analysis only",
+    FINAL_HOLDOUT_V3: "previous round's blind holdout (already revealed); analysis only; requires --analysis-only",
+    DEVELOPMENT_V4: "current-round model-selection development set",
+    FINAL_HOLDOUT_V4: "current-round one-shot blind holdout; requires a v4 freeze record",
     EXPLORATORY: "caller-supplied exploratory seeds; never gate evidence",
 }
 
@@ -188,9 +200,9 @@ def resolve_selection(
         return Selection(split=EXPLORATORY, seeds=seeds)
 
     if split is None:
-        # This round's default is the newest development split. The previous
-        # defaults (3001-3010, 5001-5020) stay reachable via --split.
-        split = DEVELOPMENT_V3
+        # This round's default is the newest development split. Historical
+        # splits stay reachable via --split for analysis.
+        split = DEVELOPMENT_V4
     seeds = seeds_for(split)
     if len(seeds) < MIN_CUSTOM_SEEDS:
         raise SplitError(f"split {split} has fewer than {MIN_CUSTOM_SEEDS} seeds")

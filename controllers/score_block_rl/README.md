@@ -2,7 +2,7 @@
 
 仅用于官方 MuJoCo 场景的离线试验。11 维观测含仿真真值块坐标（特权状态），模型不能直接部署到真机，也不会替换默认 FSM。旧 9 维观测模型与当前环境不兼容，须重新训练。
 
-本页描述的是 **split v3 轮**（任务 `09-26-score-block-attribution-fix-split-v3`）的训练与评测入口。此前两轮（4001–4010、6001–6050）的门槛判定均失败，且其结论不因任何后续结果改变；这两组 seed 已揭示，只能用于分析。
+本页描述的是 **split v4 轮**（任务 `09-27-rl-v4-split-guard`）的训练与评测入口。此前 v3 盲验已运行并失败；旧轮次所有 seed 均已揭示，只能用于分析，不能作为后续门槛证据。
 
 ## Windows x64 复现
 
@@ -23,7 +23,7 @@ dotnet build RobotSimulator.sln -m:1
 
 本试点只有一个环境、11 维观测和较小的 MLP。MuJoCo 场景由 .NET 的 `rl-env` 进程推进，Python 每步通过 JSONL 与它通信；把 PPO 网络放到 GPU 不会加速仿真或进程通信，且小批量计算可能被 CPU/GPU 数据传输开销抵消。若要尝试 CUDA，需先安装支持 CUDA 的 PyTorch，再用相同场景和步数实测墙钟时间与 `time/fps`；目前没有 CPU/GPU 对比结果，不能据此声称 GPU 一定更快或更慢。
 
-## 数据划分（split v3）
+## 数据划分（split v4）
 
 `controllers/score_block_rl/splits.py` 是划分的唯一来源，`train.py`、`evaluate.py`、`selftest.py` 共用，避免三处各写一份 seed 列表。
 
@@ -33,11 +33,13 @@ dotnet build RobotSimulator.sln -m:1
 | `legacy_final_holdout` | 4001–4010 | 历史最终留出集（已揭示，AC4 失败）；`--final-holdout` **只**表示它 |
 | `development_v2` | 5001–5020 | 上一轮选模开发集（已揭示），仅分析 |
 | `final_holdout_v2` | 6001–6050 | 上一轮盲验集（已揭示，门槛失败），仅分析 |
-| `development_v3` | 7001–7020 | 本轮选模开发集（默认 split） |
-| `final_holdout_v3` | 8001–8050 | 本轮唯一盲验集，需冻结记录 |
+| `development_v3` | 7001–7020 | 已揭示的上一轮开发集；仅分析 |
+| `final_holdout_v3` | 8001–8050 | 已揭示的上一轮盲验集；仅分析，须传 `--analysis-only` |
+| `development_v4` | 9001–9020 | 本轮选模开发集（默认 split） |
+| `final_holdout_v4` | 10001–10050 | 本轮唯一盲验集；候选冻结后仅运行一次 |
 | `exploratory` | 自定义 `--seeds` | 探索，永不作门槛证据 |
 
-已揭示的留出集（`legacy_final_holdout`、`final_holdout_v2`）**不可能再被当作盲验**：`splits.BLIND_SPLITS` 只含 `final_holdout_v3`，而 `evaluate.py` 对其要求显式 `--analysis-only`，并在结果中写入 `gate_evidence_eligible: false`、`is_revealed_holdout: true`。`REVEALED_SEEDS` 覆盖全部 v2 seed，因此任何带 `--seeds` 的重复使用都会在路由阶段被拒绝。
+已揭示的留出集（包括 `final_holdout_v3`）**不可能再被当作盲验**：`splits.BLIND_SPLITS` 只含 `final_holdout_v4`。评估已揭示集合必须显式传 `--analysis-only`，输出标记 `gate_evidence_eligible: false`、`is_revealed_holdout: true`。自定义 `--seeds` 不能重复使用任何注册 split 或训练 seed。
 
 训练 episode 池仍为 42、1000–1999，SB3 RNG 与首次 reset seed 为 20260925；所有命名 split 与训练池、历史 split 互斥。评测入口拒绝 split 混用（`--final-holdout` + `--split`、`--split` + `--seeds`）与任何 seed 重叠，并拒绝覆盖已存在的结果文件（除非 `--force`）。
 
@@ -55,28 +57,32 @@ dotnet build RobotSimulator.sln -m:1
 
 ## 评测与选模
 
-默认 split 现在是 `development_v3`；`development_v2`（5001–5020）与旧 3001–3010 用 `--split` 显式指定。
+默认 split 是 `development_v4`。历史开发集仍可通过 `--split` 查询，但已揭示集只能用于分析。
+
+下列 v4 冻结与正式盲验命令是后续阶段的操作模板。本任务只注册 split 和防复用守卫；须先取得吞吐任务的下游策略 Go、五训练 seed 开发集至少 4/5 通过，并按唯一候选冻结任务核对身份后，才可执行最终盲验。当前没有运行 v4 最终集。
 
 ```powershell
 # 1) 逐个 checkpoint + 最终模型在开发集上评测，选出并冻结唯一候选
 & $py -X utf8 controllers/score_block_rl/evaluate.py `
-    --split development_v3 `
+    --split development_v4 `
     --checkpoints-dir "$env:TEMP\score-block-rl-train\checkpoints" `
     --select-candidate --freeze "$env:TEMP\score-block-rl-train\candidate-freeze.json" `
-    --out "$env:TEMP\score-block-rl-train\dev-v3-sweep.json"
+    --out "$env:TEMP\score-block-rl-train\dev-v4-sweep.json"
 
-# 2) 冻结后只运行一次盲验（缺冻结记录、或不匹配都会被拒绝）
+# 2) 冻结后只运行一次 v4 盲验（缺少或不匹配冻结记录、已有运行索引都会被拒绝）
 & $py -X utf8 controllers/score_block_rl/evaluate.py `
-    --split final_holdout_v3 `
+    --split final_holdout_v4 `
     --model "$env:TEMP\score-block-rl-train\checkpoints\rl_model_XXXXXX_steps.zip" `
     --require-freeze "$env:TEMP\score-block-rl-train\candidate-freeze.json" `
-    --out "$env:TEMP\score-block-rl-train\final-holdout-v3.json"
+    --out "$env:TEMP\score-block-rl-train\final-holdout-v4.json"
 
 # 已揭示集只做分析：必须显式 --analysis-only，结果标记 gate_evidence_eligible=false
 & $py -X utf8 controllers/score_block_rl/evaluate.py --model <模型> `
-    --split final_holdout_v2 --analysis-only `
-    --out "$env:TEMP\score-block-rl-train\analysis-6001-6050.json"
+    --split final_holdout_v3 --analysis-only `
+    --out "$env:TEMP\score-block-rl-train\analysis-v3-8001-8050.json"
 ```
+
+正式盲验在仓库 `.sim_runs/score-block-final-holdout-v4-run.json` 以独占创建方式登记。评测开始即消耗唯一运行机会；结果无论通过与否都会记为已揭示，进程异常中断时遗留的 `started` 索引也会阻止重跑。`--force` 不能绕过该索引。不要删除或改写索引来重复评测。
 
 - `deterministic=True` 在独立评测环境里逐 seed 运行；同一 seed 的内置 FSM 基线从**同一个首次 `SCORE_BLOCK` 入口**开始配对（FSM 路径不消费策略，故每个 seed 只跑一次即可作为所有模型的共同基准，输出里标注 `fsm_baseline_is_model_independent`）。
 - 合格条件只用真实裁判事件：锁定目标我方真实 `BlockScore` ≥ 1、总数不低于 FSM、我方 `Drop` 不高于 FSM，且所有计分 seed 都有位姿/事件交叉核验。合格者按目标得分多 → 掉台少 → 训练步数多选唯一候选；没有合格模型时记录 `stop_reason="no_qualified_model"` 并停止，不打开最终集。
@@ -130,14 +136,14 @@ MuJoCo 后端每 tick 10 个子步且不去重几何体对，单台机器人可�
 "双方同时接触…不计分"）。
 
 该修复只解决"块出界未归属计分"，**不解决掉台缺口**（门槛要求我方掉台不高于 FSM），
-因此不能据此宣布任何门槛通过；新一轮必须用 `development_v3` / `final_holdout_v3` 重新预注册与训练。
+因此不能据此宣布任何门槛通过；新一轮使用已预注册的 `development_v4` / `final_holdout_v4`，并按本页一次性盲验规则执行。
 
 ## 定向验证
 
 ```powershell
 & $py -X utf8 controllers/score_block_rl/selftest.py `
     --train-dir "$env:TEMP\score-block-rl-train" `
-    --dev-sweep "$env:TEMP\score-block-rl-train\dev-v3-sweep.json" `
+    --dev-sweep "$env:TEMP\score-block-rl-train\dev-v4-sweep.json" `
     --freeze "$env:TEMP\score-block-rl-train\candidate-freeze.json"
 ```
 

@@ -36,10 +36,9 @@ from stable_baselines3.common.monitor import Monitor
 
 from gym_env import ScoreBlockEnv, resolve_dotnet_executable
 from splits import (
-    FINAL_HOLDOUT_V3,
     NAMED_SPLITS,
-    REVEALED_HOLDOUT_SPLITS,
     SPLIT_SEEDS,
+    SPLIT_USAGE,
     SPLIT_VERSION,
     training_pool_manifest,
 )
@@ -122,12 +121,7 @@ def main() -> None:
         "split_version": SPLIT_VERSION,
         "training_split": training_pool_manifest(),
         "evaluation_seed_splits": {name: list(SPLIT_SEEDS[name]) for name in NAMED_SPLITS},
-        "evaluation_split_usage": {
-            name: ("blind holdout" if name == FINAL_HOLDOUT_V3
-                   else "revealed holdout; analysis only" if name in REVEALED_HOLDOUT_SPLITS
-                   else "non-blind")
-            for name in NAMED_SPLITS
-        },
+        "evaluation_split_usage": {name: SPLIT_USAGE[name] for name in NAMED_SPLITS},
         "scenario": str(scenario),
         "scenario_sha256": sha256_file(scenario),
         "cli_dll": str(cli_dll),

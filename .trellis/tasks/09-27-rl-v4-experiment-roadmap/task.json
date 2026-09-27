@@ -1,0 +1,33 @@
+{
+  "id": "rl-v4-experiment-roadmap",
+  "name": "rl-v4-experiment-roadmap",
+  "title": "RL v4 实验路线与证据门控",
+  "description": "核查外部研究报告并规划 v4 多 seed、吞吐、奖励与盲验路线；仅规划，不启动训练",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "neco",
+  "assignee": "neco",
+  "createdAt": "2026-09-27",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "09-27-rl-v4-baseline-profiling",
+    "09-27-rl-v4-split-multiseed",
+    "09-27-rl-v4-split-guard",
+    "09-27-rl-v4-training-throughput",
+    "09-27-rl-v4-reward-credit",
+    "09-27-rl-v4-blind-gate"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
