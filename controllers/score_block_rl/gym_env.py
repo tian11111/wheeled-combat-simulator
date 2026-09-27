@@ -37,6 +37,7 @@ class ScoreBlockEnv(gym.Env):
 
     def __init__(self, dotnet_exe: str, cli_dll: str, scenario_path: str,
                  duration: float = 120.0, seed_pool: Optional[list[int]] = None,
+                 initial_episode_seed: Optional[int] = None,
                  max_policy_ticks: int = MAX_POLICY_TICKS, trace: bool = False):
         super().__init__()
         if seed_pool is not None and not seed_pool:
@@ -50,6 +51,9 @@ class ScoreBlockEnv(gym.Env):
         self._duration = float(duration)
         self._seed_pool = list(seed_pool) if seed_pool is not None else [42]
         self._pool_idx = 0
+        self._initial_episode_seed = (None if initial_episode_seed is None
+                                      else int(initial_episode_seed))
+        self._initial_episode_seed_pending = initial_episode_seed is not None
         self._max_policy_ticks = int(max_policy_ticks)
         if self._duration <= 0 or self._max_policy_ticks <= 0:
             raise ValueError("duration and max_policy_ticks must be positive")
@@ -116,7 +120,12 @@ class ScoreBlockEnv(gym.Env):
 
     def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
-        chosen = int(seed) if seed is not None else self._next_seed()
+        if self._initial_episode_seed_pending:
+            chosen = self._initial_episode_seed
+            self._initial_episode_seed_pending = False
+        else:
+            chosen = int(seed) if seed is not None else self._next_seed()
+        assert chosen is not None
         request: dict[str, Any] = {"op": "reset", "seed": chosen}
         if self._trace:
             request["trace"] = True
@@ -180,7 +189,13 @@ class ScoreBlockEnv(gym.Env):
         finally:
             for stream in (self._proc.stdin, self._proc.stdout):
                 if stream is not None:
-                    stream.close()
+                    try:
+                        stream.close()
+                    except (OSError, ValueError):
+                        # The child may already have exited while a request was
+                        # in flight. Closing a broken Windows pipe must not mask
+                        # that original bridge error.
+                        pass
 
     def __enter__(self):
         return self

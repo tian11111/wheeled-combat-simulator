@@ -1,0 +1,4 @@
+{"file":".trellis/spec/sim/index.md","reason":"仿真确定性、训练、split 与裁判验收契约"}
+{"file":".trellis/spec/sim/rl-split-contract.md","reason":"v4 split 命令、字段、冻结与一次性运行索引契约"}
+{"file":".trellis/tasks/09-27-rl-v4-experiment-roadmap/research/report-audit.md","reason":"外部报告核查、v3 证据边界及本轮取舍"}
+{"file":".trellis/tasks/archive/2026-09/09-26-score-block-v3-edge-speed-retrain/report.md","reason":"v3 最终集已揭示与一次性盲验结论"}

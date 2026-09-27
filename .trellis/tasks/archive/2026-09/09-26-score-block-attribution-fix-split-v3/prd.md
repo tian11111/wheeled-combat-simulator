@@ -69,16 +69,16 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1 `Physics.FinalizeBlockContacts` 按不同角色数判定；无其他 `Sim.Core` 语义改动。
-- [ ] AC2 新增 Sim.Core 测试覆盖 R2 的三类情形；`dotnet build` 0 错误；`dotnet test` 全绿。
-- [ ] AC3 6 份 legacy `replays/*.json` 仍逐位 PASS。
-- [ ] AC4 已揭示集重放结果与诊断投影逐项对照，差异已解释（或如实报告不一致）。
-- [ ] AC5 `splits.py` v3 注册完成且互斥校验通过；`development_v3` 默认；
+- [x] AC1 `Physics.FinalizeBlockContacts` 按不同角色数判定；无其他 `Sim.Core` 语义改动。
+- [x] AC2 新增 Sim.Core 测试覆盖 R2 的三类情形；`dotnet build` 0 错误；`dotnet test` 全绿。
+- [x] AC3 6 份 legacy `replays/*.json` 仍逐位 PASS。
+- [x] AC4 已揭示集重放结果与诊断投影逐项对照，差异已解释（或如实报告不一致）。
+- [x] AC5 `splits.py` v3 注册完成且互斥校验通过；`development_v3` 默认；
       `final_holdout_v3` 唯一盲验；已揭示集进入 `REVEALED_SEEDS`。
-- [ ] AC6 `evaluate.py` 对已揭示留出集要求 `--analysis-only` 且 `gate_evidence_eligible=false`；
+- [x] AC6 `evaluate.py` 对已揭示留出集要求 `--analysis-only` 且 `gate_evidence_eligible=false`；
       freeze/require-freeze/select-candidate 作用域为 v3。
-- [ ] AC7 `selftest.py` 全绿（期望值更新到 v3）；README 的 split 表与命令更新。
-- [ ] AC8 报告：修复前后对照、回归结果、新 split 表、限制与诚实边界、
+- [x] AC7 `selftest.py` 全绿（期望值更新到 v3）；README 的 split 表与命令更新。
+- [x] AC8 报告：修复前后对照、回归结果、新 split 表、限制与诚实边界、
       以及"本轮只改这一处、未训练、未跑新盲验"的明确声明。
 
 ## Out of Scope

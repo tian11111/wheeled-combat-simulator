@@ -4,9 +4,8 @@
 
 The checkpoint layout is produced by ``stable_baselines3``'s
 ``CheckpointCallback`` (``save_path``/``name_prefix``), so the filename encodes
-the *global* ``model.num_timesteps`` at save time. With the single-environment
-setup used by this pilot that equals the number of single-environment steps,
-which lets ``run-config.json`` cross-check filename steps against the registry.
+the *global* ``model.num_timesteps`` at save time. The run manifest audits
+cadence against global transitions, including vector runs.
 """
 
 from __future__ import annotations
@@ -179,6 +178,17 @@ def audit_checkpoints(run_config: dict[str, Any], out_dir: Path | str) -> dict[s
     if registered_steps != disk_steps:
         issues.append(
             f"checkpoint step sets differ: run-config={registered_steps} disk={disk_steps}")
+    interval = run_config.get("checkpoint_interval_transitions")
+    if interval is None:  # Backward compatibility with legacy single-env runs.
+        interval = run_config.get("checkpoint_interval_single_env_steps")
+    actual_transitions = run_config.get(
+        "actual_global_transitions", run_config.get("total_timesteps_trained"))
+    if isinstance(interval, int) and interval > 0 and isinstance(actual_transitions, int):
+        expected_steps = list(range(interval, actual_transitions + 1, interval))
+        if registered_steps != expected_steps:
+            issues.append(
+                f"checkpoint global-transition cadence differs: expected={expected_steps} "
+                f"registered={registered_steps}")
     by_steps = {int(row["training_steps"]): row for row in on_disk}
     for row in registered:
         steps = int(row.get("training_steps", -1))
@@ -199,6 +209,19 @@ def audit_checkpoints(run_config: dict[str, Any], out_dir: Path | str) -> dict[s
         issues.append(
             "final model sha256 mismatch: "
             f"run-config={run_config.get('model_zip_sha256')} disk={sha256_file(final_model)}")
+    artifact_hashes = run_config.get("artifact_hashes")
+    if isinstance(artifact_hashes, dict):
+        paths = {
+            "final_model": final_model,
+            "monitor_csv": out / MONITOR_CSV_NAME,
+            "progress_csv": out / PROGRESS_CSV_NAME,
+        }
+        for name, path in paths.items():
+            expected_hash = artifact_hashes.get(name)
+            actual_hash = sha256_file(path)
+            if expected_hash != actual_hash:
+                issues.append(
+                    f"artifact {name} sha256 mismatch: manifest={expected_hash} disk={actual_hash}")
     return {
         "ok": not issues,
         "issues": issues,

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Targeted self-checks for the SCORE_BLOCK PPO checkpoint round.
+"""Targeted self-checks for the SCORE_BLOCK PPO training and evaluation path.
 
 Covers the machine-decidable parts of the task's acceptance criteria:
 
@@ -26,18 +26,22 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import splits
 from splits import (
     DEVELOPMENT_V2,
     DEVELOPMENT_V3,
+    DEVELOPMENT_V4,
     EXPLORATORY,
     FINAL_HOLDOUT_V2,
     FINAL_HOLDOUT_V3,
+    FINAL_HOLDOUT_V4,
     LEGACY_DEVELOPMENT,
     LEGACY_FINAL_HOLDOUT,
     SPLIT_SEEDS,
@@ -68,9 +72,11 @@ EXPECTED_SPLIT_SEEDS = {
     FINAL_HOLDOUT_V2: list(range(6001, 6051)),
     DEVELOPMENT_V3: list(range(7001, 7021)),
     FINAL_HOLDOUT_V3: list(range(8001, 8051)),
+    DEVELOPMENT_V4: list(range(9001, 9021)),
+    FINAL_HOLDOUT_V4: list(range(10001, 10051)),
 }
 #: Seeds used only as "free range" fixtures: never registered, never in the training pool.
-FREE_EXPLORATORY_SEEDS = list(range(9001, 9011))
+FREE_EXPLORATORY_SEEDS = list(range(11001, 11011))
 #: PPO optimisation diagnostics the CSV logger must expose.
 REQUIRED_PROGRESS_COLUMNS = (
     "train/approx_kl",
@@ -127,10 +133,36 @@ def pure_checks(harness: Harness) -> None:
             actual = splits.seeds_for(split)
             assert actual == expected, f"{split}: {actual} != {expected}"
         assert SPLIT_SEEDS == EXPECTED_SPLIT_SEEDS, "registry drifted from the pre-registered lists"
-        assert SPLIT_VERSION == "score-block-split-v3", SPLIT_VERSION
-        return "6 named splits match the pre-registered seed lists"
+        assert SPLIT_VERSION == "score-block-split-v4", SPLIT_VERSION
+        return "8 named splits match the pre-registered seed lists"
 
     harness.check("split routing: named seed lists", routing)
+
+    def profile_helpers() -> str:
+        from profile import (compute_ipc_fraction, distribution, summarize_records,
+                             validate_manifest)
+
+        stats = distribution([1.0, 2.0, 3.0, 4.0])
+        assert stats["sample_count"] == 4 and stats["p50"] == 2.5 and stats["p95"] == 4.0, stats
+        assert compute_ipc_fraction([10.0, 10.0], [7.0, 7.0]) == 0.3
+        assert compute_ipc_fraction([10.0], [11.0]) == 0.0, "negative overhead must clamp to zero"
+        assert compute_ipc_fraction([], [1.0]) is None
+        invalid = [{"stage": "env", "round": 1, "status": "invalid",
+                    "faults": [{"type": "TimeoutError", "message": "fixture"}],
+                    "samples": {"step_ms": [1.0, 2.0]}}]
+        summary = summarize_records(invalid, "env")
+        metric = summary["metrics"]["step_ms"]
+        assert summary["invalid_rounds"] == [1]
+        assert metric["sample_count"] == 0 and metric["invalid_round_sample_count_retained"] == 2
+        assert metric["per_round"]["1"]["status"] == "invalid"
+        required = ("machine", "python", "dotnet_version", "dotnet_executable", "dependencies",
+                    "scenario", "scenario_sha256", "cli_dll", "cli_dll_sha256",
+                    "ppo_hyperparameters", "warmup", "effective_parameters", "random_seed")
+        assert validate_manifest({key: True for key in required}) == []
+        assert "scenario_sha256" in validate_manifest({"machine": {}})
+        return "percentiles, IPC clamp, invalid-round retention, and manifest fields"
+
+    harness.check("profiling: summary and contract helpers", profile_helpers)
 
     def disjoint() -> str:
         splits.assert_registry_is_disjoint()
@@ -146,10 +178,10 @@ def pure_checks(harness: Harness) -> None:
 
     def defaults() -> str:
         selection = resolve_selection()
-        assert selection.split == DEVELOPMENT_V3, selection.split
-        assert selection.seeds == list(range(7001, 7021)), selection.seeds
+        assert selection.split == DEVELOPMENT_V4, selection.split
+        assert selection.seeds == list(range(9001, 9021)), selection.seeds
         assert not selection.is_blind_holdout and not selection.is_exploratory
-        return "default split is development_v3 (7001-7020)"
+        return "default split is development_v4 (9001-9020)"
 
     harness.check("split routing: default is the new development set", defaults)
 
@@ -163,32 +195,34 @@ def pure_checks(harness: Harness) -> None:
     harness.check("split routing: --final-holdout keeps its historical meaning", legacy_holdout)
 
     def blind_label() -> str:
-        selection = resolve_selection(split=FINAL_HOLDOUT_V3)
+        selection = resolve_selection(split=FINAL_HOLDOUT_V4)
         assert selection.is_blind_holdout and len(selection.seeds) == 50
-        assert selection.manifest()["evaluation_split"] == FINAL_HOLDOUT_V3
-        return "final_holdout_v3 is flagged as the one-shot blind split with 50 seeds"
+        assert selection.manifest()["evaluation_split"] == FINAL_HOLDOUT_V4
+        return "final_holdout_v4 is flagged as the one-shot blind split with 50 seeds"
 
     harness.check("split routing: new blind split label", blind_label)
 
     def revealed_holdouts_are_not_blind() -> str:
-        for split in (LEGACY_FINAL_HOLDOUT, FINAL_HOLDOUT_V2):
+        for split in (LEGACY_FINAL_HOLDOUT, FINAL_HOLDOUT_V2, FINAL_HOLDOUT_V3):
             selection = resolve_selection(split=split)
             assert not selection.is_blind_holdout, f"{split} is still flagged blind"
             assert selection.is_revealed_holdout, f"{split} is not flagged as revealed"
             assert set(selection.seeds) <= splits.REVEALED_SEEDS, f"{split} seeds not revealed"
-        assert splits.BLIND_SPLITS == (FINAL_HOLDOUT_V3,), splits.BLIND_SPLITS
-        return "v2/legacy holdouts are revealed and can never be blind again"
+        assert splits.BLIND_SPLITS == (FINAL_HOLDOUT_V4,), splits.BLIND_SPLITS
+        return "all historical holdouts including v3 are revealed and can never be blind again"
 
     harness.check("split routing: revealed holdouts are analysis-only", revealed_holdouts_are_not_blind)
 
-    def revealed_covers_v2() -> str:
+    def revealed_covers_v3() -> str:
         assert set(SPLIT_SEEDS[DEVELOPMENT_V2]) <= splits.REVEALED_SEEDS
         assert set(SPLIT_SEEDS[FINAL_HOLDOUT_V2]) <= splits.REVEALED_SEEDS
-        assert set(SPLIT_SEEDS[DEVELOPMENT_V3]) & splits.REVEALED_SEEDS == set()
-        assert set(SPLIT_SEEDS[FINAL_HOLDOUT_V3]) & splits.REVEALED_SEEDS == set()
-        return "REVEALED_SEEDS covers every v2 seed and excludes the v3 splits"
+        assert set(SPLIT_SEEDS[DEVELOPMENT_V3]) <= splits.REVEALED_SEEDS
+        assert set(SPLIT_SEEDS[FINAL_HOLDOUT_V3]) <= splits.REVEALED_SEEDS
+        assert set(SPLIT_SEEDS[DEVELOPMENT_V4]) & splits.REVEALED_SEEDS == set()
+        assert set(SPLIT_SEEDS[FINAL_HOLDOUT_V4]) & splits.REVEALED_SEEDS == set()
+        return "REVEALED_SEEDS includes v3 and excludes both v4 splits"
 
-    harness.check("split registry: revealed set is complete", revealed_covers_v2)
+    harness.check("split registry: revealed set is complete", revealed_covers_v3)
 
     def exploratory_label() -> str:
         selection = resolve_selection(custom_seeds=list(FREE_EXPLORATORY_SEEDS))
@@ -215,6 +249,106 @@ def pure_checks(harness: Harness) -> None:
 
     harness.check("selection: untraceable score fails gate", untraceable_score_fails_gate)
 
+    def revealed_v3_is_never_gate_evidence() -> str:
+        from evaluate import evaluation_eligibility
+
+        selection = resolve_selection(split=FINAL_HOLDOUT_V3)
+        labels = evaluation_eligibility(selection, analysis_only=True)
+        assert labels == {
+            "is_blind_holdout": False,
+            "is_revealed_holdout": True,
+            "analysis_only": True,
+            "gate_evidence_eligible": False,
+        }, labels
+        return "v3 analysis result labels it revealed and gate-ineligible"
+
+    harness.check("split output: v3 analysis is gate-ineligible", revealed_v3_is_never_gate_evidence)
+
+    def v4_blind_labels_are_distinct() -> str:
+        from evaluate import evaluation_eligibility
+
+        labels = evaluation_eligibility(
+            resolve_selection(split=FINAL_HOLDOUT_V4), analysis_only=False)
+        assert labels == {
+            "is_blind_holdout": True,
+            "is_revealed_holdout": False,
+            "analysis_only": False,
+            "gate_evidence_eligible": True,
+        }, labels
+        return "v4 is blind before the one-shot run; its consumed state has a separate index"
+
+    harness.check("split output: v4 blind and revealed labels are distinct",
+                  v4_blind_labels_are_distinct)
+
+    def freeze_protocol() -> str:
+        from evaluate import ConfigError, verify_freeze
+
+        spec = {"path": "candidate.zip", "sha256": "a" * 64, "training_steps": 500000}
+        scenario_hash, cli_hash = "b" * 64, "c" * 64
+        record = {
+            "protocol": "score-block-freeze-v1",
+            "split_version": SPLIT_VERSION,
+            "development_split": DEVELOPMENT_V4,
+            "development_seeds": list(range(9001, 9021)),
+            "final_holdout_split": FINAL_HOLDOUT_V4,
+            "final_holdout_seeds": list(range(10001, 10051)),
+            "frozen_before_final_holdout": True,
+            "scenario_sha256": scenario_hash,
+            "cli_dll_sha256": cli_hash,
+            "candidate": {"sha256": spec["sha256"], "training_steps": spec["training_steps"]},
+        }
+        checks = verify_freeze(record, spec, scenario_hash, cli_hash)
+        assert all(checks.values()), checks
+        record["final_holdout_split"] = FINAL_HOLDOUT_V3
+        try:
+            verify_freeze(record, spec, scenario_hash, cli_hash)
+        except ConfigError as exc:
+            assert "final_holdout_split_matches" in str(exc), str(exc)
+        else:
+            raise AssertionError("a v3 freeze record was accepted for v4")
+        record["final_holdout_split"] = FINAL_HOLDOUT_V4
+        try:
+            verify_freeze(record, spec, "different-scenario", cli_hash)
+        except ConfigError as exc:
+            assert "scenario_sha256_matches" in str(exc), str(exc)
+        else:
+            raise AssertionError("a mismatched scenario was accepted for v4")
+        return "only a complete v4 development freeze authorizes the v4 holdout"
+
+    harness.check("freeze: v4 identity required", freeze_protocol)
+
+    def blind_run_is_one_shot() -> str:
+        from evaluate import ConfigError, claim_blind_run, reveal_blind_run
+
+        with tempfile.TemporaryDirectory() as tmp:
+            index = Path(tmp) / "blind-index.json"
+            freeze_path = Path(tmp) / "freeze.json"
+            freeze_path.write_text("{}\n", encoding="utf-8")
+            out_path = Path(tmp) / "result.json"
+            record = claim_blind_run(index, FINAL_HOLDOUT_V4, freeze_path, out_path)
+            started = json.loads(index.read_text(encoding="utf-8"))
+            assert started["status"] == "started" and started["revealed"] is True, started
+            assert started["freeze_sha256"] is not None, started
+            try:
+                claim_blind_run(index, FINAL_HOLDOUT_V4, freeze_path, out_path)
+            except ConfigError as exc:
+                assert "cannot be rerun" in str(exc), str(exc)
+            else:
+                raise AssertionError("the v4 blind run was claimed twice")
+            reveal_blind_run(index, record, gate_passed=False)
+            final = json.loads(index.read_text(encoding="utf-8"))
+            assert final["status"] == "revealed" and final["revealed"] is True, final
+            assert final["gate_passed"] is False, final
+            try:
+                claim_blind_run(index, FINAL_HOLDOUT_V4, freeze_path, out_path)
+            except ConfigError:
+                pass
+            else:
+                raise AssertionError("a failed revealed blind run could be repeated")
+        return "failed runs remain revealed and the persistent index rejects every rerun"
+
+    harness.check("blind guard: v4 formal run is one-shot", blind_run_is_one_shot)
+
     mutex_cases = [
         ("holdout + split", {"split": DEVELOPMENT_V3, "final_holdout": True},
          "cannot be combined with --split"),
@@ -223,7 +357,7 @@ def pure_checks(harness: Harness) -> None:
         ("split + custom seeds",
          {"split": DEVELOPMENT_V3, "custom_seeds": list(FREE_EXPLORATORY_SEEDS)},
          "--seeds cannot be combined with --split"),
-        ("custom seeds reuse new development split",
+        ("custom seeds reuse historical v3 development split",
          {"custom_seeds": list(range(7001, 7011))}, "cannot reuse pre-registered split seeds"),
         ("custom seeds reuse previous development split",
          {"custom_seeds": list(range(5001, 5011))}, "cannot reuse pre-registered split seeds"),
@@ -235,6 +369,10 @@ def pure_checks(harness: Harness) -> None:
          {"custom_seeds": list(range(6001, 6011))}, "cannot reuse pre-registered split seeds"),
         ("custom seeds reuse the new final holdout",
          {"custom_seeds": list(range(8001, 8011))}, "cannot reuse pre-registered split seeds"),
+        ("custom seeds reuse v4 development",
+         {"custom_seeds": list(range(9001, 9011))}, "cannot reuse pre-registered split seeds"),
+        ("custom seeds reuse v4 final holdout",
+         {"custom_seeds": list(range(10001, 10011))}, "cannot reuse pre-registered split seeds"),
         ("custom seeds hit the training pool",
          {"custom_seeds": [42, *FREE_EXPLORATORY_SEEDS[:9]]}, "overlap the training episode pool"),
         ("custom seeds hit the training range",
@@ -243,7 +381,7 @@ def pure_checks(harness: Harness) -> None:
          "at least 10 distinct seeds"),
         ("custom seeds with duplicates", {"custom_seeds": [FREE_EXPLORATORY_SEEDS[0]] * 10},
          "must not repeat"),
-        ("unknown split", {"split": "development_v4"}, "unknown split"),
+        ("unknown split", {"split": "development_v5"}, "unknown split"),
     ]
     for name, kwargs, fragment in mutex_cases:
         harness.check(f"mutex: {name}", (lambda k=kwargs, f=fragment, n=name: (
@@ -293,10 +431,148 @@ def checkpoint_checks(harness: Harness) -> None:
 
         assert train.CHECKPOINT_INTERVAL_STEPS == 51200, train.CHECKPOINT_INTERVAL_STEPS
         assert train.TRAIN_SEED == 20260925, train.TRAIN_SEED
+        assert train.V4_TRAIN_SEEDS == (20260927, 20260928, 20260929, 20260930, 20261001)
         assert train.TRAIN_SEED_POOL == [42, *range(1000, 2000)], "training pool changed"
-        return "default snapshot interval 51200 single-env steps; train seed 20260925"
+        assert train.resolve_vector_config(1) == (2048, 51200)
+        assert train.resolve_vector_config(2) == (1024, 25600)
+        assert train.resolve_vector_config(4) == (512, 12800)
+        for invalid in (0, 3, 128, 1024):
+            try:
+                train.resolve_vector_config(invalid)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"invalid n_envs {invalid} was accepted")
+        try:
+            train.resolve_vector_config(2, 51201)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("non-divisible global checkpoint interval was accepted")
+        return "seed 20260925, single-env defaults, and global rollout/checkpoint divisors"
 
     harness.check("checkpoint: frozen training defaults", default_interval)
+
+    def worker_seed_streams() -> str:
+        import train
+
+        legacy = train.build_episode_seed_streams(train.TRAIN_SEED, 1)
+        assert legacy == [train.TRAIN_SEED_POOL]
+        first = train.build_episode_seed_streams(20260927, 4)
+        repeated = train.build_episode_seed_streams(20260927, 4)
+        changed = train.build_episode_seed_streams(20260928, 4)
+        assert first == repeated, "worker episode seeds are not deterministic"
+        assert first != changed, "train seed does not affect worker episode streams"
+        assert all(first), "worker stream is empty"
+        flattened = [seed for stream in first for seed in stream]
+        assert len(flattened) == len(set(flattened)), "workers share episode seeds"
+        assert sorted(flattened) == sorted(train.build_episode_seed_streams(20260927, 1)[0])
+        assert 20260927 not in flattened, "PPO seed was reused as an episode seed"
+        run_pools = [train.build_episode_seed_streams(seed, 1)[0]
+                     for seed in train.V4_TRAIN_SEEDS]
+        combined = [seed for stream in run_pools for seed in stream]
+        assert len(combined) == len(set(combined)), "v4 training runs share episode seeds"
+        assert sorted(combined) == sorted(train.TRAIN_SEED_POOL)
+        assert sorted(map(len, run_pools)) == [200, 200, 200, 200, 201]
+        return "fixed v4 seeds and workers receive deterministic disjoint episode streams"
+
+    harness.check("training: isolated deterministic worker episode seed streams", worker_seed_streams)
+
+    def initial_episode_seed_is_separate_from_sb3_seed() -> str:
+        import gymnasium as gym
+        import numpy as np
+        from gym_env import ScoreBlockEnv
+
+        def fake_env(initial_episode_seed: int | None, seed_pool: list[int]):
+            env = object.__new__(ScoreBlockEnv)
+            gym.Env.__init__(env)
+            env._initial_episode_seed = initial_episode_seed
+            env._initial_episode_seed_pending = initial_episode_seed is not None
+            env._seed_pool = seed_pool
+            env._pool_idx = 0
+            env._trace = False
+            env._closed = False
+            env.action_space = gym.spaces.Box(-1.0, 1.0, shape=(2,), dtype=np.float32)
+            env.observation_space = gym.spaces.Box(-1.0, 1.0, shape=(11,), dtype=np.float32)
+            sent: list[dict[str, object]] = []
+            env._send = lambda payload: (
+                sent.append(payload) or
+                {"type": "reset", "obs": [0.0] * 11, "info": {}})
+            return env, sent
+
+        env, sent = fake_env(1234, [2345])
+        first_obs, first_info = env.reset(seed=20260927)
+        second_obs, second_info = env.reset()
+        assert first_obs.shape == second_obs.shape == (11,)
+        assert sent[0]["seed"] == first_info["seed"] == 1234
+        assert sent[1]["seed"] == second_info["seed"] == 2345
+
+        legacy_env, legacy_sent = fake_env(None, [42])
+        legacy_env.reset(seed=20260925)
+        assert legacy_sent[0]["seed"] == 20260925
+        return "episode seeds are separate from SB3 RNG while the historical default remains stable"
+
+    harness.check("training: scenario reset stream is independent from SB3 seed",
+                  initial_episode_seed_is_separate_from_sb3_seed)
+
+    def crashed_bridge_close() -> str:
+        from types import SimpleNamespace
+
+        from gym_env import ScoreBlockEnv
+
+        class BrokenPipe:
+            def close(self) -> None:
+                raise OSError("child exited before pipe close")
+
+        env = object.__new__(ScoreBlockEnv)
+        env._closed = False
+        env._proc = SimpleNamespace(poll=lambda: 1, stdin=BrokenPipe(), stdout=BrokenPipe())
+        env.close()
+        assert env._closed
+        return "broken Windows child pipes do not mask the original training failure"
+
+    harness.check("training: crashed bridge close preserves failure record", crashed_bridge_close)
+
+    def global_checkpoint_audit() -> str:
+        with tempfile.TemporaryDirectory() as temporary:
+            out = Path(temporary)
+            checkpoints = out / CHECKPOINT_DIR_NAME
+            checkpoints.mkdir()
+            for step in (51200, 102400):
+                (checkpoints / f"rl_model_{step}_steps.zip").write_bytes(str(step).encode("ascii"))
+            (out / FINAL_MODEL_NAME).write_bytes(b"model")
+            run_config = {
+                "checkpoint_interval_transitions": 51200,
+                "actual_global_transitions": 128000,
+                "model_zip_sha256": sha256_file(out / FINAL_MODEL_NAME),
+                "checkpoints": discover_checkpoints(checkpoints),
+            }
+            audit = audit_checkpoints(run_config, out)
+            assert audit["ok"], audit["issues"]
+            run_config["actual_global_transitions"] = 153600
+            audit = audit_checkpoints(run_config, out)
+            assert not audit["ok"] and any("global-transition cadence" in issue
+                                           for issue in audit["issues"]), audit
+        return "checkpoint filenames are audited against actual global transitions"
+
+    harness.check("checkpoint: global transition cadence audit", global_checkpoint_audit)
+
+    def output_collision_guard() -> str:
+        import train
+
+        with tempfile.TemporaryDirectory() as temporary:
+            fresh = Path(temporary) / "fresh-run"
+            assert train.prepare_output_directory(fresh) == fresh.resolve()
+            (fresh / "run-config.json").write_text("fixture", encoding="utf-8")
+            try:
+                train.prepare_output_directory(fresh)
+            except FileExistsError:
+                pass
+            else:
+                raise AssertionError("non-empty training output directory was reused")
+        return "empty output created; non-empty output rejected"
+
+    harness.check("training: output directory collision guard", output_collision_guard)
 
 
 def artifact_checks(harness: Harness, train_dir: Path | None) -> None:
@@ -341,21 +617,46 @@ def artifact_checks(harness: Harness, train_dir: Path | None) -> None:
         manifest = run_config.get("training_split") or {}
         assert manifest.get("fixed") == [42], manifest
         assert manifest.get("inclusive_range") == [1000, 1999], manifest
-        interval = run_config.get("checkpoint_interval_single_env_steps")
+        assert manifest.get("legacy_default_initial_sb3_reset_episode_seed") == 20260925, manifest
+        assert manifest.get("initial_episode_seeds_for_this_run"), manifest
+        train_seed = run_config.get("train_seed")
+        assert isinstance(train_seed, int) and 0 <= train_seed <= 0xFFFFFFFF, train_seed
+        assert int(run_config.get("actual_global_transitions", 0)) >= int(
+            run_config.get("total_timesteps_requested", 1)), run_config
+        assert run_config.get("faults_total") == 0, run_config.get("faults_total")
+        code = run_config.get("code_identity") or {}
+        assert code.get("git_commit") and isinstance(code.get("git_worktree_dirty"), bool), code
+        assert all(isinstance(code.get(path), str) and len(code[path]) == 64 for path in (
+            "controllers/score_block_rl/train.py",
+            "controllers/score_block_rl/gym_env.py",
+            "controllers/score_block_rl/train_artifacts.py",
+            "controllers/score_block_rl/splits.py",
+        )), code
+        hardware = run_config.get("hardware_identity") or {}
+        assert hardware.get("hostname") and hardware.get("logical_cpu_count"), hardware
+        assert (run_config.get("dotnet_runtime") or {}).get("executable"), run_config.get(
+            "dotnet_runtime")
+        interval = run_config.get("checkpoint_interval_transitions",
+                                  run_config.get("checkpoint_interval_single_env_steps"))
         assert isinstance(interval, int) and interval > 0, interval
         callback = run_config.get("checkpoint_callback") or {}
-        assert callback.get("save_freq_env_step_calls") == interval, callback
-        assert callback.get("n_envs") == 1 and callback.get("save_freq_divided_by_n_envs") is False
+        n_envs = int((run_config.get("ppo_parameters") or {}).get("n_envs", 1))
+        assert callback.get("save_freq_env_step_calls") * n_envs == interval, callback
+        assert callback.get("n_envs") == n_envs, callback
+        assert callback.get("global_transition_interval") == interval, callback
         assert callback.get("name_prefix") == "rl_model", callback
+        n_steps = int((run_config.get("ppo_parameters") or {}).get("n_steps", 2048))
+        assert n_steps * n_envs == run_config.get("global_rollout_transitions_per_update", 2048)
         assert (run_config.get("best_model_selection") or {}).get(
             "uses_eval_callback_mean_reward") is False
         assert (run_config.get("observation") or {}).get("privileged_state") is True
         assert (run_config.get("observation") or {}).get("dimension") == 11
         for row in run_config.get("checkpoints") or []:
             assert row["training_steps"] % interval == 0, \
-                f"checkpoint {row['filename']} is not a multiple of the interval {interval}"
+                f"checkpoint {row['filename']} is not a multiple of global interval {interval}"
         return (f"split version, interval {interval} consistent with "
-                f"{len(run_config.get('checkpoints') or [])} checkpoints, no EvalCallback best model")
+                f"{len(run_config.get('checkpoints') or [])} global-transition checkpoints, "
+                "no EvalCallback best model")
 
     harness.check("run-config: split version and checkpoint interval", split_meta)
 
@@ -405,7 +706,7 @@ def cli_guard_checks(harness: Harness) -> None:
             cwd=str(SCRIPT_DIR))
 
     def no_freeze() -> str:
-        result = run_cli(["--model", "does-not-matter.zip", "--split", FINAL_HOLDOUT_V3,
+        result = run_cli(["--model", "does-not-matter.zip", "--split", FINAL_HOLDOUT_V4,
                           "--out", str(Path(tempfile.gettempdir()) / "score-block-unused.json")])
         assert result.returncode != 0, "blind holdout ran without a freeze record"
         assert "--require-freeze" in (result.stderr + result.stdout), result.stderr
@@ -414,22 +715,32 @@ def cli_guard_checks(harness: Harness) -> None:
     harness.check("CLI guard: blind holdout needs a freeze record", no_freeze)
 
     def freeze_wrong_split() -> str:
-        result = run_cli(["--model", "does-not-matter.zip", "--split", DEVELOPMENT_V3,
+        result = run_cli(["--model", "does-not-matter.zip", "--split", DEVELOPMENT_V4,
                           "--require-freeze", "freeze.json",
                           "--out", str(Path(tempfile.gettempdir()) / "score-block-unused.json")])
-        assert result.returncode != 0, "--require-freeze accepted outside final_holdout_v3"
+        assert result.returncode != 0, "--require-freeze accepted outside final_holdout_v4"
         assert "only valid with" in (result.stderr + result.stdout), result.stderr
+        v3 = run_cli(["--model", "does-not-matter.zip", "--split", FINAL_HOLDOUT_V3,
+                      "--analysis-only", "--require-freeze", "freeze.json",
+                      "--out", str(Path(tempfile.gettempdir()) / "score-block-unused.json")])
+        assert v3.returncode != 0, "a v3 analysis run accepted a freeze record"
+        assert "only valid with" in (v3.stderr + v3.stdout), v3.stderr
         return "--require-freeze outside the blind split is rejected"
 
     harness.check("CLI guard: --require-freeze split scoping", freeze_wrong_split)
 
     def revealed_holdout_needs_analysis_only() -> str:
-        for split in (LEGACY_FINAL_HOLDOUT, FINAL_HOLDOUT_V2):
+        for split in (LEGACY_FINAL_HOLDOUT, FINAL_HOLDOUT_V2, FINAL_HOLDOUT_V3):
             result = run_cli(["--model", "does-not-matter.zip", "--split", split,
                               "--out", str(Path(tempfile.gettempdir()) / "score-block-unused.json")])
             assert result.returncode != 0, f"{split} ran without --analysis-only"
             assert "--analysis-only" in (result.stderr + result.stdout), result.stderr
-        result = run_cli(["--model", "does-not-matter.zip", "--split", DEVELOPMENT_V3,
+        with tempfile.TemporaryDirectory() as tmp:
+            v3_analysis = run_cli(["--model", "does-not-matter.zip", "--split", FINAL_HOLDOUT_V3,
+                                   "--analysis-only", "--out", str(Path(tmp) / "analysis.json")])
+        assert "model file not found" in (v3_analysis.stderr + v3_analysis.stdout), \
+            v3_analysis.stderr
+        result = run_cli(["--model", "does-not-matter.zip", "--split", DEVELOPMENT_V4,
                           "--analysis-only",
                           "--out", str(Path(tempfile.gettempdir()) / "score-block-unused.json")])
         assert result.returncode != 0, "--analysis-only accepted on a non-revealed split"
@@ -463,7 +774,7 @@ def cli_guard_checks(harness: Harness) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "already.json"
             out.write_text("{}", encoding="utf-8")
-            result = run_cli(["--model", "does-not-matter.zip", "--split", DEVELOPMENT_V3,
+            result = run_cli(["--model", "does-not-matter.zip", "--split", DEVELOPMENT_V4,
                               "--out", str(out)])
             assert result.returncode != 0, "existing --out was overwritten without --force"
             assert "already exists" in (result.stderr + result.stdout), result.stderr
@@ -497,8 +808,12 @@ def sweep_checks(harness: Harness, dev_sweep: Path | None, freeze: Path | None) 
             record = json.loads(freeze.read_text(encoding="utf-8"))
             assert record["candidate"]["sha256"] == candidate["sha256"], "freeze/model sha256 drift"
             assert record["candidate"]["training_steps"] == candidate["training_steps"]
+            assert record["protocol"] == "score-block-freeze-v1"
             assert record["split_version"] == SPLIT_VERSION
-            assert record["final_holdout_split"] == FINAL_HOLDOUT_V3
+            assert record["development_split"] == DEVELOPMENT_V4
+            assert record["development_seeds"] == list(range(9001, 9021))
+            assert record["final_holdout_split"] == FINAL_HOLDOUT_V4
+            assert record["final_holdout_seeds"] == list(range(10001, 10051))
             assert record["frozen_before_final_holdout"] is True
             assert sha256_file(Path(candidate["path"])) == candidate["sha256"]
         return (f"candidate {candidate['filename']} at {candidate['training_steps']} steps "
@@ -567,13 +882,41 @@ def env_checks(harness: Harness, args) -> None:
 
     harness.check(names[1], determinism)
 
+    def profiler_quick() -> str:
+        out_argument = Path(args.out).expanduser().resolve() if args.out else Path.cwd() / "selftest.json"
+        profile_out = out_argument.parent / f"profile-quick-{os.getpid()}-{time.time_ns()}"
+        result = subprocess.run(
+            [sys.executable, "-X", "utf8", str(SCRIPT_DIR / "profile.py"),
+             "--quick", "--out", str(profile_out), "--dotnet", dotnet,
+             "--cli-dll", str(cli_dll), "--scenario", str(scenario)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            cwd=str(SCRIPT_DIR.parents[1]), timeout=300)
+        assert result.returncode == 0, (
+            f"profiler --quick exited {result.returncode}: {result.stdout}\n{result.stderr}")
+        manifest_path, summary_path = profile_out / "manifest.json", profile_out / "summary.json"
+        assert manifest_path.is_file() and summary_path.is_file(), "quick run omitted manifest/summary"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        assert not __import__("profile").validate_manifest(manifest)
+        assert all(summary["stages"][stage]["valid_round_count"] == 1
+                   for stage in ("env", "ipc", "ppo")), summary["stages"]
+        for stage, name in (("env", "env-round-001.json"),
+                            ("ipc", "ipc-round-001.json"),
+                            ("ppo", "ppo-round-001.json")):
+            assert (profile_out / "raw" / name).is_file(), f"missing {stage} raw sample"
+        assert (profile_out / "resources.csv").is_file(), "missing synchronized resource samples"
+        return (f"profile --quick completed; output={profile_out}; "
+                f"samples={summary['stages']}")
+
+    harness.check("profiling: --quick end-to-end", profiler_quick)
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--train-dir", default=None,
                         help="training output dir (enables checkpoint/CSV artifact checks)")
     parser.add_argument("--dev-sweep", default=None,
-                        help="development_v3 sweep JSON (enables selection/freeze checks)")
+        help="development_v4 sweep JSON (enables selection/freeze checks)")
     parser.add_argument("--freeze", default=None, help="freeze record JSON")
     parser.add_argument("--out", default=None, help="write the check report as JSON")
     parser.add_argument("--gym-check", action="store_true",

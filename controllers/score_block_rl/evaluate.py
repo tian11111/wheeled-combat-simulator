@@ -8,15 +8,15 @@ not be opened).
 
 Split discipline (``splits.py`` is the single source of truth):
 
-* ``--split development_v3`` (7001-7020) is this round's model-selection set.
-* ``--split final_holdout_v3`` (8001-8050) is the one-shot blind set; it
-  requires ``--require-freeze`` so the candidate was frozen beforehand.
+* ``--split development_v4`` (9001-9020) is this round's model-selection set.
+* ``--split final_holdout_v4`` (10001-10050) is the one-shot blind set; it
+  requires a v4 freeze record and a persistent one-shot run index.
 * ``--final-holdout`` keeps its historical meaning: 4001-4010, already
   revealed, comparison only.
 * ``legacy_development`` (3001-3010), ``development_v2`` (5001-5020) and
   ``final_holdout_v2`` (6001-6050) are already revealed; custom ``--seeds`` are
   exploration. None of them is gate evidence.
-* A revealed holdout (``legacy_final_holdout``, ``final_holdout_v2``) additionally
+* A revealed holdout (including ``final_holdout_v3``) additionally
   requires ``--analysis-only`` and its result is written with
   ``gate_evidence_eligible: false`` — a revealed seed set can never be a blind set
   again.
@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import sys
 from datetime import datetime, timezone
@@ -45,8 +46,8 @@ from stable_baselines3 import PPO
 
 from gym_env import MAX_POLICY_TICKS, ScoreBlockEnv, resolve_dotnet_executable
 from splits import (
-    DEVELOPMENT_V3,
-    FINAL_HOLDOUT_V3,
+    DEVELOPMENT_V4,
+    FINAL_HOLDOUT_V4,
     LEGACY_DEVELOPMENT,
     LEGACY_FINAL_HOLDOUT,
     REVEALED_HOLDOUT_SPLITS,
@@ -309,9 +310,74 @@ def load_freeze(path: Path) -> dict:
     if not path.is_file():
         raise ConfigError(f"freeze record not found: {path}")
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        record = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ConfigError(f"freeze record is not valid JSON: {exc}") from exc
+    if not isinstance(record, dict):
+        raise ConfigError("freeze record must be a JSON object")
+    return record
+
+
+def evaluation_eligibility(selection, analysis_only: bool) -> dict:
+    """Evidence labels for the selected split before the run opens it."""
+    return {
+        "is_blind_holdout": selection.is_blind_holdout,
+        "is_revealed_holdout": selection.is_revealed_holdout,
+        "analysis_only": bool(analysis_only),
+        "gate_evidence_eligible": selection.is_blind_holdout and not analysis_only,
+    }
+
+
+def claim_blind_run(index_path: Path, split: str, freeze_path: Path, out_path: Path) -> dict:
+    """Atomically consume the unique formal blind run before simulation starts.
+
+    A crash after claiming still consumes the split. This fail-closed behavior
+    prevents a partial attempt from being silently replaced by a second run.
+    """
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    record = {
+        "protocol": "score-block-blind-run-index-v1",
+        "split": split,
+        "status": "started",
+        # Claiming consumes the blind split even if this process crashes later.
+        "revealed": True,
+        "claimed_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "freeze_record": str(freeze_path.resolve()),
+        "freeze_sha256": sha256_file(freeze_path),
+        "result_path": str(out_path.resolve()),
+    }
+    try:
+        descriptor = os.open(index_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError as exc:
+        try:
+            existing = json.loads(index_path.read_text(encoding="utf-8"))
+            status = existing.get("status", "unknown") if isinstance(existing, dict) else "invalid"
+        except (OSError, json.JSONDecodeError):
+            status = "present but unreadable"
+        raise ConfigError(
+            f"{split} one-shot blind run was already claimed ({status}); it cannot be rerun; "
+            f"run index: {index_path}") from exc
+    with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
+        json.dump(record, stream, ensure_ascii=False, indent=2)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    return record
+
+
+def reveal_blind_run(index_path: Path, record: dict, gate_passed: bool) -> None:
+    """Finalize the claimed one-shot record after the result JSON is written."""
+    record = dict(record)
+    record.update({
+        "status": "revealed",
+        "revealed": True,
+        "revealed_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "gate_passed": bool(gate_passed),
+    })
+    temporary = index_path.with_name(index_path.name + ".tmp")
+    temporary.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n",
+                         encoding="utf-8")
+    os.replace(temporary, index_path)
 
 
 def resolve_model_identity(specs: list[dict]) -> None:
@@ -337,11 +403,25 @@ def resolve_model_identity(specs: list[dict]) -> None:
         del policy
 
 
-def verify_freeze(freeze: dict, spec: dict) -> dict:
+def verify_freeze(
+    freeze: dict,
+    spec: dict,
+    scenario_sha256: str,
+    cli_dll_sha256: str,
+) -> dict:
     candidate = freeze.get("candidate") or {}
+    if not isinstance(candidate, dict):
+        raise ConfigError("freeze candidate must be a JSON object")
     checks = {
+        "freeze_protocol_matches": freeze.get("protocol") == "score-block-freeze-v1",
         "split_version_matches": freeze.get("split_version") == SPLIT_VERSION,
-        "final_holdout_split_matches": freeze.get("final_holdout_split") == FINAL_HOLDOUT_V3,
+        "development_split_matches": freeze.get("development_split") == DEVELOPMENT_V4,
+        "development_seeds_match": freeze.get("development_seeds") == seeds_for(DEVELOPMENT_V4),
+        "final_holdout_split_matches": freeze.get("final_holdout_split") == FINAL_HOLDOUT_V4,
+        "final_holdout_seeds_match": freeze.get("final_holdout_seeds") == seeds_for(FINAL_HOLDOUT_V4),
+        "frozen_before_final_holdout": freeze.get("frozen_before_final_holdout") is True,
+        "scenario_sha256_matches": freeze.get("scenario_sha256") == scenario_sha256,
+        "cli_dll_sha256_matches": freeze.get("cli_dll_sha256") == cli_dll_sha256,
         "candidate_sha256_matches": candidate.get("sha256") == spec["sha256"],
         "candidate_training_steps_matches":
             candidate.get("training_steps") == spec["training_steps"],
@@ -362,23 +442,22 @@ def main() -> None:
                         help="directory of rl_model_<steps>_steps.zip files; the final "
                              "ppo_score_block.zip next to it is included automatically")
     parser.add_argument("--split", default=None,
-                        help="legacy_development | legacy_final_holdout | development_v2 | "
-                             "final_holdout_v2 | development_v3 | final_holdout_v3 | "
-                             "exploratory (default: development_v3)")
+                        help="named split from splits.py, or exploratory "
+                             "(default: development_v4)")
     parser.add_argument("--final-holdout", action="store_true",
                         help="historical final holdout 4001-4010 (already revealed); "
                              "equivalent to --split legacy_final_holdout")
     parser.add_argument("--analysis-only", action="store_true",
                         help="acknowledge that an already-revealed holdout is used for "
-                             "analysis only; required for legacy_final_holdout/final_holdout_v2")
+                             "analysis only; required for revealed holdouts including final_holdout_v3")
     parser.add_argument("--seeds", default=None,
                         help="custom exploratory seeds; results are never gate evidence")
     parser.add_argument("--select-candidate", action="store_true",
                         help="rank the evaluated models and freeze one candidate")
     parser.add_argument("--freeze", default=None,
-                        help="write the frozen-candidate JSON for the development_v3 selection")
+                        help="write the frozen-candidate JSON for the development_v4 selection")
     parser.add_argument("--require-freeze", default=None,
-                        help="required for final_holdout_v3: the freeze record to verify")
+                        help="required for final_holdout_v4: the freeze record to verify")
     parser.add_argument("--force", action="store_true",
                         help="allow overwriting an existing --out file")
     parser.add_argument("--dotnet", default=None)
@@ -399,22 +478,22 @@ def main() -> None:
     except SplitError as exc:
         parser.error(str(exc))
 
-    if args.select_candidate and selection.split != DEVELOPMENT_V3:
-        parser.error(f"--select-candidate requires --split {DEVELOPMENT_V3}")
-    if args.freeze and selection.split != DEVELOPMENT_V3:
-        parser.error(f"--freeze requires --split {DEVELOPMENT_V3}")
-    if selection.split == FINAL_HOLDOUT_V3 and not args.require_freeze:
-        parser.error(f"--split {FINAL_HOLDOUT_V3} requires --require-freeze <freeze.json>; "
+    if args.select_candidate and selection.split != DEVELOPMENT_V4:
+        parser.error(f"--select-candidate requires --split {DEVELOPMENT_V4}")
+    if args.freeze and selection.split != DEVELOPMENT_V4:
+        parser.error(f"--freeze requires --split {DEVELOPMENT_V4}")
+    if selection.split == FINAL_HOLDOUT_V4 and not args.require_freeze:
+        parser.error(f"--split {FINAL_HOLDOUT_V4} requires --require-freeze <freeze.json>; "
                      "freeze the candidate on the development split first")
-    if args.require_freeze and selection.split != FINAL_HOLDOUT_V3:
-        parser.error(f"--require-freeze is only valid with --split {FINAL_HOLDOUT_V3}")
+    if args.require_freeze and selection.split != FINAL_HOLDOUT_V4:
+        parser.error(f"--require-freeze is only valid with --split {FINAL_HOLDOUT_V4}")
     if selection.is_revealed_holdout and not args.analysis_only:
         parser.error(
             f"--split {selection.split} is an already-revealed holdout and can never be a blind "
             "set again; pass --analysis-only to confirm this run is analysis, not gate evidence")
     if args.analysis_only and not selection.is_revealed_holdout:
         parser.error("--analysis-only is only meaningful for an already-revealed holdout "
-                     f"({'/'.join(REVEALED_HOLDOUT_SPLITS)})")
+            f"({'/'.join(REVEALED_HOLDOUT_SPLITS)})")
 
     out_path = Path(args.out).expanduser().resolve()
     if out_path.exists() and not args.force:
@@ -445,15 +524,37 @@ def main() -> None:
 
     freeze = None
     freeze_checks = None
+    freeze_path_resolved = None
+    freeze_output_path = None
+    if args.freeze:
+        freeze_output_path = Path(args.freeze).expanduser()
+        if not freeze_output_path.is_absolute():
+            freeze_output_path = repo_root / freeze_output_path
+        freeze_output_path = freeze_output_path.resolve()
+        if freeze_output_path == out_path:
+            parser.error("--freeze and --out must be different files")
+        if freeze_output_path.exists():
+            parser.error(f"freeze record already exists and cannot be replaced: {freeze_output_path}")
     if args.require_freeze:
         freeze_path = Path(args.require_freeze)
         if not freeze_path.is_absolute():
             freeze_path = repo_root / freeze_path
-        freeze = load_freeze(freeze_path.resolve())
+        freeze_path_resolved = freeze_path.resolve()
+        freeze = load_freeze(freeze_path_resolved)
         if len(specs) != 1:
             parser.error("a blind final evaluation must load exactly one frozen model")
         try:
-            freeze_checks = verify_freeze(freeze, specs[0])
+            freeze_checks = verify_freeze(
+                freeze, specs[0], sha256_file(scenario), sha256_file(cli_dll))
+        except ConfigError as exc:
+            parser.error(str(exc))
+
+    blind_run_index_path = repo_root / ".sim_runs" / "score-block-final-holdout-v4-run.json"
+    blind_run_record = None
+    if selection.split == FINAL_HOLDOUT_V4:
+        try:
+            blind_run_record = claim_blind_run(
+                blind_run_index_path, selection.split, freeze_path_resolved, out_path)
         except ConfigError as exc:
             parser.error(str(exc))
 
@@ -491,16 +592,16 @@ def main() -> None:
         "evaluation_split_legacy_name": LEGACY_ALIASES.get(selection.split),
         "seeds": list(selection.seeds),
         "seed_count": len(selection.seeds),
-        "is_blind_holdout": selection.is_blind_holdout,
+        **evaluation_eligibility(selection, args.analysis_only),
         "is_exploratory": selection.is_exploratory,
-        "is_revealed_holdout": selection.is_revealed_holdout,
-        "analysis_only": bool(args.analysis_only),
-        "gate_evidence_eligible": bool(selection.is_blind_holdout),
         "ac4_claim_eligible": False,
         "ac4_claim_eligible_note": AC4_CLAIM_NOTE,
         "previous_round_ac4_split": LEGACY_FINAL_HOLDOUT,
         "new_round_blind_gate_passed": None,
         "blind_run_index": None,
+        "blind_run_index_path": (str(blind_run_index_path)
+                                 if selection.split == FINAL_HOLDOUT_V4 else None),
+        "blind_run_consumed": selection.split == FINAL_HOLDOUT_V4,
         "frozen_candidate": (freeze or {}).get("candidate"),
         "freeze_checks": freeze_checks,
         "evaluation_mode": "PPO deterministic",
@@ -565,29 +666,29 @@ def main() -> None:
                 "scenario_sha256": sha256_file(scenario),
                 "cli_dll": str(cli_dll),
                 "cli_dll_sha256": sha256_file(cli_dll),
-                "final_holdout_split": FINAL_HOLDOUT_V3,
-                "final_holdout_seeds": seeds_for(FINAL_HOLDOUT_V3),
+                "final_holdout_split": FINAL_HOLDOUT_V4,
+                "final_holdout_seeds": seeds_for(FINAL_HOLDOUT_V4),
                 "frozen_before_final_holdout": True,
-                "note": "freeze record written before any final_holdout_v3 run",
+                "note": "freeze record written before any final_holdout_v4 run",
             }
-            freeze_path = Path(args.freeze)
-            if not freeze_path.is_absolute():
-                freeze_path = repo_root / freeze_path
-            freeze_path = freeze_path.resolve()
-            freeze_path.parent.mkdir(parents=True, exist_ok=True)
-            freeze_path.write_text(json.dumps(freeze_record, ensure_ascii=False, indent=2) + "\n",
+            assert freeze_output_path is not None
+            freeze_output_path.parent.mkdir(parents=True, exist_ok=True)
+            freeze_output_path.write_text(json.dumps(freeze_record, ensure_ascii=False, indent=2) + "\n",
                                    encoding="utf-8")
             results["freeze_record_written"] = True
-            results["freeze_record_path"] = str(freeze_path)
+            results["freeze_record_path"] = str(freeze_output_path)
             results["freeze_record"] = freeze_record
 
-    if selection.split == FINAL_HOLDOUT_V3:
+    if selection.split == FINAL_HOLDOUT_V4:
         results["blind_run_index"] = 1
         results["new_round_blind_gate_passed"] = (bool(models[0]["gate"]["gate_passed"])
                                                  if len(models) == 1 else None)
 
     out_path.write_text(json.dumps(results, ensure_ascii=False, indent=2) + "\n",
                         encoding="utf-8")
+    if blind_run_record is not None:
+        reveal_blind_run(blind_run_index_path, blind_run_record,
+                         bool(results["new_round_blind_gate_passed"]))
     printable = {
         "evaluation_split": results["evaluation_split"],
         "split_version": results["split_version"],
