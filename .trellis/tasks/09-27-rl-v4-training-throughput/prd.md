@@ -7,7 +7,7 @@
 ## 前置报告与 Go / No-Go
 
 - 必须先有 `.trellis/tasks/archive/2026-09/09-27-rl-v4-split-guard/report.md`，结论为 **Go**，并证明 v3 只能分析、v4 split 已隔离。
-- 必须先有 `.trellis/tasks/09-27-rl-v4-baseline-profiling/report.md`，明确其测量数据完整、相同机器身份有效，并给出 IPC/CPU/RSS 瓶颈结论。profiling 的负面结论可完成任务，但缺数据不能 Go。
+- 必须先有 `.trellis/tasks/archive/2026-09/09-27-rl-v4-baseline-profiling/report.md`，明确其测量数据完整、相同机器身份有效，并给出 IPC/CPU/RSS 瓶颈结论。profiling 的负面结论可完成任务，但缺数据不能 Go。
 - split 守卫或性能测量缺失/No-Go：不运行本任务。正式吞吐目标失败是有效的负面研究结果，但其下游策略任务必须 No-Go/停止。
 - 完整执行测量路线后，**下游策略 Go** 仅当 5×500k 套件中位总墙钟时间 ≤60 分钟且所有语义/故障/产物检查通过；否则报告 No-Go 并停止多 seed PPO、奖励实验、冻结和盲验。
 

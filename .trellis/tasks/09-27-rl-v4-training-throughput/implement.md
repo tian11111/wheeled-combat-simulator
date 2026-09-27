@@ -3,7 +3,7 @@
 ## 前置门槛
 
 1. 读取 `.trellis/tasks/archive/2026-09/09-27-rl-v4-split-guard/report.md`：必须明确 Go。
-2. 读取 `09-27-rl-v4-baseline-profiling/report.md`：必须有全部重复测量、资源数据和 Go；单独记录原生 batch 的条件判定。缺失任何前置证据就保持本任务 planning。
+2. 读取 `.trellis/tasks/archive/2026-09/09-27-rl-v4-baseline-profiling/report.md`：必须有全部重复测量、资源数据和 Go；单独记录原生 batch 的条件判定。缺失任何前置证据就保持本任务 planning。
 
 ## 顺序
 
