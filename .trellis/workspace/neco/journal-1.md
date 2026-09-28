@@ -1078,3 +1078,40 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - 立任务实现翻覆/失去行动能力状态处理(停车等待重启)
+
+
+## Session 32: MuJoCo 倾覆门控：翻覆后停车等待裁判重启
+
+**Date**: 2026-09-28
+**Task**: MuJoCo 倾覆门控：翻覆后停车等待裁判重启
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+实现 IPhysicsBackend.IsFlipped(MuJoCo 姿态判定, legacy 恒 false)与 FSM Incapacitated 状态: 持续倾覆 0.5s 停车+事件, 恢复直立回 SEARCH, 裁判重启清计时; CoreVersion 升 1.0.3。
+
+### Main Changes
+
+- IPhysicsBackend.IsFlipped + MujocoPhysicsBackend upright 跟踪(点积<0.5) + legacy 恒 false
+- FsmState.Incapacitated + FlippedGateFor + EventKind.Incapacitated + FsmStateNames 映射
+- CoreVersion 1.0.2→1.0.3; 门控测试与 restart replay fixture 同步
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9b12367` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 405/405; seed-42 与 godot-parity 两份 legacy replay-check 逐位 PASS; Godot 构建 0 错误
+- [OK] IncapacitatedTests 3 条(姿态投影/翻覆停车/legacy 永不出现)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 半悬/卡死判定与 v2 几何翻覆率测量(未覆盖项)
+- 如需推送: git push origin test/score-block-ppo-checkpoint-round

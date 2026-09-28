@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 31
+- **Total Sessions**: 32
 - **Last Active**: 2026-09-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1080 | Active |
+| `journal-1.md` | ~1117 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 32 | 2026-09-28 | MuJoCo 倾覆门控：翻覆后停车等待裁判重启 | `9b12367` | `test/score-block-ppo-checkpoint-round` |
 | 31 | 2026-09-28 | MuJoCo v2：真车几何碰撞体落地 + 轮径纠错 + 登台困难决策 | `c74cd0c` | `test/score-block-ppo-checkpoint-round` |
 | 30 | 2026-09-28 | 代码审查六项缺陷修复（mbri 跳帧/会话泄漏/测试静态污染 + 三条 P3） | `3b67612`, `df46726`, `20a1980`, `accf487`, `4d517aa` | `test/score-block-ppo-checkpoint-round` |
 | 29 | 2026-09-28 | 体检确认项修复：10/10 落地（三批提交） | `667e5fe`, `c16f90c`, `2b21c64` | `test/score-block-ppo-checkpoint-round` |
