@@ -22,6 +22,19 @@ public class RlEnvCommandTests
     }
 
     [Fact]
+    public void EdgeShaping_AppliesOnlyWhenAllTargetContactsAreOurs()
+    {
+        // 归因门控 (reward v2 + edge attribution gate): 仅我方 (含单机器人多点) 可归因。
+        Assert.True(RlEnvCommand.EdgeShapingApplies(new[] { ("us", 0.1) }));
+        Assert.True(RlEnvCommand.EdgeShapingApplies(new[] { ("us", 0.1), ("us", 0.35) }));
+        // 无接触/仅对手/双方同 tick/未知角色一律不可归因。
+        Assert.False(RlEnvCommand.EdgeShapingApplies(Array.Empty<(string, double)>()));
+        Assert.False(RlEnvCommand.EdgeShapingApplies(new[] { ("them", 0.2) }));
+        Assert.False(RlEnvCommand.EdgeShapingApplies(new[] { ("us", 0.1), ("them", 0.3) }));
+        Assert.False(RlEnvCommand.EdgeShapingApplies(new[] { ("unknown", 0.1) }));
+    }
+
+    [Fact]
     public void Observation_ClampsOwnPositionToPlatformSideRange()
     {
         var baseObservation = new double[9];

@@ -328,7 +328,8 @@ public static class RlEnvCommand
         terminated = targetScored || targetLost || usDropped;
 
         var edgeAfter = EdgeDistance(engine, state.TargetIndex);
-        if (!double.IsNaN(edgeAfter) && !double.IsNaN(edgeBefore))
+        if (EdgeShapingApplies(TargetContacts(engine, state.TargetIndex))
+            && !double.IsNaN(edgeAfter) && !double.IsNaN(edgeBefore))
         {
             reward += EdgeShapingScale * (edgeBefore - edgeAfter);
         }
@@ -447,6 +448,21 @@ public static class RlEnvCommand
         index >= 0 && index < engine.Blocks.Count
             ? engine.Field.DistToNearestEdge(engine.Blocks[index].X, engine.Blocks[index].Y)
             : double.NaN;
+
+    internal static IReadOnlyList<(string Role, double T)> TargetContacts(
+        MatchEngine engine, int index)
+        => index >= 0 && index < engine.Blocks.Count
+            ? engine.Blocks[index].ContactThisStep
+            : Array.Empty<(string Role, double T)>();
+
+    /// <summary>
+    /// 边缘推进归因门控 (reward v2 + edge attribution gate): 本 tick 目标块的接触
+    /// 记录非空且全部为我方 (含单机器人多点) 才视为"我方可归因"; 仅对手、双方同
+    /// tick、无接触/惯性滑行一律不计。判据与 opt-in trace 的 blocks[].contacts
+    /// 同源, 只影响 reward, 不进入观测, 也不改默认响应形状。
+    /// </summary>
+    internal static bool EdgeShapingApplies(IReadOnlyList<(string Role, double T)> contacts)
+        => contacts.Count > 0 && contacts.All(c => c.Role == RoleNames.Us);
 
     private static (double X, double Y) BlockPos(MatchEngine engine, int index) =>
         index >= 0 && index < engine.Blocks.Count
