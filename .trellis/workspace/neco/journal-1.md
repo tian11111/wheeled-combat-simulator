@@ -904,3 +904,36 @@ blind-gate 以 No-Go 封存（两条路线均未达 4/5，候选从未产生，�
 ### Next Steps
 
 - Trellis 仅剩 08-28 真机遥测采集（P2，待实车时间）；RL 新轮次需先诊断 20260929 胜出行为再立预注册假设
+
+
+## Session 27: RL v4 train-seed behavior diagnosis
+
+**Date**: 2026-09-28
+**Task**: RL v4 train-seed behavior diagnosis
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+Compared three existing PPO checkpoints on development_v4, found early drops and shortened episodes in two failed train seeds, preserved v4 No-Go and unopened blind set.
+
+### Main Changes
+
+- Archived a 20-episode paired referee and trace diagnosis for three train seeds
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4294534` | (see git log) |
+
+### Testing
+
+- [OK] 40 trace episodes per model; non-reward referee counters reproduced; reward drift disclosed
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Pre-register a single-variable edge-risk reward experiment with a fresh development split before any new training

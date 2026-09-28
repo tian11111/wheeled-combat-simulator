@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 26
+- **Total Sessions**: 27
 - **Last Active**: 2026-09-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~906 | Active |
+| `journal-1.md` | ~939 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 27 | 2026-09-28 | RL v4 train-seed behavior diagnosis | `4294534` | `test/score-block-ppo-checkpoint-round` |
 | 26 | 2026-09-28 | 封存 blind-gate 与 RL v4 父任务 | `066d73b`, `a6f5a6c`, `481ec11`,  | `test/score-block-ppo-checkpoint-round` |
 | 25 | 2026-09-28 | RL v4 奖励归因变体 1/3 筛查失败，本轮路线终止 | `9d519fb`, `f61e385`, `7541890` | `test/score-block-ppo-checkpoint-round` |
 | 24 | 2026-09-28 | RL v4 多 seed 基线验收（3/5 负面）与桌面外观收尾 | `93e18fc`, `a2786d2`, `a0b1053`, `618c840` | `test/score-block-ppo-checkpoint-round` |
