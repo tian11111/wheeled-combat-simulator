@@ -809,3 +809,161 @@ No training was run and no gate is claimed.
 ### Status
 
 [OK] **Completed**
+
+
+## Session 24: RL v4 多 seed 基线验收（3/5 负面）与桌面外观收尾
+
+**Date**: 2026-09-28
+**Task**: RL v4 多 seed 基线验收（3/5 负面）与桌面外观收尾
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+复用吞吐 suite-01 五份产物在 development_v4 逐 seed 评测（未重训）：3/5 通过 < 4/5 预注册门槛 → 负面基线 No-Go，不冻结候选、盲集未开，仅解锁 reward-credit。CLI DLL 哈希漂移已披露并以确定性回归佐证；rl-split-contract 增补复用身份核对契约。另提交擂台侧立面改黑（含遗留的中圈装饰环移除）与本机外观模型配置。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `93e18fc` | (see git log) |
+| `a2786d2` | (see git log) |
+| `a0b1053` | (see git log) |
+| `618c840` | (see git log) |
+
+### Testing
+
+- [OK] selftest 47 绿(含 --gym-check)；Sim.Tests 389 绿；replay-check seed-42 逐位 PASS；git diff --check 干净
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- reward-credit 前置已满足，但须先定义可审计的接触归因轨迹规则（做不出即 No-Go 终止本轮）
+
+
+## Session 25: RL v4 奖励归因变体 1/3 筛查失败，本轮路线终止
+
+**Date**: 2026-09-28
+**Task**: RL v4 奖励归因变体 1/3 筛查失败，本轮路线终止
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+reward-credit 全流程：8 段轨迹可行性研究（policy 正向位移 us-only 28.2%、无接触位移 0% 跟随我方接触）→ 预注册同 tick 仅我方门控 → 单变量实现+定向测试 → 三 seed 训练与开发集评测 → 1/3 < 2/3 触发停止条款。门控比例显示变体策略 us-only 占比坍缩至 0/6.6/12.1%，推块激励被删。final_holdout_v4 零消耗，本轮 RL v4 路线终止。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9d519fb` | (see git log) |
+| `f61e385` | (see git log) |
+| `7541890` | (see git log) |
+
+### Testing
+
+- [OK] Sim.Tests 390 绿；selftest 44 绿；replay-check 逐位 PASS；git diff --check 干净
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- RL v4 路线已终止；新假设需新预注册轮次。活跃任务仅剩真机遥测采集(P2)与已封闭的 blind-gate/父任务
+
+
+## Session 26: 封存 blind-gate 与 RL v4 父任务
+
+**Date**: 2026-09-28
+**Task**: 封存 blind-gate 与 RL v4 父任务
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+blind-gate 以 No-Go 封存（两条路线均未达 4/5，候选从未产生，盲集 0 消耗）；父任务集成总结：六个子任务全闭环，吞吐目标 Go、策略目标未达成，本轮终止。RL 线仅剩未来新预注册轮次的可能。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `066d73b` | (see git log) |
+| `a6f5a6c` | (see git log) |
+| `481ec11` | (see git log) |
+| `` | (see git log) |
+
+### Testing
+
+- [OK] 无新代码；盲集运行索引不存在、无 v4 冻结记录（封存事实核验）
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Trellis 仅剩 08-28 真机遥测采集（P2，待实车时间）；RL 新轮次需先诊断 20260929 胜出行为再立预注册假设
+
+
+## Session 27: RL v4 train-seed behavior diagnosis
+
+**Date**: 2026-09-28
+**Task**: RL v4 train-seed behavior diagnosis
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+Compared three existing PPO checkpoints on development_v4, found early drops and shortened episodes in two failed train seeds, preserved v4 No-Go and unopened blind set.
+
+### Main Changes
+
+- Archived a 20-episode paired referee and trace diagnosis for three train seeds
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4294534` | (see git log) |
+
+### Testing
+
+- [OK] 40 trace episodes per model; non-reward referee counters reproduced; reward drift disclosed
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Pre-register a single-variable edge-risk reward experiment with a fresh development split before any new training
+
+
+## Session 28: RL v5 台沿风险轮训练前 No-Go（校准+训练数据反证）
+
+**Date**: 2026-09-28
+**Task**: RL v5 台沿风险轮训练前 No-Go（校准+训练数据反证）
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+grill 规划后执行：60 段轨迹回放校准显示已批准的 approach-speed 风险项在掉台前窗口罚值仅为掉台惩罚的 0.17-0.67%（悬停-突坠形态，速度门控无信号）；替代驻留罚量级同样不足；决定性反证来自训练 Monitor CSV——三模型（含胜出 20260929）训练期 53-62% episode 掉台、约 400 次 -1.0 惩罚、掉台率全程不降，掉台激励已饱和而非缺失。按预注册分支训练前终止：零训练、零代码改动、盲集 0 消耗。两次奖励侧修法均被训练前校验拦下。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b1d841c` | (see git log) |
+| `4968587` | (see git log) |
+
+### Testing
+
+- [OK] 无代码改动；校准脚本输出留档 evidence/calibrate_edge_risk.py
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- RL 线奖励侧修法穷尽；未来假设应转向非奖励机制（确定性策略 vs 随机探索的行为差异来源）或接受试点结论转真机标定线

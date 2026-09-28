@@ -28,9 +28,10 @@ public partial class ArenaVisualizer : Node3D
     private const float BlockShadowOffsetZ = -0.22f;
 
     private static readonly Color FloorColor = new(0.16f, 0.18f, 0.22f);
-    // 官方效果图外观: 底座侧面白、台面走道深灰、台面四角纯黑→中心纯白径向渐变、
-    // 中央红区(白"武")。
-    private static readonly Color PlatformSideColor = new(0.93f, 0.93f, 0.95f);
+    // 台面外观: 台面走道深灰、台面四角纯黑→中心纯白径向渐变、中央红区(白"武")。
+    // 底座侧面 2026-09-27 按用户指示改为黑色 (旧值遵官方效果图用白 0.93, 要回退
+    // 只需改这一个常量); 侧面与裙边同色, 整条边缘读作一个黑色基座。
+    private static readonly Color PlatformSideColor = new(0.02f, 0.02f, 0.025f);
     private static readonly Color RedZoneColor = new(0.85f, 0.15f, 0.13f);
     private static readonly Color UsColor = new(0.28f, 0.48f, 0.95f);
     private static readonly Color ThemColor = new(0.92f, 0.30f, 0.28f);
@@ -170,12 +171,12 @@ public partial class ArenaVisualizer : Node3D
         var center = el + span / 2;
         var top = (float)field.PlatformHeight;
 
-        // 擂台主体 (6 cm 高, 官方 2.4×2.4): 侧面白色板材 (可被反射探针映出环境)。
-        root.AddChild(MakeBoxWhiteBoard(PlatformSideColor,
+        // 擂台主体 (6 cm 高, 官方 2.4×2.4): 侧面黑色板材 (可被反射探针映出环境)。
+        root.AddChild(MakeBoxPlatformBoard(PlatformSideColor,
             new Vector3(span, top, span), new Vector3(center, top / 2, center)));
 
-        // 底座裙边: 比主体略宽的深色收边条, 给平台一个"落地"的倒角深度线索。
-        root.AddChild(MakeBoxMatte(FloorColor.Darkened(0.25f),
+        // 底座裙边: 比主体略宽的收边条, 与侧面同色, 给平台一个"落地"的倒角深度线索。
+        root.AddChild(MakeBoxMatte(PlatformSideColor,
             new Vector3(span + 0.03f, 0.014f, span + 0.03f), new Vector3(center, 0.007f, center)));
 
         // 顶面灰度纹理: 官方效果图径向渐变 (四角纯黑→中心纯白, visual-only,
@@ -206,22 +207,6 @@ public partial class ArenaVisualizer : Node3D
             Rotation = new Vector3(-Mathf.Pi / 2, 0, 0),
         };
         root.AddChild(wu);
-
-        // 中圈是转播层装饰，位置/半径只由官方平台几何推导，不参与拾取和规则。
-        var circle = new MeshInstance3D
-        {
-            Name = "CenterRingMark",
-            Mesh = new TorusMesh
-            {
-                InnerRadius = 0.42f,
-                OuterRadius = 0.435f,
-                Rings = 32,
-                RingSegments = 8,
-            },
-            MaterialOverride = MakeMaterial(new Color(0.72f, 0.76f, 0.84f)),
-            Position = new Vector3(center, top + SurfaceVisualLift + 0.006f, center),
-        };
-        root.AddChild(circle);
     }
 
     private void BuildStartZones(Node3D root, FieldParams field)
@@ -991,8 +976,8 @@ public partial class ArenaVisualizer : Node3D
         };
     }
 
-    /// <summary>白色板材 (平台侧面): 低金属感、中等粗糙度, 轻微高光。</summary>
-    private StandardMaterial3D MakeWhiteBoard(Color color)
+    /// <summary>擂台侧面板材: 低金属感、中等粗糙度, 轻微高光 (颜色见 PlatformSideColor)。</summary>
+    private StandardMaterial3D MakePlatformBoard(Color color)
         => MakePaintedMetal(color, 0.05f, 0.5f);
 
     private MeshInstance3D MakeBoxMatte(Color color, Vector3 size, Vector3 position)
@@ -1002,10 +987,10 @@ public partial class ArenaVisualizer : Node3D
         return mesh;
     }
 
-    private MeshInstance3D MakeBoxWhiteBoard(Color color, Vector3 size, Vector3 position)
+    private MeshInstance3D MakeBoxPlatformBoard(Color color, Vector3 size, Vector3 position)
     {
         var mesh = new MeshInstance3D { Mesh = new BoxMesh { Size = size } };
-        mesh.MaterialOverride = MakeWhiteBoard(color);
+        mesh.MaterialOverride = MakePlatformBoard(color);
         mesh.Position = position;
         return mesh;
     }

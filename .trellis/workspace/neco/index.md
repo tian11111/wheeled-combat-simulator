@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 23
-- **Last Active**: 2026-09-27
+- **Total Sessions**: 28
+- **Last Active**: 2026-09-28
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~811 | Active |
+| `journal-1.md` | ~969 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,11 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 28 | 2026-09-28 | RL v5 台沿风险轮训练前 No-Go（校准+训练数据反证） | `b1d841c`, `4968587` | `test/score-block-ppo-checkpoint-round` |
+| 27 | 2026-09-28 | RL v4 train-seed behavior diagnosis | `4294534` | `test/score-block-ppo-checkpoint-round` |
+| 26 | 2026-09-28 | 封存 blind-gate 与 RL v4 父任务 | `066d73b`, `a6f5a6c`, `481ec11`,  | `test/score-block-ppo-checkpoint-round` |
+| 25 | 2026-09-28 | RL v4 奖励归因变体 1/3 筛查失败，本轮路线终止 | `9d519fb`, `f61e385`, `7541890` | `test/score-block-ppo-checkpoint-round` |
+| 24 | 2026-09-28 | RL v4 多 seed 基线验收（3/5 负面）与桌面外观收尾 | `93e18fc`, `a2786d2`, `a0b1053`, `618c840` | `test/score-block-ppo-checkpoint-round` |
 | 23 | 2026-09-27 | RL v4 五 seed 训练吞吐验收 | `726c8c9`, `fdb0b59` | `test/score-block-ppo-checkpoint-round` |
 | 22 | 2026-09-27 | RL v4 baseline profiling | `1b4fb92` | `test/score-block-ppo-checkpoint-round` |
 | 21 | 2026-09-27 | RL v4 split guard acceptance | `db8ac81` | `test/rl-v4-plan` |

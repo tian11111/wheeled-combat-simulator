@@ -45,7 +45,7 @@ dotnet run --project src/Sim.Cli -- sensor-calibration import --data-dir <MBri/d
 
 当前试点采用单环境、小型 MLP；MuJoCo 仿真在 .NET 进程中运行，每步通过 JSONL 与 Python 通信。Stable-Baselines3 自动选择策略网络设备，已有训练记录为 CPU。GPU 只可能加速网络计算，无法加速这部分仿真和通信；项目尚未做 CPU/GPU 同条件性能对比。设备检查方法见上述训练文档。
 
-最新 split v3 的单次盲验**未通过**：PPO 取得 2 次锁定目标真实 `BlockScore`，同入口 FSM 取得 6 次；我方掉台为 25 次，对照 FSM 的 29 次。详情见[验收报告](.trellis/tasks/archive/2026-09/09-26-score-block-v3-edge-speed-retrain/report.md)。
+split v3 的单次盲验**未通过**：PPO 取得 2 次锁定目标真实 `BlockScore`，同入口 FSM 取得 6 次；我方掉台为 25 次，对照 FSM 的 29 次。详情见[验收报告](.trellis/tasks/archive/2026-09/09-26-score-block-v3-edge-speed-retrain/report.md)。此后 v4 轮五训练 seed 开发集 **3/5**，低于 4/5 直接冻结门槛，归档为**负面基线**：未冻结候选、`final_holdout_v4` 未打开（0 消耗，[v4 多训练 seed 报告](.trellis/tasks/archive/2026-09/09-27-rl-v4-split-multiseed/report.md)）；奖励归因门控变体三 seed 筛查 1/3 停止（[报告](.trellis/tasks/archive/2026-09/09-27-rl-v4-reward-credit/report.md)）；v5 台沿风险轮在训练前 No-Go（零训练消耗，[报告](.trellis/tasks/archive/2026-09/09-28-rl-v5-edge-risk/report.md)）。两次奖励侧修法均被数据否定，盲集 `final_holdout_v4` 仍未打开。
 
 ## 桌面端(Godot 4 .NET)
 

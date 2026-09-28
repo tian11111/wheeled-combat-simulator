@@ -2,7 +2,7 @@
 
 仅用于官方 MuJoCo 场景的离线试验。11 维观测含仿真真值块坐标（特权状态），模型不能直接部署到真机，也不会替换默认 FSM。旧 9 维观测模型与当前环境不兼容，须重新训练。
 
-本页描述的是 **split v4 轮**（任务 `09-27-rl-v4-split-guard`）的训练与评测入口。此前 v3 盲验已运行并失败；旧轮次所有 seed 均已揭示，只能用于分析，不能作为后续门槛证据。
+本页描述的是 **split v4 轮**（任务 `09-27-rl-v4-split-guard`）的训练与评测入口；该轮已结束并归档为**负面基线**：五训练 seed 开发集 **3/5**，低于 4/5 直接冻结门槛，未冻结候选、`final_holdout_v4` 未打开（盲集 0 消耗）；后续奖励归因门控变体三 seed 筛查 1/3 停止、v5 台沿风险轮在训练前 No-Go（未注册 `development_v5`，`splits.py` 无改动），奖励侧修法至此穷尽。报告：[v4 多训练 seed 报告](../../.trellis/tasks/archive/2026-09/09-27-rl-v4-split-multiseed/report.md)、[奖励归因报告](../../.trellis/tasks/archive/2026-09/09-27-rl-v4-reward-credit/report.md)、[v5 台沿风险报告](../../.trellis/tasks/archive/2026-09/09-28-rl-v5-edge-risk/report.md)。此前 v3 盲验已运行并失败；旧轮次所有 seed 均已揭示，只能用于分析，不能作为后续门槛证据。
 
 ## Windows x64 复现
 
@@ -35,8 +35,8 @@ dotnet build RobotSimulator.sln -m:1
 | `final_holdout_v2` | 6001–6050 | 上一轮盲验集（已揭示，门槛失败），仅分析 |
 | `development_v3` | 7001–7020 | 已揭示的上一轮开发集；仅分析 |
 | `final_holdout_v3` | 8001–8050 | 已揭示的上一轮盲验集；仅分析，须传 `--analysis-only` |
-| `development_v4` | 9001–9020 | 本轮选模开发集（默认 split） |
-| `final_holdout_v4` | 10001–10050 | 本轮唯一盲验集；候选冻结后仅运行一次 |
+| `development_v4` | 9001–9020 | v4 轮选模开发集（已揭示，默认 split）；仅分析 |
+| `final_holdout_v4` | 10001–10050 | v4 轮唯一盲验集；该轮已终止、从未打开（0 消耗），候选冻结后仅运行一次 |
 | `exploratory` | 自定义 `--seeds` | 探索，永不作门槛证据 |
 
 已揭示的留出集（包括 `final_holdout_v3`）**不可能再被当作盲验**：`splits.BLIND_SPLITS` 只含 `final_holdout_v4`。评估已揭示集合必须显式传 `--analysis-only`，输出标记 `gate_evidence_eligible: false`、`is_revealed_holdout: true`。自定义 `--seeds` 不能重复使用任何注册 split 或训练 seed。
@@ -69,7 +69,7 @@ dotnet build RobotSimulator.sln -m:1
 
 默认 split 是 `development_v4`。历史开发集仍可通过 `--split` 查询，但已揭示集只能用于分析。
 
-下列 v4 冻结与正式盲验命令是后续阶段的操作模板。本任务只注册 split 和防复用守卫；须先取得吞吐任务的下游策略 Go、五训练 seed 开发集至少 4/5 通过，并按唯一候选冻结任务核对身份后，才可执行最终盲验。当前没有运行 v4 最终集。
+下列 v4 冻结与正式盲验命令保留为历史操作模板，该分支已由 [v4 多训练 seed 报告](../../.trellis/tasks/archive/2026-09/09-27-rl-v4-split-multiseed/report.md) 关闭：模板的前置是吞吐任务的下游策略 Go、五训练 seed 开发集至少 4/5 通过，并按唯一候选冻结任务核对身份后才可执行最终盲验；v4 实测 **3/5**，未冻结候选、未执行盲验（`final_holdout_v4` 仍 0 消耗）。
 
 ```powershell
 # 1) 逐个 checkpoint + 最终模型在开发集上评测，选出并冻结唯一候选
@@ -146,7 +146,9 @@ MuJoCo 后端每 tick 10 个子步且不去重几何体对，单台机器人可�
 "双方同时接触…不计分"）。
 
 该修复只解决"块出界未归属计分"，**不解决掉台缺口**（门槛要求我方掉台不高于 FSM），
-因此不能据此宣布任何门槛通过；新一轮使用已预注册的 `development_v4` / `final_holdout_v4`，并按本页一次性盲验规则执行。
+因此不能据此宣布任何门槛通过。其后的新一轮使用已预注册的 `development_v4` / `final_holdout_v4`：
+开发集 **3/5** 未达 4/5 门槛，`final_holdout_v4` 从未打开；再其后的奖励归因门控变体与
+v5 台沿风险轮也分别在筛查与训练前终止。
 
 ## 定向验证
 
