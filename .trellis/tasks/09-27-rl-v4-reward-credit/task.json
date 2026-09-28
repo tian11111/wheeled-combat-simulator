@@ -3,7 +3,7 @@
   "name": "rl-v4-reward-credit",
   "title": "RL v4 奖励归因单变量实验",
   "description": "仅在原版 PPO 多 seed 基线未过门槛时测试接触归因的边缘进展奖励",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
