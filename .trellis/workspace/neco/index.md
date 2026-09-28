@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 30
+- **Total Sessions**: 31
 - **Last Active**: 2026-09-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1044 | Active |
+| `journal-1.md` | ~1080 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 31 | 2026-09-28 | MuJoCo v2：真车几何碰撞体落地 + 轮径纠错 + 登台困难决策 | `c74cd0c` | `test/score-block-ppo-checkpoint-round` |
 | 30 | 2026-09-28 | 代码审查六项缺陷修复（mbri 跳帧/会话泄漏/测试静态污染 + 三条 P3） | `3b67612`, `df46726`, `20a1980`, `accf487`, `4d517aa` | `test/score-block-ppo-checkpoint-round` |
 | 29 | 2026-09-28 | 体检确认项修复：10/10 落地（三批提交） | `667e5fe`, `c16f90c`, `2b21c64` | `test/score-block-ppo-checkpoint-round` |
 | 28 | 2026-09-28 | RL v5 台沿风险轮训练前 No-Go（校准+训练数据反证） | `b1d841c`, `4968587` | `test/score-block-ppo-checkpoint-round` |

@@ -1042,3 +1042,39 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 
 - 如需推送：git push origin test/score-block-ppo-checkpoint-round
 - 盲集索引本地守卫失效面已入 spec，跨机正式盲验前人工核对揭示证据
+
+
+## Session 31: MuJoCo v2：真车几何碰撞体落地 + 轮径纠错 + 登台困难决策
+
+**Date**: 2026-09-28
+**Task**: MuJoCo v2：真车几何碰撞体落地 + 轮径纠错 + 登台困难决策
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+工作流(实验→独立复核→落地→验证门)把 装配.glb 的关键结构件与真实轮径落进 MuJoCo 物理；独立复核推翻早期错误轮径(0.046→0.0325)；用户决策接受真车登台困难。
+
+### Main Changes
+
+- v2 碰撞几何：后铲+底盘凸体 mesh + 四个真轮(r=0.0325)，资产入库，内存 VFS，哈希并入资产字节
+- 轮径纠错：inspect_glb.py 八角点法假膨胀，实测四轮一致 φ0.065；prd/design 已回写
+- 登台实测：真轮能上但不稳(末态半悬/on_stage 1 帧)；用户选择接受该真实约束，不动物理
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c74cd0c` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 402/402；replay-check v1 逐位 PASS；v3 mujoco replay PASS；构建 0 错误
+- [OK] 独立复核复现五个候选逐 tick 曲线(max|Δ|≤5e-6)并更正轮径
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 立任务实现翻覆/失去行动能力状态处理(停车等待重启)
