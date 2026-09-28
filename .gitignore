@@ -44,3 +44,6 @@ telemetry/data/*
 # vision import command). Commit deliberately with `git add -f` for audits.
 vision/*
 !vision/.gitkeep
+
+# Ad-hoc local scratch (captures/scratch scripts); regenerate on demand
+tmp/
