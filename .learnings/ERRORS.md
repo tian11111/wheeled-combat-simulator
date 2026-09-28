@@ -4,6 +4,56 @@ Command failures and integration errors.
 
 ---
 
+## [ERR-20260925-001] mujoco-self-contained-publish-offline
+
+**Logged**: 2026-09-25T10:10:00+08:00
+**Priority**: medium
+**Status**: pending
+**Area**: infra
+
+### Summary
+Windows x64 self-contained CLI publish could not restore runtime packs while NuGet was unreachable.
+
+### Error
+```
+NU1301: Unable to load the service index for https://api.nuget.org/v3/index.json
+```
+
+### Context
+- `dotnet publish src/Sim.Cli/Sim.Cli.csproj -c Release -r win-x64 --self-contained true -m:1` failed during restore.
+- Framework-dependent `win-x64` publish succeeded and its MuJoCo runtime package passed local smoke tests.
+
+### Suggested Fix
+Repeat self-contained publish with approved network access or pre-seeded Windows x64 .NET runtime packs; then test on a clean Windows x64 environment before claiming portable deployment.
+
+---
+
+## [ERR-20260924-001] tavily-powershell-encoding
+
+**Logged**: 2026-09-24T16:57:47+08:00
+**Priority**: low
+**Status**: resolved
+**Area**: tooling
+
+### Summary
+PowerShell split an unquoted comma-list passed to Tavily, then Tavily's Unicode output failed under the default GBK console encoding.
+
+### Error
+```
+Error: Got unexpected extra argument (github.com,mujoco.readthedocs.io)
+UnicodeEncodeError: 'gbk' codec can't encode character '\xa9'
+```
+
+### Context
+- The search was read-only research for the MuJoCo Windows x64 release.
+- Quoting the comma-separated `--include-domains` argument fixed option parsing; setting `PYTHONIOENCODING=utf-8` for the Tavily process fixed output encoding.
+
+### Resolution
+- **Resolved**: 2026-09-24T16:57:47+08:00
+- **Notes**: Tavily search/extract completed after applying both PowerShell-specific fixes.
+
+---
+
 ## [ERR-20260901-002] settings-null-test-assumption
 
 **Logged**: 2026-09-01T10:55:00+08:00
