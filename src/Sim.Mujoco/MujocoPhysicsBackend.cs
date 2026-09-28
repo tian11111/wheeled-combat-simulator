@@ -62,13 +62,13 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     /// <summary>训练专用: 复用会话持有的已编译 mjModel(本 backend 不拥有模型,
     /// Dispose 只释放 mjData)。每集独立 mjData, 模型由训练 factory 统一释放。</summary>
     internal MujocoPhysicsBackend(PhysicsBackendContext context, IntPtr externalModel,
+        string modelSha256,
         double inPlaceTurnCompensation = DefaultInPlaceTurnCompensation)
     {
         _context = context;
         _inPlaceTurnCompensation = inPlaceTurnCompensation;
         Validate(context);
-        var (_, hash) = MujocoModel.Generate(context);
-        ModelSha256 = hash;
+        ModelSha256 = modelSha256;
         _ownsModel = false;
         try
         {

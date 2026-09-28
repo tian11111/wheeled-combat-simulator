@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Sim.Cli;
 using Sim.Protocol;
@@ -245,6 +246,50 @@ public class RlEnvCommandTests
         finally
         {
             foreach (var response in responses) response.Dispose();
+        }
+    }
+
+    [Fact]
+    public void InvalidDurationIsRejectedBeforeAnyReset()
+    {
+        var originalOut = Console.Out;
+        using var output = new StringWriter();
+        int exitCode;
+        try
+        {
+            Console.SetOut(output);
+            exitCode = RlEnvCommand.Run(["--duration", "abc"]);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        Assert.Equal(2, exitCode);
+        var lines = output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        var line = Assert.Single(lines);
+        using var response = JsonDocument.Parse(line);
+        Assert.Equal("error", response.RootElement.GetProperty("type").GetString());
+        Assert.Contains("--duration", response.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public void DurationParsesInvariantlyUnderCommaDecimalCulture()
+    {
+        var original = Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            // de-DE 用逗号作小数点: 按当前区域解析会把 "120.5" 静默读成 1205。
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+            Assert.True(RlEnvCommand.TryParseDuration("120.5", out var seconds, out var error));
+            Assert.Null(error);
+            Assert.Equal(120.5, seconds);
+            Assert.False(RlEnvCommand.TryParseDuration("0", out _, out var zeroError));
+            Assert.Contains("--duration", zeroError);
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = original;
         }
     }
 }

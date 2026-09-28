@@ -34,6 +34,8 @@ SCREEN_DURATION = 60
 
 def default_dotnet() -> str:
     candidates = [
+        # 便携 SDK 的当前安装位置, 旧 Temp 位置保留兼容(仅使用真实存在的文件)。
+        Path.home() / "AppData/Local/Programs/robot-simulator-dotnet/dotnet.exe",
         Path.home() / "AppData/Local/Temp/robot-simulator-dotnet-sdk/dotnet.exe",
         Path("dotnet.exe"),
     ]
