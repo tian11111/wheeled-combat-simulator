@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 28
+- **Total Sessions**: 29
 - **Last Active**: 2026-09-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~969 | Active |
+| `journal-1.md` | ~1000 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 29 | 2026-09-28 | 体检确认项修复：10/10 落地（三批提交） | `667e5fe`, `c16f90c`, `2b21c64` | `test/score-block-ppo-checkpoint-round` |
 | 28 | 2026-09-28 | RL v5 台沿风险轮训练前 No-Go（校准+训练数据反证） | `b1d841c`, `4968587` | `test/score-block-ppo-checkpoint-round` |
 | 27 | 2026-09-28 | RL v4 train-seed behavior diagnosis | `4294534` | `test/score-block-ppo-checkpoint-round` |
 | 26 | 2026-09-28 | 封存 blind-gate 与 RL v4 父任务 | `066d73b`, `a6f5a6c`, `481ec11`,  | `test/score-block-ppo-checkpoint-round` |

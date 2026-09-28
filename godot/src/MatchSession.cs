@@ -73,6 +73,42 @@ public sealed class MatchSession : IDisposable
     /// <summary>True when the replay cursor reached the final cached frame.</summary>
     public bool ReplayAtEnd => ReplayCache.Count == 0 || ReplayIndex >= ReplayCache.Count - 1;
 
+    // 回放播放时钟 (固定步长, 与渲染帧率解耦)。
+    private double _replayTickAccumulator;
+
+    /// <summary>
+    /// 按真实时间推进回放: 每累计满一个 tickSeconds 前进一帧快照, 播放速度不再
+    /// 绑定显示器刷新率。返回 true 表示本调用内至少前进了一 tick(调用方据此把
+    /// 插值 alpha 归零对齐新快照)。到达末尾时停止播放并清零累加。
+    /// </summary>
+    public bool AdvanceReplayPlayback(double deltaSeconds)
+    {
+        if (!ReplayPlaying || ReplayCache.Count == 0)
+        {
+            _replayTickAccumulator = 0;
+            return false;
+        }
+        var tickSeconds = Engine.Scenario.Field.TickSeconds;
+        _replayTickAccumulator += deltaSeconds;
+        var advanced = false;
+        while (_replayTickAccumulator >= tickSeconds)
+        {
+            if (ReplayAtEnd)
+            {
+                ReplayPlaying = false;
+                _replayTickAccumulator = 0;
+                return advanced;
+            }
+            ReplayStep(+1);
+            _replayTickAccumulator -= tickSeconds;
+            advanced = true;
+        }
+        return advanced;
+    }
+
+    /// <summary>手动步进/跳转后重置播放时钟, 避免残留累加立即多走一 tick。</summary>
+    public void ResetReplayClock() => _replayTickAccumulator = 0;
+
     // ---------- live mode ----------
 
     /// <summary>Fast-forwards the clock; returns true when a tick was committed.</summary>
@@ -170,6 +206,7 @@ public sealed class MatchSession : IDisposable
             ReplayCache = cache;
             ReplayIndex = 0;
             ReplayPlaying = false;
+            ResetReplayClock();
         }
         catch
         {

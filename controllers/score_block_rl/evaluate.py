@@ -482,6 +482,8 @@ def main() -> None:
         parser.error(f"--select-candidate requires --split {DEVELOPMENT_V4}")
     if args.freeze and selection.split != DEVELOPMENT_V4:
         parser.error(f"--freeze requires --split {DEVELOPMENT_V4}")
+    if args.freeze and not args.select_candidate:
+        parser.error("--freeze requires --select-candidate")
     if selection.split == FINAL_HOLDOUT_V4 and not args.require_freeze:
         parser.error(f"--split {FINAL_HOLDOUT_V4} requires --require-freeze <freeze.json>; "
                      "freeze the candidate on the development split first")
@@ -632,8 +634,6 @@ def main() -> None:
     }
 
     if args.freeze:
-        if selection_result is None:
-            parser.error("--freeze requires --select-candidate")
         candidate = selection_result["candidate"]
         if candidate is None:
             results["freeze_record_written"] = False

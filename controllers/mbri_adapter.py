@@ -173,8 +173,6 @@ class MbriAdapter:
             if sim_key not in gray:
                 raise KeyError(f"gray channel {sim_key} missing from observation")
             gray_raw[car_key] = clamp(float(gray[sim_key]), 0.0, 1000.0) * self.GRAY_SCALE
-        if self.mode == "smoke":
-            return gray_raw, {}, {}
         # 数字红外合成: 阈值化仿真近距/铲下通道(显式标记的仿真近似)。
         digi = {
             "left_rear": 1 if float(raw.get("uL", 0.0)) > self.ir_threshold else 0,
@@ -199,11 +197,11 @@ class MbriAdapter:
             return None
         detections = []
         for b in objects.get("buffs") or []:
-            detections.append({"type": "good", "x": b.get("X"), "y": b.get("Y"),
+            detections.append({"type": "good", "x": b.get("x"), "y": b.get("y"),
                                "confidence": 1.0, "oracle": True})
         if objects.get("debuff"):
             d = objects["debuff"]
-            detections.append({"type": "bad", "x": d.get("X"), "y": d.get("Y"),
+            detections.append({"type": "bad", "x": d.get("x"), "y": d.get("y"),
                                "confidence": 1.0, "oracle": True})
         return {"sequence": int(obs.get("requestId") or 0),
                 "status": "target" if detections else "no_target",

@@ -27,8 +27,8 @@ def base_obs() -> dict:
         "sensors": {"gF": 500, "gB": 1000, "gL": 0, "gR": 250},
         "rawSensors": {"uL": 1.0, "uR": 0.0, "r": 0.5, "f": 0.1,
                        "dLB": 0.6, "dRB": 1.2},
-        "objects": {"buffs": [{"X": 1.35, "Y": 1.35}],
-                    "debuff": {"X": 1.6, "Y": 2.4}},
+        "objects": {"buffs": [{"x": 1.35, "y": 1.35}],
+                    "debuff": {"x": 1.6, "y": 2.4}},
         # 真实 Observation 结构: vehicle 嵌套在 robot 内
         "robot": {"x": 1.9, "y": 1.9, "th": 0.0,
                   "vehicle": {"maxSpeed": 1.5, "maxTurnRate": 4.0}},

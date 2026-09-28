@@ -967,3 +967,34 @@ grill 规划后执行：60 段轨迹回放校准显示已批准的 approach-spee
 ### Next Steps
 
 - RL 线奖励侧修法穷尽；未来假设应转向非奖励机制（确定性策略 vs 随机探索的行为差异来源）或接受试点结论转真机标定线
+
+
+## Session 29: 体检确认项修复：10/10 落地（三批提交）
+
+**Date**: 2026-09-28
+**Task**: 体检确认项修复：10/10 落地（三批提交）
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+仓库体检 10 条确认发现全部修复：mbri 适配器视觉坐标 camelCase、evaluate 守卫上移（97s→1.4s）、模型加载失败回退契约、psutil 补锁、登台环材质缓存、nul/杂物清理与 ignore、robot-models.json untrack、JsonOptions 单例、回退归因门控（reward 回 v2）、回放播放改固定步长时钟（新增单测）。Sim.Tests 391 全绿、replay-check 逐位。便携 SDK 被 Temp 清理后重装到 AppData\Local\Programs 持久位置。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `667e5fe` | (see git log) |
+| `c16f90c` | (see git log) |
+| `2b21c64` | (see git log) |
+
+### Testing
+
+- [OK] Sim.Tests 391 全绿；replay-check PASS；mbri 自测全绿；evaluate 守卫实跑 1.4s；git diff --check 干净
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Trellis 仅剩真机遥测采集（P2）；回放播放速度可在桌面端手动确认一次
