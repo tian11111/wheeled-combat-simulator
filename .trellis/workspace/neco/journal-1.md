@@ -841,3 +841,34 @@ No training was run and no gate is claimed.
 ### Next Steps
 
 - reward-credit 前置已满足，但须先定义可审计的接触归因轨迹规则（做不出即 No-Go 终止本轮）
+
+
+## Session 25: RL v4 奖励归因变体 1/3 筛查失败，本轮路线终止
+
+**Date**: 2026-09-28
+**Task**: RL v4 奖励归因变体 1/3 筛查失败，本轮路线终止
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+reward-credit 全流程：8 段轨迹可行性研究（policy 正向位移 us-only 28.2%、无接触位移 0% 跟随我方接触）→ 预注册同 tick 仅我方门控 → 单变量实现+定向测试 → 三 seed 训练与开发集评测 → 1/3 < 2/3 触发停止条款。门控比例显示变体策略 us-only 占比坍缩至 0/6.6/12.1%，推块激励被删。final_holdout_v4 零消耗，本轮 RL v4 路线终止。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9d519fb` | (see git log) |
+| `f61e385` | (see git log) |
+| `7541890` | (see git log) |
+
+### Testing
+
+- [OK] Sim.Tests 390 绿；selftest 44 绿；replay-check 逐位 PASS；git diff --check 干净
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- RL v4 路线已终止；新假设需新预注册轮次。活跃任务仅剩真机遥测采集(P2)与已封闭的 blind-gate/父任务
