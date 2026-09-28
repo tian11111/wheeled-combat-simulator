@@ -148,7 +148,12 @@ class MbriAdapter:
         return (float(vehicle["maxSpeed"]), float(vehicle["maxTurnRate"]))
 
     def _check_tick(self, tick) -> bool:
-        """返回 True=本帧带故障(重复/非单调/步长异常); 仍按零动作应答。"""
+        """返回 True=本帧带故障(重复/非单调/步长异常); 仍按零动作应答。
+
+        三分支语义: 重复/倒退 tick 不推进基准(该帧不携带新时间点); 跳帧在报故障
+        的同时把基准对齐到本帧 —— 它确实是新的时间点, 不对齐会让一次丢帧之后的
+        每一帧都被判为跳帧, 适配器整场 healthy=False + 零动作。
+        """
         if tick is None:
             return False
         if self._last_tick is not None:
@@ -161,6 +166,7 @@ class MbriAdapter:
                 print(f"[mbri-adapter] protocol fault: tick jump {self._last_tick} -> {tick}",
                       file=sys.stderr)
                 self.faults += 1
+                self._last_tick = tick
                 return True
         self._last_tick = tick
         return False

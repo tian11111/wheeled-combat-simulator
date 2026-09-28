@@ -185,6 +185,41 @@ def test_tick_jump_returns_zero_action_and_healthy_false():
     print("OK tick jump -> zero action + healthy=False to car")
 
 
+def test_tick_jump_recovers_on_next_frame():
+    """跳帧只丢一帧: 基准对齐到该 tick, 下一帧必须恢复正常决策而非永久零动作。"""
+    stub = StubController(1000, 1000)
+    adapter = make_oracle_adapter(stub)
+    adapter.mode = "calibrated"
+    adapter.k = 0.00055
+    adapter.track_width = 0.18
+    adapter.handle(base_obs())                       # tick 10
+    adapter.handle(base_obs() | {"tick": 14})       # 跳帧 (faults=1)
+    assert adapter.faults == 1
+    reply = adapter.handle(base_obs() | {"tick": 15, "requestId": 10})
+    assert adapter.faults == 1, f"跳帧后的正常帧不得再计故障: faults={adapter.faults}"
+    assert adapter._last_tick == 15
+    assert stub.last_args["healthy"] is True
+    assert reply["requestId"] == 10 and reply["v"] != 0.0, reply
+    print("OK tick jump recovers on the next frame (no sticky fault)")
+
+
+def test_duplicate_tick_then_next_frame_recovers():
+    """重复 tick 不推进基准, 但随后递增的帧仍必须被接受。"""
+    stub = StubController(1000, 1000)
+    adapter = make_oracle_adapter(stub)
+    adapter.mode = "calibrated"
+    adapter.k = 0.00055
+    adapter.track_width = 0.18
+    adapter.handle(base_obs())                       # tick 10
+    adapter.handle(base_obs() | {"tick": 10})        # 重复 (faults=1)
+    assert adapter.faults == 1 and adapter._last_tick == 10
+    reply = adapter.handle(base_obs() | {"tick": 11, "requestId": 11})
+    assert adapter.faults == 1, f"重复帧后的正常帧不得再计故障: faults={adapter.faults}"
+    assert stub.last_args["healthy"] is True
+    assert reply["requestId"] == 11 and reply["v"] != 0.0, reply
+    print("OK duplicate tick then next frame recovers")
+
+
 def test_calibrated_without_k_fails_startup():
     try:
         MbriAdapter(mode="calibrated", k=None, track_width=None,
@@ -215,6 +250,8 @@ if __name__ == "__main__":
     test_calibrated_motion_clamped_to_vehicle_limits()
     test_vehicle_limits_read_from_robot_vehicle()
     test_tick_jump_returns_zero_action_and_healthy_false()
+    test_tick_jump_recovers_on_next_frame()
+    test_duplicate_tick_then_next_frame_recovers()
     test_calibrated_without_k_fails_startup()
     test_smoke_mode_zero_action_no_car_import()
     print("ALL ADAPTER SELFTESTS PASSED")
