@@ -15,6 +15,9 @@ public sealed class PhysicsWorld : IPhysicsBackend
 
     public PhysicsPoses? BuildPhysicsPoses() => null;
 
+    // The legacy 2D solver has no roll/pitch degrees of freedom: a robot can never flip.
+    public bool IsFlipped(RobotRuntime robot) => false;
+
     // The legacy solver keeps no separate mutable state outside RobotRuntime.
     public void ResetRobot(RobotRuntime robot) { }
 

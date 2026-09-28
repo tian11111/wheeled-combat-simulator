@@ -21,6 +21,10 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     // 经 MujocoPhysicsBackendFactory 注入自己的值, 不再改进程级状态。
     internal const double DefaultInPlaceTurnCompensation = 4.0;
     private readonly double _inPlaceTurnCompensation;
+    // 倾覆判定的阈值: 车体 up 轴与世界 Z 的点积。0.5 = 倾角 60°; 实测正常行驶
+    // |roll|<20°、撞坡瞬态 |pitch|<=37°, 而翻覆态点积约 -1, 两侧余量都很大。
+    internal const double FlippedUprightThreshold = 0.5;
+    private readonly Dictionary<string, double> _upright = [];
     private IntPtr _model;
     private bool _ownsModel = true;
     private IntPtr _data;
@@ -239,6 +243,15 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     }
 
     public bool OnStage(RobotRuntime robot) => FootprintCorners(robot).All(p => _context.Field.OnPlatform(p.X, p.Y));
+
+    /// <summary>车体局部 Z 轴在世界 Z 上的分量: 1=直立, 0=侧躺, -1=底朝天。</summary>
+    private static double UprightOf(PhysicsPose3 pose) => 1 - 2 * (pose.Qx * pose.Qx + pose.Qy * pose.Qy);
+    public bool IsFlipped(RobotRuntime robot)
+        => _upright.TryGetValue(robot.Role, out var upright) && IsFlippedAt(upright);
+
+    /// <summary>纯判定(可单测): 车体 up 分量低于阈值即视为倾覆。</summary>
+    internal static bool IsFlippedAt(double upright) => upright < FlippedUprightThreshold;
+
     public bool HangOn(RobotRuntime robot)
     {
         var v = robot.Vehicle;
@@ -291,6 +304,7 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
         Array.Clear(controls, roleIndex * 4, 4);
         MujocoNative.WriteCtrl(_model, _data, controls);
         MujocoNative.Forward(_model, _data);
+        _upright[robot.Role] = 1;   // 复位姿态是直立的
         CopyStateToRuntime();
     }
 
@@ -333,6 +347,7 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
             r.Roll = Math.Atan2(2 * (pose.Qw * pose.Qx + pose.Qy * pose.Qz),
                 1 - 2 * (pose.Qx * pose.Qx + pose.Qy * pose.Qy));
             r.Pitch = Math.Asin(Math.Clamp(2 * (pose.Qw * pose.Qy - pose.Qz * pose.Qx), -1, 1));
+            _upright[r.Role] = UprightOf(pose);
             if (!Finite(pose) || !double.IsFinite(r.Vx) || !double.IsFinite(r.Vy) || !double.IsFinite(r.Omega))
             {
                 throw new InvalidOperationException("MuJoCo produced a non-finite robot state.");

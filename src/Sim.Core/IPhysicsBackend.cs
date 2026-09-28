@@ -15,6 +15,12 @@ public interface IPhysicsBackend : IDisposable
     bool HangOn(RobotRuntime robot);
     bool FullOn(RobotRuntime robot);
 
+    /// <summary>
+    /// 车体是否倾覆(失去行动能力, 例如底朝天)。MuJoCo 由三维姿态判定;
+    /// legacy 没有 roll/pitch 自由度, 恒 false —— 该路径的行为必须逐位不变。
+    /// </summary>
+    bool IsFlipped(RobotRuntime robot);
+
     /// <summary>The referee has already reset the managed robot to its start pose.</summary>
     void ResetRobot(RobotRuntime robot);
 

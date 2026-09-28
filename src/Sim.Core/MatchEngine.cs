@@ -36,7 +36,9 @@ public sealed class MatchEngine : IDisposable
     /// <summary>Version stamped into replay headers produced by this core.</summary>
     // 2026-09-25: mujoco 执行器边界加原地转向补偿(SEARCH 索敌闭环), 控制映射变更
     // 以 CoreVersion 增量标识; MuJoCo 回放创建/校验会额外比较此字段(legacy 不加门禁)。
-    public const string CoreVersion = "sim-core-1.0.2";
+    // 2026-09-28: 1.0.3 — MuJoCo 倾覆门控(车体翻覆 → INCAPACITATED 停车等待重启),
+    // FSM 行为变更同样改变 MuJoCo 轨迹, 因此一并纳入版本标识。
+    public const string CoreVersion = "sim-core-1.0.3";
 
     private readonly Scenario _scenario;
     private readonly FieldModel _field;
@@ -472,6 +474,9 @@ public sealed class MatchEngine : IDisposable
             Armed = true,
             State = FsmState.MountRing,
             Mount = new MountState(),
+            // 裁判重启 = 复位到出发点: 倾覆计时一并清零, 否则重启后会立刻再次判为翻覆。
+            FlipT = 0,
+            UprightT = 0,
         };
         _physics.ResetRobot(r);
         // resetAll tail: refresh sensors once so paused/pre-commit views show

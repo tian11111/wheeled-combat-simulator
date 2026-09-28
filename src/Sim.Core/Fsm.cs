@@ -330,6 +330,66 @@ public sealed class FsmController
         }
     }
 
+    // ---------- 倾覆门控 (MuJoCo) ----------
+
+    /// <summary>倾覆持续多久进入 INCAPACITATED; 恢复直立持续多久离开。</summary>
+    private const double FlipEnterSeconds = 0.5;
+    private const double FlipExitSeconds = 0.5;
+
+    /// <summary>
+    /// 车体倾覆(失去行动能力)门控: MuJoCo 下车会底朝天/侧躺, 此时轮子朝天无法驱动,
+    /// 而 2D 语义的 FSM/RECOVER 都不知道这件事。持续倾覆 → INCAPACITATED 停车等待
+    /// 裁判重启(按 R/T, 对方 +3); 被撞回直立 → 回 SEARCH。legacy 的 IsFlipped 恒 false,
+    /// 该门控永不触发, 行为逐位不变。返回 true 表示本 tick 由该门控接管。
+    /// </summary>
+    private bool FlippedGateFor(RobotRuntime r, double dt)
+    {
+        var st = r.Fsm;
+        if (st.State is FsmState.Finished or FsmState.WaitStart || !st.Armed)
+        {
+            st.FlipT = 0;
+            st.UprightT = 0;
+            return false;
+        }
+        if (_physics.IsFlipped(r))
+        {
+            st.FlipT += dt;
+            st.UprightT = 0;
+        }
+        else
+        {
+            st.UprightT += dt;
+            st.FlipT = 0;
+        }
+        if (st.State != FsmState.Incapacitated && st.FlipT >= FlipEnterSeconds)
+        {
+            st.State = FsmState.Incapacitated;
+            st.Scan.Target = null;
+            SetAct(r, "翻覆停车: 等待裁判重启");
+            r.V = 0;
+            r.W = 0;
+            Log(r, "[fsm] 车体翻覆, 失去行动能力 → 停车等待裁判重启 (R/T 重启)", "warn", EventKind.Incapacitated);
+            return true;
+        }
+        if (st.State == FsmState.Incapacitated)
+        {
+            if (st.UprightT >= FlipExitSeconds)
+            {
+                st.State = FsmState.Search;
+                st.Scan.Phase = "scan";
+                st.Scan.T = 0;
+                st.Scan.Target = null;
+                Log(r, "[fsm] 车体恢复直立 → 重新搜索", kind: EventKind.Recover);
+                return false;
+            }
+            SetAct(r, "翻覆停车: 等待裁判重启");
+            r.V = 0;
+            r.W = 0;
+            return true;
+        }
+        return false;
+    }
+
     // ---------- mount engine ----------
 
     private void MountTick(RobotRuntime r, double dt, string mode)
@@ -1017,6 +1077,10 @@ public sealed class FsmController
     {
         CrisisGateFor(r);
         var st = r.Fsm;
+        if (FlippedGateFor(r, dt))
+        {
+            return;
+        }
         if (st.State == FsmState.Recover)
         {
             RecoverTick(r, dt);
