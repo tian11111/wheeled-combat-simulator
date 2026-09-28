@@ -937,3 +937,33 @@ Compared three existing PPO checkpoints on development_v4, found early drops and
 ### Next Steps
 
 - Pre-register a single-variable edge-risk reward experiment with a fresh development split before any new training
+
+
+## Session 28: RL v5 台沿风险轮训练前 No-Go（校准+训练数据反证）
+
+**Date**: 2026-09-28
+**Task**: RL v5 台沿风险轮训练前 No-Go（校准+训练数据反证）
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+grill 规划后执行：60 段轨迹回放校准显示已批准的 approach-speed 风险项在掉台前窗口罚值仅为掉台惩罚的 0.17-0.67%（悬停-突坠形态，速度门控无信号）；替代驻留罚量级同样不足；决定性反证来自训练 Monitor CSV——三模型（含胜出 20260929）训练期 53-62% episode 掉台、约 400 次 -1.0 惩罚、掉台率全程不降，掉台激励已饱和而非缺失。按预注册分支训练前终止：零训练、零代码改动、盲集 0 消耗。两次奖励侧修法均被训练前校验拦下。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b1d841c` | (see git log) |
+| `4968587` | (see git log) |
+
+### Testing
+
+- [OK] 无代码改动；校准脚本输出留档 evidence/calibrate_edge_risk.py
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- RL 线奖励侧修法穷尽；未来假设应转向非奖励机制（确定性策略 vs 随机探索的行为差异来源）或接受试点结论转真机标定线
