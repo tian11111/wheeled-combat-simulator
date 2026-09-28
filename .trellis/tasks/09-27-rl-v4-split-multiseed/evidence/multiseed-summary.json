@@ -1,0 +1,89 @@
+{
+ "protocol": "score-block-multiseed-summary-v1",
+ "suite": ".sim_runs/score-block-v4-independent-throughput-20260927/suite-01",
+ "development_split": "development_v4 (9001-9020)",
+ "pass_threshold": "4/5",
+ "passed_seeds": 3,
+ "direct_freeze_go": false,
+ "rows": [
+  {
+   "train_seed": 20260929,
+   "fsm_locked_target_scores": 5,
+   "fsm_us_drops": 14,
+   "passed": true,
+   "candidate": {
+    "filename": "rl_model_204800_steps.zip",
+    "sha256": "6d8256b242dbb45b6e9f7485d936ebcf5993a145fb43d0ddef08913dba0f12cd",
+    "training_steps": 204800,
+    "locked_target_scores": 9,
+    "us_drops": 0,
+    "controller_faults": 0,
+    "ambiguous_attribution_episodes": 0
+   },
+   "tool_candidate_filename": "rl_model_204800_steps.zip",
+   "qualified_model_count": 2,
+   "evaluated_models": 10,
+   "result_path": "D:\\project\\robot-simulator\\.sim_runs\\score-block-v4-split-multiseed-20260928\\dev-sweep-seed-20260929.json"
+  },
+  {
+   "train_seed": 20260930,
+   "fsm_locked_target_scores": 5,
+   "fsm_us_drops": 14,
+   "passed": true,
+   "candidate": {
+    "filename": "rl_model_460800_steps.zip",
+    "sha256": "ca33ea33f79b49d0e75c75d7ecc3ae6f892f58adf56c6878a0eea6271a924190",
+    "training_steps": 460800,
+    "locked_target_scores": 6,
+    "us_drops": 12,
+    "controller_faults": 0,
+    "ambiguous_attribution_episodes": 0
+   },
+   "tool_candidate_filename": "rl_model_460800_steps.zip",
+   "qualified_model_count": 4,
+   "evaluated_models": 10,
+   "result_path": "D:\\project\\robot-simulator\\.sim_runs\\score-block-v4-split-multiseed-20260928\\dev-sweep-seed-20260930.json"
+  },
+  {
+   "train_seed": 20261001,
+   "fsm_locked_target_scores": 5,
+   "fsm_us_drops": 14,
+   "passed": true,
+   "candidate": {
+    "filename": "rl_model_102400_steps.zip",
+    "sha256": "10ec658053df166393efe66839c8529dde5b026c907a60476ec2f2de679be7da",
+    "training_steps": 102400,
+    "locked_target_scores": 5,
+    "us_drops": 12,
+    "controller_faults": 0,
+    "ambiguous_attribution_episodes": 0
+   },
+   "tool_candidate_filename": "rl_model_102400_steps.zip",
+   "qualified_model_count": 1,
+   "evaluated_models": 10,
+   "result_path": "D:\\project\\robot-simulator\\.sim_runs\\score-block-v4-split-multiseed-20260928\\dev-sweep-seed-20261001.json"
+  },
+  {
+   "train_seed": 20260927,
+   "fsm_locked_target_scores": 5,
+   "fsm_us_drops": 14,
+   "passed": false,
+   "candidate": null,
+   "tool_candidate_filename": null,
+   "qualified_model_count": 0,
+   "evaluated_models": 10,
+   "result_path": "D:\\project\\robot-simulator\\.sim_runs\\score-block-v4-split-multiseed-20260928\\dev-sweep-seed-20260927.json"
+  },
+  {
+   "train_seed": 20260928,
+   "fsm_locked_target_scores": 5,
+   "fsm_us_drops": 14,
+   "passed": false,
+   "candidate": null,
+   "tool_candidate_filename": null,
+   "qualified_model_count": 0,
+   "evaluated_models": 10,
+   "result_path": "D:\\project\\robot-simulator\\.sim_runs\\score-block-v4-split-multiseed-20260928\\dev-sweep-seed-20260928.json"
+  }
+ ]
+}

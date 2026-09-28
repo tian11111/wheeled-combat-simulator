@@ -3,7 +3,7 @@
   "name": "rl-v4-split-multiseed",
   "title": "RL v4 多训练 seed 原版 PPO 基线",
   "description": "在已预注册的 v4 split 上比较五个独立训练 seed 的原版 PPO 与配对 FSM",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

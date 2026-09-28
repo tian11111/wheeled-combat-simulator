@@ -53,3 +53,12 @@ evaluate.py --split final_holdout_v4 --model <zip> --require-freeze <path> --out
 Wrong: 把 final_holdout_v3 留在 BLIND_SPLITS，或仅改 README 而不改 CLI 拒绝路径。
 Correct: v3 进入 REVEALED_HOLDOUT_SPLITS，v4 成为唯一 blind；评测和输出从同一 Selection 元数据派生。
 ```
+
+## 8. 复用训练产物做评测时的身份核对
+
+复用既有训练产物（如吞吐套件）跑开发集评测前，按顺序核对：
+
+1. **预注册字段一致**：训练 `run-config.json` 的训练 seed、`n_envs`、steps、`scenario_sha256`、依赖版本与当前评测环境一致。
+2. **源码逐位一致**：`git diff <套件运行时提交>..HEAD -- src/ controllers/` 为空且工作区这两处无未提交改动。
+3. **CLI DLL 哈希漂移不等于身份破坏**：各会话用临时 SDK 重编译，`cli_dll_sha256` 必然变化。哈希不同时必须在验收报告披露新旧哈希与原因，并用行为佐证补强：Sim.Tests 全绿、`replay-check` 逐位复现、`selftest.py --gym-check` 全绿、同一轮评测内 FSM 基线逐位一致。
+4. **任一源码不一致 → 不得复用**，须按当前代码重新训练；不得把不同构建/配置的产物混进同一统计。
