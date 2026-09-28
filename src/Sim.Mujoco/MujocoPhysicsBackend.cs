@@ -17,9 +17,10 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     // 原地转向命令放大差速轮目标速度, 使 kv×Δω 重新触及力上限。纵向行驶、
     // 倒车登台与推块均带纵向命令, 不受影响。受控测试选定 4(候选 2/4/6:
     // 2 的 90° 对准需 9.45 s 超预算, 6 过冲跳过对准窗口, 4 → <3 s 且误差
-    // 0.032 rad; 轮速仍经 WheelAngularSpeedLimit 截断)。静态字段仅为
-    // SearchTurnCompensationTests 候选对照保留。
-    internal static double InPlaceTurnCompensation = 4.0;
+    // 0.032 rad; 轮速仍经 WheelAngularSpeedLimit 截断)。实例字段: 候选对照测试
+    // 经 MujocoPhysicsBackendFactory 注入自己的值, 不再改进程级状态。
+    internal const double DefaultInPlaceTurnCompensation = 4.0;
+    private readonly double _inPlaceTurnCompensation;
     private IntPtr _model;
     private bool _ownsModel = true;
     private IntPtr _data;
@@ -29,9 +30,11 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     public string? EngineVersion => MujocoNative.ExpectedVersion;
     public string? ModelSha256 { get; }
 
-    internal MujocoPhysicsBackend(PhysicsBackendContext context)
+    internal MujocoPhysicsBackend(PhysicsBackendContext context,
+        double inPlaceTurnCompensation = DefaultInPlaceTurnCompensation)
     {
         _context = context;
+        _inPlaceTurnCompensation = inPlaceTurnCompensation;
         Validate(context);
         var (xml, hash) = MujocoModel.Generate(context);
         ModelSha256 = hash;
@@ -58,9 +61,11 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
 
     /// <summary>训练专用: 复用会话持有的已编译 mjModel(本 backend 不拥有模型,
     /// Dispose 只释放 mjData)。每集独立 mjData, 模型由训练 factory 统一释放。</summary>
-    internal MujocoPhysicsBackend(PhysicsBackendContext context, IntPtr externalModel)
+    internal MujocoPhysicsBackend(PhysicsBackendContext context, IntPtr externalModel,
+        double inPlaceTurnCompensation = DefaultInPlaceTurnCompensation)
     {
         _context = context;
+        _inPlaceTurnCompensation = inPlaceTurnCompensation;
         Validate(context);
         var (_, hash) = MujocoModel.Generate(context);
         ModelSha256 = hash;
@@ -151,7 +156,7 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
         var cmdW = robot.CmdW;
         if (Math.Abs(cmdV) <= 0.02 && Math.Abs(cmdW) > 0)
         {
-            cmdW *= InPlaceTurnCompensation;
+            cmdW *= _inPlaceTurnCompensation;
         }
         var halfTrack = robot.Vehicle.TrackWidth / 2;
         // A +Y wheel angular velocity rolls its centre toward local +X.
