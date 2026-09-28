@@ -48,6 +48,8 @@ public partial class Main : Node
     private bool _pendingMatchSettings;
     private Dictionary<string, RobotModelConfig>? _robotModels;
     private double _replayAlphaAccumulator;
+    // 暂停/收尾时插值 alpha 的收敛速率 (由旧实现 0.02/帧 @60fps 折算, 与帧率解耦)。
+    private const double ReplayAlphaSettlePerSecond = 1.2;
     private int _captureFramesLeft = -1;
     private string _capturePath = "";
     private string _captureStats = "";
@@ -1315,19 +1317,22 @@ public partial class Main : Node
         }
         else
         {
-            if (_session.ReplayPlaying && !_session.ReplayAtEnd)
+            if (_session.ReplayPlaying)
             {
-                _session.ReplayStep(+1);
-                _replayAlphaAccumulator = 0;
-            }
-            else if (_session.ReplayPlaying)
-            {
-                _session.ReplayPlaying = false;
-                _replayAlphaAccumulator = 0;
+                if (_session.AdvanceReplayPlayback(delta))
+                {
+                    _replayAlphaAccumulator = 0;   // 刚跨过 tick: 对齐新快照
+                }
+                if (_session.ReplayAtEnd)
+                {
+                    _session.ReplayPlaying = false;
+                    _replayAlphaAccumulator = 0;
+                }
             }
             if (!_session.ReplayPlaying && _session.ReplayCache.Count > 0)
             {
-                _replayAlphaAccumulator = Math.Min(1.0, _replayAlphaAccumulator + 0.02);
+                _replayAlphaAccumulator = Math.Min(
+                    1.0, _replayAlphaAccumulator + ReplayAlphaSettlePerSecond * delta);
             }
             Present(_session.ReplayFrame(_replayAlphaAccumulator));
         }
@@ -1712,24 +1717,28 @@ public partial class Main : Node
         {
             _session.ReplayPlaying = false;
             _session.ReplayStep(-1);
+            _session.ResetReplayClock();
             _replayAlphaAccumulator = 0;
         }
         if (Input.IsActionJustPressed("replay_step_fwd"))
         {
             _session.ReplayPlaying = false;
             _session.ReplayStep(+1);
+            _session.ResetReplayClock();
             _replayAlphaAccumulator = 0;
         }
         if (Input.IsActionJustPressed("replay_seek_start"))
         {
             _session.ReplayPlaying = false;
             _session.ReplaySeekTick(1);
+            _session.ResetReplayClock();
             _replayAlphaAccumulator = 0;
         }
         if (Input.IsActionJustPressed("replay_seek_end"))
         {
             _session.ReplayPlaying = false;
             _session.ReplaySeekTick(_session.ReplayCache.Count);
+            _session.ResetReplayClock();
             _replayAlphaAccumulator = 0;
         }
         if (Input.IsActionJustPressed("reset_match"))
