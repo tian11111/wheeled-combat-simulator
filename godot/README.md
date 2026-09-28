@@ -209,6 +209,8 @@ Forward+ 默认画面全部由内置能力构成, 每项都经真实 renderer �
 capture 验证; 不引入第三方 GLB/HDRI/自定义全屏 shader。SDFGI/体积雾/Glow/DoF 仅在支持的
 Forward+/Mobile 路径生效，gl_compatibility 自动降级。能量块仅使用仓库内两张由官方规则第 11 页示意图整理的 PNG；
 规则原文注明示意图仅供参考，实际标准打印图仍以赛项交流群发布版本为准。
+擂台侧立面为有意偏离官方效果图（白色侧板）的黑色基座，回退只需改 `PlatformSideColor`
+一个常量；台面中央装饰环已移除。两者均为纯渲染层，不影响判分/传感器/快照。
 
 | 层 | 默认配置 | 说明 |
 | --- | --- | --- |
@@ -263,8 +265,11 @@ Forward+/Mobile 路径生效，gl_compatibility 自动降级。能量块仅使�
 
 - 新模式快照带三维姿态：能量块的高度/翻转、车体俯仰/侧倾按真实物理显示；
   旧快照按原方式渲染。传感器仍为解析模型平面投影（边界与场景差异见任务
-  `09-24-mujoco-dual-physics-validation/validation-report.md`；内置 FSM 的
-  登台机动按旧物理调校，新模式下可能整场无法登台）。
+  `09-24-mujoco-dual-physics-validation/validation-report.md`）；登台为真实接触
+  力学——车尾搭沿→翘起→前轮爬，含受阻/换面重试/登台后掉台等失败形态。
+  内置 FSM 零改动即可从官方出生位姿完成倒车登台并进入 SEARCH（任务
+  `09-25-mujoco-fsm-reverse-mount/report.md`）；已知边界是登台后的 SEARCH
+  索敌在新模式下尚不收敛。
 - 回放头部携带 `mujoco/<原生版本>/<模型内容哈希>`；版本或模型不匹配的回放
   在加载校验时明确拒绝。
 - 新模式 parity 校验流程与下方脚本相同，只是 `replay-record` 加
