@@ -872,3 +872,35 @@ reward-credit 全流程：8 段轨迹可行性研究（policy 正向位移 us-on
 ### Next Steps
 
 - RL v4 路线已终止；新假设需新预注册轮次。活跃任务仅剩真机遥测采集(P2)与已封闭的 blind-gate/父任务
+
+
+## Session 26: 封存 blind-gate 与 RL v4 父任务
+
+**Date**: 2026-09-28
+**Task**: 封存 blind-gate 与 RL v4 父任务
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+blind-gate 以 No-Go 封存（两条路线均未达 4/5，候选从未产生，盲集 0 消耗）；父任务集成总结：六个子任务全闭环，吞吐目标 Go、策略目标未达成，本轮终止。RL 线仅剩未来新预注册轮次的可能。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `066d73b` | (see git log) |
+| `a6f5a6c` | (see git log) |
+| `481ec11` | (see git log) |
+| `` | (see git log) |
+
+### Testing
+
+- [OK] 无新代码；盲集运行索引不存在、无 v4 冻结记录（封存事实核验）
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Trellis 仅剩 08-28 真机遥测采集（P2，待实车时间）；RL 新轮次需先诊断 20260929 胜出行为再立预注册假设
