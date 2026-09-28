@@ -15,12 +15,12 @@ public sealed class MujocoTrainingPhysicsBackendFactory : IPhysicsBackendFactory
 
     public IPhysicsBackend Create(PhysicsBackendContext context)
     {
-        // 每集生成一次 MJCF + 哈希: 缓存未命中时用同一份 xml 编译, 复用构造
+        // 每集生成一次 MJCF + 哈希: 缓存未命中时用同一份 xml/资产 编译, 复用构造
         // 直接携带哈希, 不再重复生成。
-        var (xml, hash) = MujocoModel.Generate(context);
+        var (xml, assets, hash) = MujocoModel.Generate(context);
         if (!_models.TryGetValue(hash, out var model))
         {
-            model = MujocoNative.CreateModel(xml);
+            model = MujocoNative.CreateModel(xml, assets);
             _models[hash] = model;
             CompileCount++;
         }

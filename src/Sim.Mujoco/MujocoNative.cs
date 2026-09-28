@@ -81,6 +81,15 @@ internal static unsafe class MujocoNative
     private static extern void DeleteSpec(IntPtr spec);
     [DllImport(LibraryName, EntryPoint = "mjs_getError", CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr GetSpecError(IntPtr spec);
+    // 内存 VFS: mesh 资产以字节挂进去, XML 里只出现逻辑文件名(无机器路径)。
+    // 3.14.0 的导出名是 mj_defaultVFS / mj_addBufferVFS / mj_deleteVFS(不是 mju_addBufferToVFS),
+    // 见 native 库导出表; mj_addBufferVFS **不拷贝** 缓冲区, 编译期间必须保持 pin 住。
+    [DllImport(LibraryName, EntryPoint = "mj_defaultVFS", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void DefaultVfs(IntPtr vfs);
+    [DllImport(LibraryName, EntryPoint = "mj_addBufferVFS", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void AddBufferVfs(IntPtr vfs, [MarshalAs(UnmanagedType.LPUTF8Str)] string name, IntPtr buffer, int size);
+    [DllImport(LibraryName, EntryPoint = "mj_deleteVFS", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void DeleteVfs(IntPtr vfs);
     [DllImport(LibraryName, EntryPoint = "mj_deleteModel", CallingConvention = CallingConvention.Cdecl)]
     internal static extern void DeleteModel(IntPtr model);
     [DllImport(LibraryName, EntryPoint = "mj_makeData", CallingConvention = CallingConvention.Cdecl)]
@@ -99,19 +108,53 @@ internal static unsafe class MujocoNative
     private static extern void SetState(IntPtr model, IntPtr data, double[] state, int signature);
     [DllImport(LibraryName, EntryPoint = "mj_name2id", CallingConvention = CallingConvention.Cdecl)]
     internal static extern int NameToId(IntPtr model, int objectType, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+    [DllImport(LibraryName, EntryPoint = "mj_geomDistance", CallingConvention = CallingConvention.Cdecl)]
+    private static extern double GeomDistanceNative(IntPtr model, IntPtr data, int geom1, int geom2, double distmax, double[] fromto);
 
-    internal static IntPtr CreateModel(string xml)
+    /// <summary>mjVFS 未公开 sizeof; 2000×1000 文件名表 ≈ 2.02 MB, 留一倍余量。</summary>
+    private const int VfsBytes = 4 << 20;
+
+    internal static IntPtr CreateModel(string xml, IReadOnlyList<MujocoMeshAsset>? assets = null)
     {
         EnsureAvailable();
+        if (assets is null || assets.Count == 0)
+        {
+            // 无资产模型(v1): 不建 VFS, 与历史调用逐字节一致。
+            return CompileXml(xml, IntPtr.Zero);
+        }
+        var vfs = (IntPtr)NativeMemory.AllocZeroed(VfsBytes);
+        var pinned = new List<GCHandle>(assets.Count);
+        try
+        {
+            DefaultVfs(vfs);
+            foreach (var asset in assets)
+            {
+                var handle = GCHandle.Alloc(asset.Bytes, GCHandleType.Pinned);
+                pinned.Add(handle);
+                AddBufferVfs(vfs, asset.Name, handle.AddrOfPinnedObject(), asset.Bytes.Length);
+            }
+            return CompileXml(xml, vfs);
+        }
+        finally
+        {
+            // 编译后 mjModel 自带网格数据, VFS 与 pin 的缓冲区都可以释放。
+            foreach (var handle in pinned) handle.Free();
+            DeleteVfs(vfs);
+            NativeMemory.Free((void*)vfs);
+        }
+    }
+
+    private static IntPtr CompileXml(string xml, IntPtr vfs)
+    {
         var error = new byte[4096];
-        var spec = ParseXmlString(xml, IntPtr.Zero, error, error.Length);
+        var spec = ParseXmlString(xml, vfs, error, error.Length);
         if (spec == IntPtr.Zero)
         {
             throw new ArgumentException($"MuJoCo MJCF parse failed: {ReadError(error)}", nameof(xml));
         }
         try
         {
-            var model = Compile(spec, IntPtr.Zero);
+            var model = Compile(spec, vfs);
             if (model == IntPtr.Zero)
             {
                 var nativeError = Marshal.PtrToStringUTF8(GetSpecError(spec)) ?? "unknown compiler error";
@@ -123,6 +166,71 @@ internal static unsafe class MujocoNative
         {
             DeleteSpec(spec);
         }
+    }
+
+    // ---- mjModel 内省(3.14.0 win-x64 ABI) ----
+    // 三个数组字段的字节偏移由 tmp/wf_probe/{find,confirm}_model_offsets.py 扫描钉死:
+    // 编译"几何值独一无二"的参考模型, 在 mjModel 前 8 KB 里找指向已知 double 三元组
+    // (ground box size 1.9/1.9/0.025、pos 1.9/1.9/-0.025)与已知 int 序列(geom_type
+    // 6,7,5,5 = box,mesh,cylinder,cylinder)的指针槽。DLL 由 ExpectedDllSha256 门控,
+    // 因此偏移随版本固定; 调用方(测试)还要用 ground geom 的已知 size/pos 自校验一次,
+    // 读错时下面的有限性检查会立刻抛错而不是静默给假值。
+    private const int ModelGeomTypeOffset = 2416;
+    private const int ModelGeomSizeOffset = 2528;
+    private const int ModelGeomPosOffset = 2552;
+
+    /// <summary>mjtGeom 类型(5=cylinder, 6=box, 7=mesh)。</summary>
+    internal static int ReadGeomType(IntPtr model, int geomId) => (int)ReadGeomInts(model, ModelGeomTypeOffset, geomId, 1)[0];
+
+    internal static int[] ReadGeomTypes(IntPtr model, int count) => ReadGeomInts(model, ModelGeomTypeOffset, 0, count);
+
+    internal static double[] ReadGeomSize(IntPtr model, int geomId)
+        => ReadGeomDoubles(model, ModelGeomSizeOffset, geomId, "size");
+
+    internal static double[] ReadGeomPos(IntPtr model, int geomId)
+        => ReadGeomDoubles(model, ModelGeomPosOffset, geomId, "pos");
+
+    /// <summary>两个 geom 的距离与最近点(fromto[0:3] 在 geom1 上, fromto[3:6] 在 geom2 上)。</summary>
+    internal static (double Distance, double[] FromTo) GeomDistance(IntPtr model, IntPtr data,
+        int geom1, int geom2, double distMax = 10.0)
+    {
+        var fromto = new double[6];
+        var distance = GeomDistanceNative(model, data, geom1, geom2, distMax, fromto);
+        return (distance, fromto);
+    }
+
+    private static int[] ReadGeomInts(IntPtr model, int offset, int index, int count)
+    {
+        if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
+        var array = *(int**)((byte*)model + offset);
+        if (array == null)
+        {
+            throw new InvalidOperationException("MuJoCo mjModel array is null; native ABI may be incompatible.");
+        }
+        var result = new int[count];
+        for (var i = 0; i < count; i++) result[i] = array[index + i];
+        return result;
+    }
+
+    private static double[] ReadGeomDoubles(IntPtr model, int offset, int geomId, string field)
+    {
+        if (geomId < 0) throw new ArgumentOutOfRangeException(nameof(geomId));
+        var array = *(double**)((byte*)model + offset);
+        if (array == null)
+        {
+            throw new InvalidOperationException($"MuJoCo mjModel.geom_{field} is null; native ABI may be incompatible.");
+        }
+        var result = new double[3];
+        for (var i = 0; i < 3; i++) result[i] = array[geomId * 3 + i];
+        foreach (var value in result)
+        {
+            if (!double.IsFinite(value))
+            {
+                throw new InvalidOperationException(
+                    $"MuJoCo mjModel.geom_{field}[{geomId}] is not finite ({value}); native ABI may be incompatible.");
+            }
+        }
+        return result;
     }
 
     internal static double[] ReadQpos(IntPtr model, IntPtr data) => ReadState(model, data, StateQpos);

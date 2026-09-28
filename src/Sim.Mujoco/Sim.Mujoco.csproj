@@ -9,8 +9,20 @@
     <ProjectReference Include="..\Sim.Core\Sim.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- 09-28 真车几何: 测试要读编译后 mjModel 的 geom size/pos 与资产哈希口径, 按
+         Sim.Cli 的既有做法只对本测试程序集开放 internal。 -->
+    <InternalsVisibleTo Include="Sim.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="runtimes\win-x64\native\mujoco.dll" Condition="Exists('runtimes\win-x64\native\mujoco.dll')" CopyToOutputDirectory="PreserveNewest" />
     <None Include="runtimes\win-x64\native\LICENSE" Condition="Exists('runtimes\win-x64\native\LICENSE')" CopyToOutputDirectory="PreserveNewest" />
     <None Include="runtimes\win-x64\native\THIRD_PARTY_NOTICES.txt" Condition="Exists('runtimes\win-x64\native\THIRD_PARTY_NOTICES.txt')" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 真车网格资产(见 tools/mesh/README.md): 编进程序集而不是拷贝目录 ——
+         XML 里只出现逻辑文件名, 运行时不需要任何机器路径, 部署布局不影响物理身份。
+         只嵌物理实际引用的两件; robot_front_arm.stl 仅入库供渲染/后续版本比对。 -->
+    <EmbeddedResource Include="assets\robot_chassis.stl" LogicalName="Sim.Mujoco.assets.robot_chassis.stl" />
+    <EmbeddedResource Include="assets\robot_rear_shovel.stl" LogicalName="Sim.Mujoco.assets.robot_rear_shovel.stl" />
   </ItemGroup>
 </Project>

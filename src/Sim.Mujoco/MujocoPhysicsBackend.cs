@@ -36,12 +36,12 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
         _context = context;
         _inPlaceTurnCompensation = inPlaceTurnCompensation;
         Validate(context);
-        var (xml, hash) = MujocoModel.Generate(context);
+        var (xml, assets, hash) = MujocoModel.Generate(context);
         ModelSha256 = hash;
         _ownsModel = true;
         try
         {
-            _model = MujocoNative.CreateModel(xml);
+            _model = MujocoNative.CreateModel(xml, assets);
             _data = MujocoNative.MakeData(_model);
             if (_data == IntPtr.Zero)
             {
@@ -94,11 +94,11 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     {
         if (Math.Abs(context.Scenario.Field.TickSeconds - 0.05) > 1e-12)
         {
-            throw new ArgumentException("MuJoCo model v1 requires field.tickSeconds=0.05.", nameof(context));
+            throw new ArgumentException("MuJoCo model requires field.tickSeconds=0.05.", nameof(context));
         }
         if (context.Blocks.Count != 3)
         {
-            throw new ArgumentException("MuJoCo model v1 requires exactly three energy blocks.", nameof(context));
+            throw new ArgumentException("MuJoCo model requires exactly three energy blocks.", nameof(context));
         }
     }
 
@@ -107,7 +107,7 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
         ThrowIfDisposed();
         if (!double.IsFinite(dt) || Math.Abs(dt - 0.05) > 1e-12)
         {
-            throw new ArgumentException("MuJoCo model v1 advances exactly one 0.05 s referee tick.", nameof(dt));
+            throw new ArgumentException("MuJoCo model advances exactly one 0.05 s referee tick.", nameof(dt));
         }
         var controls = new double[8];
         SetControls(_context.Us, 0, controls);
@@ -159,9 +159,10 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
             cmdW *= _inPlaceTurnCompensation;
         }
         var halfTrack = robot.Vehicle.TrackWidth / 2;
+        var radius = MujocoModel.RadiusFor(_context);
         // A +Y wheel angular velocity rolls its centre toward local +X.
-        var left = (cmdV - cmdW * halfTrack) / MujocoModel.WheelRadius;
-        var right = (cmdV + cmdW * halfTrack) / MujocoModel.WheelRadius;
+        var left = (cmdV - cmdW * halfTrack) / radius;
+        var right = (cmdV + cmdW * halfTrack) / radius;
         controls[offset] = Math.Clamp(left, -MujocoModel.WheelAngularSpeedLimit, MujocoModel.WheelAngularSpeedLimit);
         controls[offset + 1] = Math.Clamp(right, -MujocoModel.WheelAngularSpeedLimit, MujocoModel.WheelAngularSpeedLimit);
         controls[offset + 2] = controls[offset];
@@ -276,7 +277,8 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
         var v = roleIndex * 10;
         qpos[p] = robot.X;
         qpos[p + 1] = robot.Y;
-        qpos[p + 2] = _context.Field.StageHeightAt(robot.X, robot.Y) + MujocoModel.WheelRadius + 0.04;
+        qpos[p + 2] = _context.Field.StageHeightAt(robot.X, robot.Y)
+            + MujocoModel.RadiusFor(_context) + MujocoModel.ResetAxleOffset(_context);
         qpos[p + 3] = Math.Cos(robot.Th / 2);
         qpos[p + 4] = 0;
         qpos[p + 5] = 0;
@@ -327,7 +329,7 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
             r.Vx = qvel[v];
             r.Vy = qvel[v + 1];
             r.Omega = qvel[v + 5];
-            r.ZG = pose.Z - MujocoModel.WheelRadius - 0.04;
+            r.ZG = pose.Z - MujocoModel.RadiusFor(_context) - MujocoModel.ResetAxleOffset(_context);
             r.Roll = Math.Atan2(2 * (pose.Qw * pose.Qx + pose.Qy * pose.Qz),
                 1 - 2 * (pose.Qx * pose.Qx + pose.Qy * pose.Qy));
             r.Pitch = Math.Asin(Math.Clamp(2 * (pose.Qw * pose.Qy - pose.Qz * pose.Qx), -1, 1));
@@ -377,10 +379,13 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
 
     private void RegisterGeoms()
     {
+        // v2 的车体是两个 mesh geom(chassis + rear_shovel), 轮 geom 名两版一致。
+        var bodyGeoms = MujocoModel.IsV2(_context)
+            ? new[] { "robot_chassis_{0}", "robot_shovel_{0}" }
+            : ["robot_body_{0}", "robot_shovel_{0}"];
         foreach (var (role, target) in new[] { (RoleNames.Us, _usGeoms), (RoleNames.Them, _themGeoms) })
         {
-            target.Add(GeomId($"robot_body_{role}"));
-            target.Add(GeomId($"robot_shovel_{role}"));
+            foreach (var template in bodyGeoms) target.Add(GeomId(string.Format(template, role)));
             foreach (var axle in new[] { "front", "rear" })
             foreach (var side in new[] { "left", "right" })
                 target.Add(GeomId($"wheel_geom_{role}_{axle}_{side}"));
