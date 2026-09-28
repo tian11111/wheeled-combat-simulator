@@ -809,3 +809,35 @@ No training was run and no gate is claimed.
 ### Status
 
 [OK] **Completed**
+
+
+## Session 24: RL v4 多 seed 基线验收（3/5 负面）与桌面外观收尾
+
+**Date**: 2026-09-28
+**Task**: RL v4 多 seed 基线验收（3/5 负面）与桌面外观收尾
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+复用吞吐 suite-01 五份产物在 development_v4 逐 seed 评测（未重训）：3/5 通过 < 4/5 预注册门槛 → 负面基线 No-Go，不冻结候选、盲集未开，仅解锁 reward-credit。CLI DLL 哈希漂移已披露并以确定性回归佐证；rl-split-contract 增补复用身份核对契约。另提交擂台侧立面改黑（含遗留的中圈装饰环移除）与本机外观模型配置。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `93e18fc` | (see git log) |
+| `a2786d2` | (see git log) |
+| `a0b1053` | (see git log) |
+| `618c840` | (see git log) |
+
+### Testing
+
+- [OK] selftest 47 绿(含 --gym-check)；Sim.Tests 389 绿；replay-check seed-42 逐位 PASS；git diff --check 干净
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- reward-credit 前置已满足，但须先定义可审计的接触归因轨迹规则（做不出即 No-Go 终止本轮）
