@@ -70,6 +70,8 @@ public static class RobotModelLoader
             var error = LoadInto(robotRoot, config.Path, out loaded);
             if (error is not null)
             {
+                // 换路径失败时旧模型已被释放：恢复 primitive 分件，闭环「任一失败即回退」。
+                ShowPrimitive(robotRoot, true);
                 return error;
             }
         }

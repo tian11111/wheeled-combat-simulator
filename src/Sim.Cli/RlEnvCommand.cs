@@ -138,11 +138,15 @@ public static class RlEnvCommand
     private static void EmitError(string message) =>
         Emit(new { type = "error", message });
 
-    internal static JsonSerializerOptions JsonOptions() => new()
+    // 静态单例: JsonSerializerOptions 的元数据缓存挂在实例上, 持久进程逐 tick new 会
+    // 每步重建元数据（训练热路径）。选项内容与旧实现逐字节一致, 输出不变。
+    private static readonly JsonSerializerOptions JsonOptionsInstance = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
+
+    internal static JsonSerializerOptions JsonOptions() => JsonOptionsInstance;
 
     private sealed class EpisodeState
     {

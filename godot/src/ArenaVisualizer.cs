@@ -57,6 +57,9 @@ public partial class ArenaVisualizer : Node3D
     private StandardMaterial3D? _debuffBlockMaterial;
     private StandardMaterial3D? _outBlockMaterial;
     private StandardMaterial3D? _blockContactShadowMaterial;
+    // 登台指示环的两种状态材质：懒创建一次，ApplyRobot 只切换指向（避免逐帧新建）。
+    private StandardMaterial3D? _ringMaterialOn;
+    private StandardMaterial3D? _ringMaterialOff;
     private Texture2D? _buffBlockTexture;
     private Texture2D? _debuffBlockTexture;
     private ArrayMesh? _energyBlockMesh;
@@ -84,6 +87,9 @@ public partial class ArenaVisualizer : Node3D
         get => _materialDetailEnabled;
         set => _materialDetailEnabled = value;
     }
+
+    private StandardMaterial3D RingMaterialOn => _ringMaterialOn ??= MakeEmissive(RingOn, 0.8f);
+    private StandardMaterial3D RingMaterialOff => _ringMaterialOff ??= MakeMatte(RingOff);
 
     public override void _Ready()
     {
@@ -556,7 +562,8 @@ public partial class ArenaVisualizer : Node3D
         if (ring is not null)
         {
             // 登台指示: 在台上 = 绿色自发光状态灯; 不在台上 = 灰色哑光。
-            ring.MaterialOverride = robot.OnPlatform ? MakeEmissive(RingOn, 0.8f) : MakeMatte(RingOff);
+            // 材质缓存复用（与 EnsureBlockMaterials 同纪律），不逐帧新建。
+            ring.MaterialOverride = robot.OnPlatform ? RingMaterialOn : RingMaterialOff;
         }
         if (teamStrip?.MaterialOverride is StandardMaterial3D stripMaterial)
         {
