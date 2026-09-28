@@ -62,3 +62,9 @@ Correct: v3 进入 REVEALED_HOLDOUT_SPLITS，v4 成为唯一 blind；评测和�
 2. **源码逐位一致**：`git diff <套件运行时提交>..HEAD -- src/ controllers/` 为空且工作区这两处无未提交改动。
 3. **CLI DLL 哈希漂移不等于身份破坏**：各会话用临时 SDK 重编译，`cli_dll_sha256` 必然变化。哈希不同时必须在验收报告披露新旧哈希与原因，并用行为佐证补强：Sim.Tests 全绿、`replay-check` 逐位复现、`selftest.py --gym-check` 全绿、同一轮评测内 FSM 基线逐位一致。
 4. **任一源码不一致 → 不得复用**，须按当前代码重新训练；不得把不同构建/配置的产物混进同一统计。
+
+## 9. 复核既有 checkpoint 的诊断轨迹
+
+`diagnose.py analyze --compare-recorded <evaluate.json>` 当前只读取 `models[0].per_episode_policy` 和 `fsm_baseline.per_episode`。若轨迹来自 sweep 中后续 checkpoint，先从原始评测 JSON 生成只保留该 checkpoint 的本地摘录，保留模型 SHA-256、训练步数、场景/CLI SHA-256 和 FSM 逐场数据；不要修改原始评测文件。否则脚本会把目标轨迹与第一个 checkpoint 比较，产生误导性的逐场 mismatch。
+
+该核对精确比较 `locked_target_us_block_scores`、`us_drops`、`unowned_block_offs`、`policy_ticks`，并以 1e-6 容差比较 `total_reward`。跨 CLI DLL 哈希的诊断即使前四项逐场一致，reward 仍可能漂移；须分别列出每个字段的 mismatch，`recorded_cross_check.reproduces=false` 时不能声称完整复现，更不能据裁判计数相同推断逐 tick 轨迹相同。
