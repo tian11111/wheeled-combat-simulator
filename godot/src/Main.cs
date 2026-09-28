@@ -91,9 +91,7 @@ public partial class Main : Node
         ConfigureVisualFrameStats(userArgs);
 
         var scenario = BuildScenario();
-        var previousSession = _session;
-        _session = new MatchSession(scenario);
-        previousSession?.Dispose();
+        ReplaceSession(scenario);
         ApplyScenarioToShell(scenario);
 
         _editor = new LayoutEditor { Name = "LayoutEditor" };
@@ -1076,11 +1074,23 @@ public partial class Main : Node
         return _settings.ApplySimulationParameters(template);
     }
 
+    /// <summary>
+    /// Swaps in a fresh session for <paramref name="scenario"/> and releases the
+    /// previous engine. Every session replacement goes through here so a leaked
+    /// MuJoCo model/data pair (native handles, no finalizer) is impossible.
+    /// </summary>
+    private void ReplaceSession(Scenario scenario)
+    {
+        var previous = _session;
+        _session = new MatchSession(scenario);
+        previous?.Dispose();
+    }
+
     private void ResetLiveSession(string message)
     {
         StopLiveDriver();
         var scenario = BuildLiveScenarioFromTemplate();
-        _session = new MatchSession(scenario);
+        ReplaceSession(scenario);
         _pendingMatchSettings = false;
         ApplyScenarioToShell(scenario);
         StartLiveDriverIfConfigured(scenario);
@@ -1602,9 +1612,7 @@ public partial class Main : Node
             : new Dictionary<string, double>(_scenarioTemplate.Parameters);
         _scenarioTemplate = scenario with { Parameters = templateParameters };
         var applied = _settings.ApplySimulationParameters(_scenarioTemplate);
-        var previousSession = _session;
-        _session = new MatchSession(applied);
-        previousSession?.Dispose();
+        ReplaceSession(applied);
         _pendingMatchSettings = false;
         ApplyScenarioToShell(applied);
         StartLiveDriverIfConfigured(applied);
