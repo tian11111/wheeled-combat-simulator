@@ -1,0 +1,3 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "controllers/mbri_adapter.py", "reason": "R1 修复对象：_check_tick 跳帧分支与自测契约"}
+{"file": "src/Sim.Mujoco/MujocoPhysicsBackend.cs", "reason": "R3 修复对象：补偿旋钮实例化 + R6 复用构造接收 hash"}

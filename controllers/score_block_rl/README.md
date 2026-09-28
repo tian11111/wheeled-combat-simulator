@@ -92,7 +92,7 @@ dotnet build RobotSimulator.sln -m:1
     --out "$env:TEMP\score-block-rl-train\analysis-v3-8001-8050.json"
 ```
 
-正式盲验在仓库 `.sim_runs/score-block-final-holdout-v4-run.json` 以独占创建方式登记。评测开始即消耗唯一运行机会；结果无论通过与否都会记为已揭示，进程异常中断时遗留的 `started` 索引也会阻止重跑。`--force` 不能绕过该索引。不要删除或改写索引来重复评测。
+正式盲验在仓库 `.sim_runs/score-block-final-holdout-v4-run.json` 以独占创建方式登记。评测开始即消耗唯一运行机会；结果无论通过与否都会记为已揭示，进程异常中断时遗留的 `started` 索引也会阻止重跑。`--force` 不能绕过该索引。不要删除或改写索引来重复评测。注意 `.sim_runs/` 被 `.gitignore` 忽略，索引只对当前工作树有效：换机、重新 clone 或清理该目录后它不再阻止重跑 —— 因此正式盲验前必须核对仓库内既有的 v4 揭示证据（归档报告/结果 JSON），有则视为已消费、不得当作首次盲验。
 
 - `deterministic=True` 在独立评测环境里逐 seed 运行；同一 seed 的内置 FSM 基线从**同一个首次 `SCORE_BLOCK` 入口**开始配对（FSM 路径不消费策略，故每个 seed 只跑一次即可作为所有模型的共同基准，输出里标注 `fsm_baseline_is_model_independent`）。
 - 合格条件只用真实裁判事件：锁定目标我方真实 `BlockScore` ≥ 1、总数不低于 FSM、我方 `Drop` 不高于 FSM，且所有计分 seed 都有位姿/事件交叉核验。合格者按目标得分多 → 掉台少 → 训练步数多选唯一候选；没有合格模型时记录 `stop_reason="no_qualified_model"` 并停止，不打开最终集。
