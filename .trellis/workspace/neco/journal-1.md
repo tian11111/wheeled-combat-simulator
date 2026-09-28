@@ -998,3 +998,47 @@ grill 规划后执行：60 段轨迹回放校准显示已批准的 approach-spee
 ### Next Steps
 
 - Trellis 仅剩真机遥测采集（P2）；回放播放速度可在桌面端手动确认一次
+
+
+## Session 30: 代码审查六项缺陷修复（mbri 跳帧/会话泄漏/测试静态污染 + 三条 P3）
+
+**Date**: 2026-09-28
+**Task**: 代码审查六项缺陷修复（mbri 跳帧/会话泄漏/测试静态污染 + 三条 P3）
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×P3 缺陷 + 1 条规范记录项，分四批修复并归档任务 09-28-review-remediation；全量质量门通过。
+
+### Main Changes
+
+- mbri_adapter._check_tick 跳帧分支重置基准，避免一次丢帧致整场 healthy=False + 零动作（P1）
+- Main.ReplaceSession 统一三处会话替换并释放旧引擎，修 MuJoCo 场景 F5 泄漏 mjModel/mjData（P2）
+- InPlaceTurnCompensation 改进程级静态为实例注入（工厂可选参数），消除 5 个并行 MuJoCo 测试类的污染（P2）
+- rl-env --duration 改 InvariantCulture 校验（非法值应答 error + 退出码 2）；dotnet 解析候选存在性检查；训练 factory 单次生成 MJCF（P3×3）
+- rl-split-contract §3/§4 与 score_block_rl README 记录盲集索引本地守卫的失效面（不改代码，用户决定）
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3b67612` | (see git log) |
+| `df46726` | (see git log) |
+| `20a1980` | (see git log) |
+| `accf487` | (see git log) |
+| `4d517aa` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 393/393；mbri_adapter_selftest 16/16；score_block_rl selftest 44 passed/0 failed
+- [OK] replay-check 逐位 PASS；Godot 工程构建 0 错误；无头 --parity-check PASS（2400/2400 ticks, 752/752 事件）
+- [OK] 全量首跑 1 例性能门并行抖动，隔离 ratio 0.148、复跑 2 次全绿，判定既有 flaky 未改门槛
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 如需推送：git push origin test/score-block-ppo-checkpoint-round
+- 盲集索引本地守卫失效面已入 spec，跨机正式盲验前人工核对揭示证据
