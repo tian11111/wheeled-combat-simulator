@@ -63,6 +63,31 @@ public class RoundTripTests
     }
 
     [Fact]
+    public void SensorChannel_Height_RoundTrips()
+    {
+        // null Height must be omitted from the wire; a set value must survive.
+        var withHeight = SensorProfiles.WheeledCombat11.Channels[0]; // gray_front: height = 0.0025 (standing ground clearance)
+        Assert.Equal(0.0025, withHeight.Height);
+        var json = ProtocolJson.Serialize(withHeight);
+        Assert.Contains("\"height\":0.0025", json);
+        var restored = ProtocolJson.Deserialize<SensorChannel>(json);
+        Assert.Equal(withHeight.Height, restored.Height);
+
+        // Built-in layouts are referencable by id only (protocol add-only).
+        var reference = ProtocolJson.Deserialize<SensorProfile>("""{"id":"wheeledCombat11"}""");
+        Assert.NotNull(reference);
+        Assert.Equal(SensorProfiles.WheeledCombat11, reference);
+        Assert.Equal(11, reference!.Channels.Count);
+
+        // An explicit (possibly partial) channel list still binds as before.
+        var explicitProfile = ProtocolJson.Deserialize<SensorProfile>(
+            """{"id":"custom","channels":[{"id":"gF","type":"gray","forward":0.11,"lateral":0}]}""");
+        Assert.Equal("custom", explicitProfile!.Id);
+        Assert.Single(explicitProfile.Channels);
+        Assert.Null(explicitProfile.Channels[0].Height);
+    }
+
+    [Fact]
     public void Observation_UsesLegacyWireNames()
     {
         var json = ProtocolJson.Serialize(Samples.Observation());
