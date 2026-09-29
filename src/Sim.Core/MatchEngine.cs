@@ -146,7 +146,7 @@ public sealed class MatchEngine : IDisposable
         }
         _sensors = new SensorSampler(_field, _params, _us, _them, _blocks, scenario.Seed, () => SimStepIndex, _physics);
         _fsm = new FsmController(_field, _physics, _params, () => _rng.Next(), _us, _them, _blocks, _events,
-            _vision, OnBothDone);
+            _vision, OnBothDone, onAutoRestart: r => RestartRobot(r.Role));
 
         // resetAll tail: refresh sensors once so PREP-phase views show real data.
         _sensors.SampleSensorsFor(_us);

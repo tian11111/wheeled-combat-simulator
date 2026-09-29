@@ -42,6 +42,12 @@ internal static class MujocoModel
     internal const double WheelHalfWidthV2 = 0.0145;
     internal const double WheelMassV2 = 0.03;
     internal const double ShovelMassV2 = 0.02;
+    /// <summary>
+    /// 真车配重质量(kg): mesh 默认惯性把质心放在几何中部(偏高), 真车电池/电机贴
+    /// 底盘。用无碰撞配重块把整车质心拉到轮轴上方 ~9mm, 抑制登台/旋转翻覆
+    /// (2026-09-29: 翻覆率实测驱动)。配重从 chassis mesh 质量中扣除, 总质量不变。
+    /// </summary>
+    internal const double ChassisBallastV2 = 0.35;
     /// <summary>v1 的轮/铲质量(历史字面量, 与 v2 数值相同但语义独立, 不得随之改动)。</summary>
     internal const double WheelMassV1 = 0.03;
     /// <summary>轮心(车体局部系, 实测): 前 x=+0.0730 / 后 x=−0.0770(轴距 0.150)。</summary>
@@ -287,16 +293,23 @@ internal static class MujocoModel
             .Append("\" euler=\"0 0 ").Append(N(r.Th)).Append("\"><freejoint name=\"robot_joint_")
             .Append(r.Role).Append("\"/>");
         sb.Append("<geom name=\"robot_chassis_").Append(r.Role).Append("\" type=\"mesh\" mesh=\"")
-            .Append(Meshes[0].Geom).Append("\" mass=\"").Append(N(chassisMass)).Append("\"/>");
+            .Append(Meshes[0].Geom).Append("\" mass=\"").Append(N(chassisMass - ChassisBallastV2)).Append("\"/>");
+        // 真车配重(无碰撞): 贴车底内侧, 把整车质心拉低(见 ChassisBallastV2 注释)。
+        sb.Append("<geom name=\"robot_ballast_").Append(r.Role)
+            .Append("\" type=\"box\" pos=\"0 0 -0.0008\" size=\"0.06 0.08 0.0015\" mass=\"")
+            .Append(N(ChassisBallastV2)).Append("\" contype=\"0\" conaffinity=\"0\"/>");
         sb.Append("<geom name=\"robot_shovel_").Append(r.Role).Append("\" type=\"mesh\" mesh=\"")
             .Append(Meshes[1].Geom).Append("\" mass=\"").Append(N(ShovelMassV2)).Append("\"/>");
+        // v2 轮摩擦与 v1 一致(1.5); 摩擦降档(1.0)单变量试验把翻覆数从 84 抬到 129
+        // (打滑→冲坡-滑落循环), 已回退。参数化保留供后续调参。
         WheelBodies(sb, r, WheelRadiusV2, WheelHalfWidthV2, WheelMassV2, WheelLocalZ,
             WheelFrontX, WheelRearX, WheelLeftY, WheelRightY);
         sb.Append("</body>");
     }
 
     private static void WheelBodies(StringBuilder sb, RobotRuntime r, double radius, double halfWidth,
-        double mass, double localZ, double frontX, double rearX, double leftY, double rightY)
+        double mass, double localZ, double frontX, double rearX, double leftY, double rightY,
+        double friction = 1.5)
     {
         foreach (var (axle, x) in new[] { ("front", frontX), ("rear", rearX) })
         foreach (var (side, y) in new[] { ("left", leftY), ("right", rightY) })
@@ -310,7 +323,7 @@ internal static class MujocoModel
                 .Append("\" type=\"cylinder\" euler=\"1.5707963267948966 0 0\" size=\"")
                 .Append(N(radius)).Append(' ').Append(N(halfWidth))
                 .Append("\" mass=\"").Append(N(mass))
-                .Append("\" friction=\"1.5 0.02 0.002\" solref=\"0.02 1\"/>");
+                .Append("\" friction=\"").Append(N(friction)).Append(" 0.02 0.002\" solref=\"0.02 1\"/>");
             sb.Append("</body>");
         }
     }

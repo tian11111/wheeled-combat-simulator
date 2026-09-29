@@ -145,12 +145,14 @@ public sealed class FsmController
     private readonly EventBus _events;
     private readonly IVisionAdapter _vision;
     private readonly Action<RobotRuntime, string> _onBothDone;
+    private readonly Func<RobotRuntime, bool>? _onAutoRestart;
     private readonly RobotRuntime _us;
     private readonly RobotRuntime _them;
 
     public FsmController(FieldModel field, IPhysicsBackend physics, SimParameters parameters, Func<double> rng,
         RobotRuntime us, RobotRuntime them, List<BlockRuntime> blocks, EventBus events,
-        IVisionAdapter vision, Action<RobotRuntime, string> onBothDone)
+        IVisionAdapter vision, Action<RobotRuntime, string> onBothDone,
+        Func<RobotRuntime, bool>? onAutoRestart = null)
     {
         _field = field;
         _physics = physics;
@@ -162,6 +164,7 @@ public sealed class FsmController
         _events = events;
         _vision = vision;
         _onBothDone = onBothDone;
+        _onAutoRestart = onAutoRestart;
     }
 
     private RobotRuntime Other(RobotRuntime r) => r.IsUs ? _them : _us;
@@ -336,6 +339,9 @@ public sealed class FsmController
     private const double FlipEnterSeconds = 0.5;
     private const double FlipExitSeconds = 0.5;
 
+    /// <summary>进入 INCAPACITATED 后再等多久自动重启(裁判不在场时的兜底)。</summary>
+    private const double AutoRestartSeconds = 5.0;
+
     /// <summary>
     /// 车体倾覆(失去行动能力)门控: MuJoCo 下车会底朝天/侧躺, 此时轮子朝天无法驱动,
     /// 而 2D 语义的 FSM/RECOVER 都不知道这件事。持续倾覆 → INCAPACITATED 停车等待
@@ -380,6 +386,13 @@ public sealed class FsmController
                 st.Scan.T = 0;
                 st.Scan.Target = null;
                 Log(r, "[fsm] 车体恢复直立 → 重新搜索", kind: EventKind.Recover);
+                return false;
+            }
+            // 裁判不在场(无头/RL/自动对局): 连续翻覆超时 → 自动重启(等同 R/T,
+            // 对方 +3 由 RestartRobot 记账)。回调会重置 r.Fsm, 之后不得再摸 st。
+            if (st.FlipT >= FlipEnterSeconds + AutoRestartSeconds && _onAutoRestart?.Invoke(r) == true)
+            {
+                Log(r, "[fsm] 翻覆超时 → 自动重启 (等同裁判 R/T)", kind: EventKind.Restart);
                 return false;
             }
             SetAct(r, "翻覆停车: 等待裁判重启");

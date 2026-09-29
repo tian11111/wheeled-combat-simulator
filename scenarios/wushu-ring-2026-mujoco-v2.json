@@ -5,6 +5,7 @@
   "name": "2026 武术擂台 — MuJoCo v2 真车几何(装配.glb 实测: 轮 r=0.0325/轴距 0.150/轮距 0.229; 足迹 0.103/0.16949/0.12185)",
   "seed": 42,
   "physics": { "backend": "mujoco", "modelVersion": "wushu-mjcf-v2" },
+  "parameters": { "MOUNT_SPEED": 550 },
   "field": {
     "fieldSize": 3.8,
     "aisleWidth": 0.7,
