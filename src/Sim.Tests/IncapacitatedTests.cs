@@ -10,9 +10,11 @@ namespace Sim.Tests;
 // legacy 没有 roll/pitch 自由度, 该状态必须永不出现(行为逐位不变)。
 public class IncapacitatedTests
 {
+    // 2026-09-29: timestep 0.002 物理重校后 seed 42 不再翻覆; seed 19 在 724 tick
+    // 翻覆并于 5 tick 内进入 INCAPACITATED (tmp/flipscan 扫描 1..40 选定)。
     private static Scenario MujocoV1Scenario() => new()
     {
-        Seed = 42,
+        Seed = 19,
         Physics = new PhysicsSpec { Backend = PhysicsSpec.Mujoco, ModelVersion = PhysicsSpec.MujocoModelV1 },
         Blocks = OfficialLayout.Blocks,
     };
@@ -68,7 +70,7 @@ public class IncapacitatedTests
             }
         }
 
-        Assert.True(flippedAtTick > 0, "seed 42 in MuJoCo v1 geometry is expected to flip; trajectory changed, review needed");
+        Assert.True(flippedAtTick > 0, "seed 19 in MuJoCo v1 geometry is expected to flip; trajectory changed, review needed");
         Assert.True(declaredTick > 0, "a flipped robot must enter INCAPACITATED");
         Assert.True(declaredTick - flippedAtTick <= 30,
             $"flip at tick {flippedAtTick} -> INCAPACITATED at tick {declaredTick} should be within 30 ticks");

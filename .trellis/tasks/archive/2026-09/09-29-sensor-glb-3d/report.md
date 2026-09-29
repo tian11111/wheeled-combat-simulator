@@ -58,6 +58,19 @@ C# P/Invoke + Python ctypes 交叉验证；dll SHA-256 与 `MujocoNative.cs` 门
 - 既有 MuJoCo 回放（1.0.3 时代）按门禁自然失效——预期行为，重训后以新身份重录。
 - `SensorChannel.Height` 为协议 add-only（按 id 引用展开 + 序列化恒写完整 profile），旧 wire 形状不变。
 
+## 追加（09-29 下午）：QACC 数值爆炸修复（桌面目检发现）
+
+- **现象**：桌面 Live 中登台后两车"飞出擂台"。headless 复现 MuJoCo 官方警告 `QACC ... The simulation is unstable`（v2 seed42 在 t=13.19）；用昨日 v2 上线提交对照，**同刻爆炸** → 弹飞是 v2 真车几何自带的数值隐患，非传感器改动引入。
+- **根因**：`timestep=0.005` 对真车 mesh-台沿角接触过粗；全局 `solref timeconst=0.008` 还低于 MuJoCo 稳定经验线 2×timestep=0.01（台面单独用了稳的 0.02，救不了 mesh 角接触）。
+- **修复**：`timestep 0.005 → 0.002`（每 tick 10→25 物理步）。仅软接触（solref 0.02）试验无效（爆炸换 DOF/时刻）已回退。
+- **验证**：seed42 + 10 seeds QACC=0；登台后可在台上停留 25–47 s（修复前 on_stage 与掉台同 tick）；一场 headless 墙钟 2 s（物理 2.5× 步数成本可忽略）。
+- **连锁重校**（物理轨迹全变，逐条人工审）：
+  - `V1ModelSha256` 更新为 `7160897c…`（有意变更，守卫测试即为此设）。
+  - Incapacitated 翻覆守卫 seed 42→19（tmp/flipscan 扫 1..40 选定：724 tick 翻覆 → 5 tick 宣告，30 tick 门内）。
+  - 得分守卫 `OfficialSeed42_ScoresRealBuffWithoutRepeatedUsDrops` **Skip**：新物理暴露 FSM 登台完成语义问题——车心过沿即判上台转 SEARCH，此时车头侧两轮仍悬空 → 反复掉台（v1 14 次/v2 8 次）、RECOVER 超限。守卫语义（真得分+无掉台）在 FSM 重校前无法满足，不反装断言。
+  - 索敌补偿：dt=0.002 下候选 2/4 均不满足旧门（4→6.60s/误差 0.543，2→13.45s/0.578）→ 时延/误差硬门挂起转记录模式，生产默认维持 4.0，候选空间待重扫。
+- **新增决策点**：①FSM 登台后掉台循环治理（登台完成判定 vs 真车轮轴原点几何）；②补偿候选重扫（含 6/8 与门重立）。
+
 ## 披露（低置信/未覆盖）
 
 - 灰度 4 路挂点为工程默认（非 GLB 实测）；巡台探头朝向未编造具体偏角——待实车核对后改数值重跑挂点脚本即可快速更新。

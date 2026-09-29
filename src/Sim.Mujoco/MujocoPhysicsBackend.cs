@@ -16,10 +16,12 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     // 09-25 SEARCH 索敌闭环: 原地转向补偿系数。四轮横向滑动摩擦使原地偏航速率
     // 仅为指令的 ~3%(kv=0.25 为登台柔性所必需, 不能提高); 对 |CmdV|≤0.02 的
     // 原地转向命令放大差速轮目标速度, 使 kv×Δω 重新触及力上限。纵向行驶、
-    // 倒车登台与推块均带纵向命令, 不受影响。受控测试选定 4(候选 2/4/6:
-    // 2 的 90° 对准需 9.45 s 超预算, 6 过冲跳过对准窗口, 4 → <3 s 且误差
-    // 0.032 rad; 轮速仍经 WheelAngularSpeedLimit 截断)。实例字段: 候选对照测试
+    // 倒车登台与推块均带纵向命令, 不受影响。实例字段: 候选对照测试
     // 经 MujocoPhysicsBackendFactory 注入自己的值, 不再改进程级状态。
+    // 选定 4(候选 2/4/6, dt=0.005: 2 的 90° 对准需 9.45 s 超预算, 6 过冲,
+    // 4 → <3 s 且误差 0.032 rad)。2026-09-29 dt=0.002 (QACC 修复) 后旧门在
+    // 候选 2/4 上均无法满足(4 → 6.6 s/误差 0.543, 2 → 13.45 s/0.578), 候选
+    // 空间待重扫; 重扫前维持 4(两候选中更快且误差相当)。
     internal const double DefaultInPlaceTurnCompensation = 4.0;
     private readonly double _inPlaceTurnCompensation;
     // 倾覆判定的阈值: 车体 up 轴与世界 Z 的点积。0.5 = 倾角 60°; 实测正常行驶

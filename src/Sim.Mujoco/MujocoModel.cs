@@ -144,7 +144,7 @@ internal static class MujocoModel
     private static void Header(StringBuilder sb, bool isV2)
     {
         sb.Append("<mujoco model=\"").Append(isV2 ? PhysicsSpec.MujocoModelV2 : PhysicsSpec.MujocoModelV1)
-            .Append("\"><compiler angle=\"radian\"/><option timestep=\"0.005\" gravity=\"0 0 -9.81\" integrator=\"implicitfast\"/>")
+            .Append("\"><compiler angle=\"radian\"/><option timestep=\"0.002\" gravity=\"0 0 -9.81\" integrator=\"implicitfast\"/>")
             .Append("<size njmax=\"2000\" nconmax=\"500\"/><default><geom friction=\"0.85 0.01 0.002\" solref=\"0.008 1\" solimp=\"0.95 0.99 0.001\"/></default>");
     }
 
