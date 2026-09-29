@@ -39,6 +39,30 @@ public sealed record ControllerProfile
     public bool IsExternal => string.Equals(Mode, ControllerModes.External, StringComparison.Ordinal);
 }
 
+/// <summary>
+/// 小车(比赛双方同款真车)参数: 整车质量与驱动电机规格。默认 = 现役车
+/// (博创尚和 2342 开环电机 12V: 减速后 120 RPM / 输出 1.72 N·m; 整车 3.5kg,
+/// 含电池/电机/主控)。轮端极速由转速×轮径严格推导, 应用于 v2 真车几何场景。
+/// </summary>
+public sealed record VehicleSettings
+{
+    /// <summary>整车质量(kg, 含电池/电机/主控)。</summary>
+    public double Mass { get; init; } = 3.5;
+
+    /// <summary>减速箱输出空载转速(RPM)。</summary>
+    public double MotorRpm { get; init; } = 120;
+
+    /// <summary>减速箱输出额定扭矩(N·m)。当前仿真是速度伺服, 该值存档备后续力矩级建模。</summary>
+    public double MotorTorque { get; init; } = 1.72;
+
+    /// <summary>驱动轮半径(m), 装配实测。</summary>
+    public double WheelRadius { get; init; } = 0.0325;
+
+    /// <summary>轮端极速 = rpm/60 × 2π × r (m/s)。派生值, 不随设置文件持久化。</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public double MaxSpeed => MotorRpm / 60.0 * 2 * Math.PI * WheelRadius;
+}
+
 public sealed record DesktopSettings
 {
     public const int CurrentSchemaVersion = 1;
@@ -50,6 +74,8 @@ public sealed record DesktopSettings
     public double UiScale { get; init; } = 1.0;
 
     public Dictionary<string, double> SimulationParameters { get; init; } = new();
+
+    public VehicleSettings Vehicle { get; init; } = new();
 
     public ControllerProfile UsController { get; init; } = new();
 
@@ -92,6 +118,30 @@ public sealed record DesktopSettings
         foreach (var error in SimulationParameterCatalog.Validate(SimulationParameters))
         {
             yield return error;
+        }
+
+        if (Vehicle is null)
+        {
+            yield return "settings: vehicle must be present.";
+        }
+        else
+        {
+            if (!double.IsFinite(Vehicle.Mass) || Vehicle.Mass is < 0.2 or > 20)
+            {
+                yield return "settings: vehicle.mass must be between 0.2 and 20 kg.";
+            }
+            if (!double.IsFinite(Vehicle.MotorRpm) || Vehicle.MotorRpm is < 10 or > 2000)
+            {
+                yield return "settings: vehicle.motorRpm must be between 10 and 2000.";
+            }
+            if (!double.IsFinite(Vehicle.MotorTorque) || Vehicle.MotorTorque is < 0.05 or > 50)
+            {
+                yield return "settings: vehicle.motorTorque must be between 0.05 and 50 N·m.";
+            }
+            if (!double.IsFinite(Vehicle.WheelRadius) || Vehicle.WheelRadius is < 0.005 or > 0.1)
+            {
+                yield return "settings: vehicle.wheelRadius must be between 0.005 and 0.1 m.";
+            }
         }
 
         foreach (var (name, profile) in new[]
@@ -142,6 +192,32 @@ public sealed record DesktopSettings
             merged[key] = value;
         }
         return scenario with { Parameters = merged };
+    }
+
+    /// <summary>
+    /// 应用小车设置(质量 + 轮端极速推导)到 v2 真车几何场景的 us/them。
+    /// 其余场景(legacy/v1)不触碰 —— 既有回放/测试身份逐位不变。
+    /// </summary>
+    public Scenario ApplyVehicleOverrides(Scenario scenario)
+    {
+        ArgumentNullException.ThrowIfNull(scenario);
+        if (scenario.Physics is not { Backend: PhysicsSpec.Mujoco, ModelVersion: PhysicsSpec.MujocoModelV2 })
+        {
+            return scenario;
+        }
+        if (scenario.Vehicles is null || scenario.Vehicles.Count == 0)
+        {
+            return scenario;
+        }
+        var vehicles = new Dictionary<string, VehicleProfile>(scenario.Vehicles, StringComparer.Ordinal);
+        foreach (var role in new[] { RoleNames.Us, RoleNames.Them })
+        {
+            if (vehicles.TryGetValue(role, out var profile))
+            {
+                vehicles[role] = profile with { Mass = Vehicle.Mass, MaxSpeed = Vehicle.MaxSpeed };
+            }
+        }
+        return scenario with { Vehicles = vehicles };
     }
 }
 

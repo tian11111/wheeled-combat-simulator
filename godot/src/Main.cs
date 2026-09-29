@@ -1065,13 +1065,13 @@ public partial class Main : Node
         _scenarioTemplate = string.IsNullOrEmpty(ScenarioPath)
             ? new Scenario { Seed = Seed, Blocks = OfficialLayout.Blocks }
             : ProtocolJson.Deserialize<Scenario>(System.IO.File.ReadAllText(ScenarioPath));
-        return _settings.ApplySimulationParameters(_scenarioTemplate);
+        return _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(_scenarioTemplate));
     }
 
     private Scenario BuildLiveScenarioFromTemplate()
     {
         var template = _scenarioTemplate ?? _session.Engine.Scenario;
-        return _settings.ApplySimulationParameters(template);
+        return _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(template));
     }
 
     /// <summary>
@@ -1611,7 +1611,7 @@ public partial class Main : Node
             ? null
             : new Dictionary<string, double>(_scenarioTemplate.Parameters);
         _scenarioTemplate = scenario with { Parameters = templateParameters };
-        var applied = _settings.ApplySimulationParameters(_scenarioTemplate);
+        var applied = _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(_scenarioTemplate));
         ReplaceSession(applied);
         _pendingMatchSettings = false;
         ApplyScenarioToShell(applied);
