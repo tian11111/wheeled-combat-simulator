@@ -42,7 +42,7 @@ C# P/Invoke + Python ctypes 交叉验证；dll SHA-256 与 `MujocoNative.cs` 门
 | replay-check replays/godot-parity-seed42.json | 通过 | 同上 |
 | mbri 自测 | 通过 | 16/16 |
 | score_block_rl 自测 | 通过 | 44 passed, 0 failed, 8 skipped |
-| Godot 构建+parity | 通过 | 真实 console exe（WinGet 包路径）4.7.2 headless 构建 + parity exit 0；注意 parity 文件需绝对路径（Godot 会切工作目录，相对路径 exit=2） |
+| Godot 构建+parity | ~~通过~~ → **修正：假绿** | 工作流验证时 Godot bin 内是构建前的旧程序集（Sim.Protocol.dll 停在 09-28 23:35，源码 09-29 11:13-12:08 才完成），旧程序集跑 legacy 回放自然位对位。桌面 live 启动实测暴露：旧程序集下场景按 id 简写引用不展开 → 校验拒绝启动。强制 `dotnet build godot/GodotSim.csproj` 后实测零 ERROR、`core=sim-core-1.0.4` Live 运行。教训固化为回归测试 `ScenarioFile_IdOnlySensorReference_ExpandsAndValidates`（419/419 过）。 |
 
 ## 吞吐软门（R5）：未过，按退出准则⑥停
 

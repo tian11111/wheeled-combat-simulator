@@ -88,6 +88,30 @@ public class RoundTripTests
     }
 
     [Fact]
+    public void ScenarioFile_IdOnlySensorReference_ExpandsAndValidates()
+    {
+        // 09-29 桌面回归: 场景文件里 vehicles 按 id 简写引用传感器 profile,
+        // 反序列化必须展开成完整 11 路并通过 Scenario 校验 (Godot live 加载
+        // 走的就是 ProtocolJson.Deserialize<Scenario> 这条路径)。
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "scenarios", "wushu-ring-2026-mujoco-v2.json")))
+        {
+            dir = dir.Parent;
+        }
+        Assert.NotNull(dir);
+        var path = Path.Combine(dir!.FullName, "scenarios", "wushu-ring-2026-mujoco-v2.json");
+        var scenario = ProtocolJson.Deserialize<Scenario>(File.ReadAllText(path));
+        foreach (var role in new[] { "us", "them" })
+        {
+            var sensors = scenario.Vehicles[role].Sensors;
+            Assert.NotNull(sensors);
+            Assert.Equal("wheeledCombat11", sensors!.Id);
+            Assert.Equal(11, sensors.Channels.Count);
+        }
+        Assert.Empty(scenario.Validate());
+    }
+
+    [Fact]
     public void Observation_UsesLegacyWireNames()
     {
         var json = ProtocolJson.Serialize(Samples.Observation());
