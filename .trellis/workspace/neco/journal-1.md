@@ -1147,3 +1147,33 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - 用户拍板重训窗口（v5 身份）或对吞吐门另行决策；桌面目检 v2 场景（尾铲登台/scan 避边/翻覆停车）
+
+
+## Session 34: 小车设置界面与真车电机参数建模（用户指正整车质量）
+
+**Date**: 2026-09-29
+**Task**: 小车设置界面与真车电机参数建模（用户指正整车质量）
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+用户指正: 整车质量旧默认 1kg 漏算电池/电机/主控, 车过轻被顶飞。落地: 3.5kg + 博创尚和 2342 电机真值 (120RPM -> 轮端极速 0.408 m/s; 1.72N·m)、Fsm 行走时限按极速缩放 (legacy 不变)、配重封顶+组3 对 raycast 不可见、设置面板新增“小车”页 (质量/转速/扭矩/轮径可填, 默认 2342+3.5kg, 仅应用 v2 场景)。翻覆 136->11 (-92%), QACC 0, 全量 421 过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `764ad00` | (see git log) |
+| `72f096b` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 421/421+1Skip; 11 seeds v2: 翻覆 11/QACC 0/超限 2; Godot 构建+设置面板零 ERROR
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 桌面目检“小车”页与真车参数行为; 后续方向: Fsm 爬坡姿态控制/坡道几何 (残余 wheelie 翻覆); 力矩级建模可消费扭矩字段

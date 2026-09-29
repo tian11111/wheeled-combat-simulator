@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 33
+- **Total Sessions**: 34
 - **Last Active**: 2026-09-29
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1149 | Active |
+| `journal-1.md` | ~1179 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 34 | 2026-09-29 | 小车设置界面与真车电机参数建模（用户指正整车质量） | `764ad00`, `72f096b` | `test/score-block-ppo-checkpoint-round` |
 | 33 | 2026-09-29 | 传感器真车标定与 3D 化（grilling 共识 + 动态工作流实施） | `d4cb895`, `e667f7b`, `601e8e3`, `cf284df` | `test/score-block-ppo-checkpoint-round` |
 | 32 | 2026-09-28 | MuJoCo 倾覆门控：翻覆后停车等待裁判重启 | `9b12367` | `test/score-block-ppo-checkpoint-round` |
 | 31 | 2026-09-28 | MuJoCo v2：真车几何碰撞体落地 + 轮径纠错 + 登台困难决策 | `c74cd0c` | `test/score-block-ppo-checkpoint-round` |
