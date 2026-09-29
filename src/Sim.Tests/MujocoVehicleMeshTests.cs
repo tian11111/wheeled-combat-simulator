@@ -169,7 +169,8 @@ public class MujocoVehicleMeshTests
         Assert.Equal(0.12185, profile.SideExtent, 9);
         Assert.Equal(0.15, profile.WheelBase, 9);
         Assert.Equal(0.229, profile.TrackWidth, 9);
-        Assert.Equal(1.0, profile.Mass, 9);
+        // 2026-09-29: 真车整车重量(含电池/电机/主控; 旧默认 1kg 漏算, 车过轻被顶飞)。
+        Assert.Equal(3.5, profile.Mass, 9);
     }
 
     [Fact]

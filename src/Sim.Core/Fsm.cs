@@ -302,6 +302,14 @@ public sealed class FsmController
 
     private double MountSpeed() => _params.MountSpeed / 1000 * 0.75;
 
+    /// <summary>
+    /// 行走类时限的速度缩放: 登台/恢复/追块的时限按参考极速 1.5 m/s 标定,
+    /// 真车电机极速更低时(如 2342 减速后 0.408 m/s)同距离需要更长时限。
+    /// 仅在 maxSpeed 低于参考时放大 —— legacy/原场景(1.5) 缩放恒 1, 逐位不变。
+    /// </summary>
+    private static double TimeScale(RobotRuntime r)
+        => Math.Max(1.0, 1.5 / Math.Max(0.05, r.Vehicle.MaxSpeed));
+
     // ---------- crisis gate ----------
 
     private void CrisisGateFor(RobotRuntime r)
@@ -439,7 +447,7 @@ public sealed class FsmController
                     m.Climbed = false;
                     Log(r, $"[fsm] MOUNT_RING: 摆正完成 → 倒车登台({Js.Num(_params.MountSpeed)}/800)");
                 }
-                if (m.T > 5)
+                if (m.T > 5 * TimeScale(r))
                 {
                     m.Phase = "rush";
                     m.T = 0;
@@ -458,7 +466,7 @@ public sealed class FsmController
                     Log(r, $"[fsm] 登台信号: 后向灰度 {Js.ToFixed(r.Sens.GetValueOrDefault("gB"), 0)}>{Js.Num(_params.FallThreshold)} → climbed",
                         kind: EventKind.Mount, data: new { via = "climbed" });
                 }
-                if (m.T > 7)
+                if (m.T > 7 * TimeScale(r))
                 {
                     m.Phase = "rush";
                     m.T = 0;
@@ -492,7 +500,7 @@ public sealed class FsmController
                     m.T = 0;
                     Log(r, "[fsm] 触发丢失: 铲前红外丢信号 = climbed → 正向登台");
                 }
-                if (m.T > 3.5)
+                if (m.T > 3.5 * TimeScale(r))
                 {
                     m.Phase = "backoff";
                     m.T = 0;
@@ -505,7 +513,7 @@ public sealed class FsmController
             case "fwdMount":
                 SetAct(r, "正向登台");
                 r.V = 0.9;
-                if (m.T > 3)
+                if (m.T > 3 * TimeScale(r))
                 {
                     m.Phase = "backoff";
                     m.T = 0;
@@ -525,7 +533,7 @@ public sealed class FsmController
                 {
                     r.V = 0;
                     RotateTo(r, r.Th + (m.Faces % 2 != 0 ? -1 : 1) * Math.PI / 2, 1.6, 0.1);
-                    if (m.BackoffT > 1.7)
+                    if (m.BackoffT > 1.7 * TimeScale(r))
                     {
                         m.Faces++;
                         m.T = 0;
@@ -567,7 +575,7 @@ public sealed class FsmController
                         m.FwdAltAligned = true;
                         m.T = 0;
                     }
-                    if (m.T > 4)
+                    if (m.T > 4 * TimeScale(r))
                     {
                         m.FwdAltAligned = false;
                         m.T = 0;
@@ -576,7 +584,7 @@ public sealed class FsmController
                 else
                 {
                     r.V = 1.0;
-                    if (m.T > 8)
+                    if (m.T > 8 * TimeScale(r))
                     {
                         Log(r, "[fsm] MOUNT_RING: 正冲备选失败, 放弃登台", "warn");
                         ToDoneFor(r, "登台失败");
@@ -603,7 +611,7 @@ public sealed class FsmController
                     Log(r, "[fsm] RECOVER: 倒车回台成功 → SEARCH", kind: EventKind.Recover);
                     EnterSearchFor(r);
                 }
-                else if (rc.T > 4)
+                else if (rc.T > 4 * TimeScale(r))
                 {
                     rc.T = 0;
                     Log(r, "[fsm] RECOVER: 回台超时 → 重新摆位");
@@ -626,7 +634,7 @@ public sealed class FsmController
                     r.Fsm.Mount = new MountState();
                     Log(r, "[fsm] RECOVER: 屁股已对准擂台 → 姿态登台");
                 }
-                if (rc.T > 5)
+                if (rc.T > 5 * TimeScale(r))
                 {
                     rc.Phase = "edgeback";
                     rc.T = 0;
@@ -651,7 +659,7 @@ public sealed class FsmController
                 var tgt = (X: lx, Y: ly);
                 DriveToward(r, tgt, 0.7, 1.2);
                 var dist = Js.Hypot(tgt.Item1 - r.X, tgt.Item2 - r.Y);
-                if (dist < 0.2 || rc.T > 2.5)
+                if (dist < 0.2 || rc.T > 2.5 * TimeScale(r))
                 {
                     rc.Count++;
                     Log(r, $"[fsm] RECOVER: 贴边回中完成(第{rc.Count}次) → 重新摆位");
@@ -919,7 +927,7 @@ public sealed class FsmController
                 var gx = d.X + pvx / n * 0.7 * sc.Side;
                 var gy = d.Y + pvy / n * 0.7 * sc.Side;
                 DriveToward(r, (gx, gy), 0.9, 2.0);
-                if (Js.Hypot(gx - r.X, gy - r.Y) < 0.25 || sc.T > 4)
+                if (Js.Hypot(gx - r.X, gy - r.Y) < 0.25 || sc.T > 4 * TimeScale(r))
                 {
                     Log(r, "[fsm] 绕行完成 → 继续扫描");
                     sc.Phase = "scan";

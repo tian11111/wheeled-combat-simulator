@@ -309,6 +309,10 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     /// <summary>自身遮挡穿透上限: chassis + shovel + 轮最多遮少数几层。</summary>
     private const int MaxSelfHits = 4;
 
+    /// <summary>mj_ray 组掩码: 组 0-2 参与(场地/块/车体), 组 3+ 不参与(如配重辅助
+    /// geom, 物理不可碰也不应被传感器看到)。与旧 null(全组)在既有场景等效(全部 geom 在组 0)。</summary>
+    private static readonly byte[] RayGroups = [1, 1, 1, 0, 0, 0];
+
     private SensorProbe? ProbeRay3D(ProbeQuery query)
     {
         // 已知边界(记录备查): 传感器采样在 Tick 内 Step 之前执行, _data 自上个
@@ -329,7 +333,7 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
                 query.Y + beam[1] * advance,
                 query.Z + beam[2] * advance,
             };
-            var t = MujocoNative.Ray(_model, _data, pnt, beam, null, 1, -1, geomId, normal);
+            var t = MujocoNative.Ray(_model, _data, pnt, beam, RayGroups, 1, -1, geomId, normal);
             if (t < 0)
             {
                 return null; // 未命中

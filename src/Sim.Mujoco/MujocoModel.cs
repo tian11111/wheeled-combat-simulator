@@ -43,11 +43,12 @@ internal static class MujocoModel
     internal const double WheelMassV2 = 0.03;
     internal const double ShovelMassV2 = 0.02;
     /// <summary>
-    /// 真车配重质量(kg): mesh 默认惯性把质心放在几何中部(偏高), 真车电池/电机贴
-    /// 底盘。用无碰撞配重块把整车质心拉到轮轴上方 ~9mm, 抑制登台/旋转翻覆
-    /// (2026-09-29: 翻覆率实测驱动)。配重从 chassis mesh 质量中扣除, 总质量不变。
+    /// 车底重物质量(kg, 电池/电机/主控): mesh 默认惯性把质心放在几何中部(偏高),
+    /// 真车重物贴底盘。2026-09-29: 整车质量此前沿用 1kg 旧默认(漏算电池/电机/
+    /// 主控 → 车过轻被顶飞); v2 场景整车 2.5kg, 其中 0.9kg 作为底部配重从
+    /// chassis mesh 质量中扣除(总质量不变), 质心拉到轮轴上方 ~9mm。
     /// </summary>
-    internal const double ChassisBallastV2 = 0.35;
+    internal const double ChassisBallastV2 = 0.9;
     /// <summary>v1 的轮/铲质量(历史字面量, 与 v2 数值相同但语义独立, 不得随之改动)。</summary>
     internal const double WheelMassV1 = 0.03;
     /// <summary>轮心(车体局部系, 实测): 前 x=+0.0730 / 后 x=−0.0770(轴距 0.150)。</summary>
@@ -292,12 +293,16 @@ internal static class MujocoModel
             .Append(N(r.X)).Append(' ').Append(N(r.Y)).Append(' ').Append(N(z))
             .Append("\" euler=\"0 0 ").Append(N(r.Th)).Append("\"><freejoint name=\"robot_joint_")
             .Append(r.Role).Append("\"/>");
+        // 配重按可分配车体质量封顶: 轻车(默认 1kg)下 0.9 会超过 chassis 质量;
+        // 真车 3.5kg 时取满 (chassisMass=2.36)。见 ChassisBallastV2 注释。
+        var ballast = Math.Min(ChassisBallastV2, chassisMass * 0.7);
         sb.Append("<geom name=\"robot_chassis_").Append(r.Role).Append("\" type=\"mesh\" mesh=\"")
-            .Append(Meshes[0].Geom).Append("\" mass=\"").Append(N(chassisMass - ChassisBallastV2)).Append("\"/>");
-        // 真车配重(无碰撞): 贴车底内侧, 把整车质心拉低(见 ChassisBallastV2 注释)。
+            .Append(Meshes[0].Geom).Append("\" mass=\"").Append(N(chassisMass - ballast)).Append("\"/>");
+        // 真车配重(无碰撞、组 3): 贴车底内侧, 把整车质心拉低; 组 3 使传感器
+        // raycast(mj_ray 组掩码 0-2)完全不可见。
         sb.Append("<geom name=\"robot_ballast_").Append(r.Role)
             .Append("\" type=\"box\" pos=\"0 0 -0.0008\" size=\"0.06 0.08 0.0015\" mass=\"")
-            .Append(N(ChassisBallastV2)).Append("\" contype=\"0\" conaffinity=\"0\"/>");
+            .Append(N(ballast)).Append("\" group=\"3\" contype=\"0\" conaffinity=\"0\"/>");
         sb.Append("<geom name=\"robot_shovel_").Append(r.Role).Append("\" type=\"mesh\" mesh=\"")
             .Append(Meshes[1].Geom).Append("\" mass=\"").Append(N(ShovelMassV2)).Append("\"/>");
         // v2 轮摩擦与 v1 一致(1.5); 摩擦降档(1.0)单变量试验把翻覆数从 84 抬到 129
