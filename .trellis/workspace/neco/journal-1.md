@@ -1115,3 +1115,35 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 
 - 半悬/卡死判定与 v2 几何翻覆率测量(未覆盖项)
 - 如需推送: git push origin test/score-block-ppo-checkpoint-round
+
+
+## Session 33: 传感器真车标定与 3D 化（grilling 共识 + 动态工作流实施）
+
+**Date**: 2026-09-29
+**Task**: 传感器真车标定与 3D 化（grilling 共识 + 动态工作流实施）
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+换车模后传感器未随动的问题按 grilling 三轮共识三层全做：挂点真值取装配.glb 光电节点（双实现交叉校验）、通道对齐真车 11 路、MuJoCo 传感器改 mj_ray 打真实几何（探针先行验证），legacy 平面退化位不变。CoreVersion 1.0.4 并入 v2 重训身份。验证矩阵 6/6；评审抓到 3D 光束 yaw 双算并修复。吞吐软门 -99.35%：归因是 3D 传感器语义改变 FSM 行为引发 reset 风暴（旧 v4 策略行为崩坏），非 raycast 开销——按退出准则⑥停，等重训窗口决策。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d4cb895` | (see git log) |
+| `e667f7b` | (see git log) |
+| `601e8e3` | (see git log) |
+| `cf284df` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 418/418；replay-check seed-42 与 godot-parity PASS；mbri 16/16；score_block_rl 44 passed；Godot headless 构建+parity exit 0
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 用户拍板重训窗口（v5 身份）或对吞吐门另行决策；桌面目检 v2 场景（尾铲登台/scan 避边/翻覆停车）
