@@ -17,11 +17,18 @@ public static class VisionReplaySchemas
     /// <summary>Evaluation (link quality + policy consumption) report contract tag.</summary>
     public const string VisionReplayReportFormat = "vision-replay-report-v1";
 
+    /// <summary>Live-bridge session report contract tag (`vision live`).</summary>
+    public const string VisionLiveReportFormat = "vision-live-bridge-report-v1";
+
     /// <summary>Vision mode written to ReplayHeader.VisionMode when the replay adapter is injected.</summary>
     public const string VisionMode = "visionReplay";
 
-    /// <summary>Allowed MBri vision_status values (kept verbatim from the source CSV).</summary>
-    public static readonly string[] Statuses = ["target", "no_target", "error", "no_data_or_stale"];
+    /// <summary>
+    /// Allowed MBri vision_status values (kept verbatim from the source CSV). One
+    /// vocabulary only: the live-stream contract holds the same set, so the CSV
+    /// dialect and the JSONL stream cannot drift apart.
+    /// </summary>
+    public static readonly string[] Statuses = [.. Core.VisionStreamFrame.Statuses];
 
     /// <summary>The evidence grade of every Phase A import: no per-frame ground truth exists.</summary>
     public const string EvidenceOnly = "evidence_only";

@@ -897,8 +897,9 @@ public sealed class MatchEngine : IDisposable
 
     /// <summary>
     /// Vision metadata: the default classifyRate stub keeps its legacy
-    /// "default" shape (bit-compatibility); the injected replay adapter
-    /// reports the visionReplay mode plus its consumption registry.
+    /// "default" shape (bit-compatibility); the injected replay adapter reports
+    /// the visionReplay mode plus its consumption registry; the live bridge reports
+    /// its own mode (it never uses the classifyRate stub parameters).
     /// </summary>
     private VisionInfo BuildVisionInfo()
     {
@@ -909,6 +910,10 @@ public sealed class MatchEngine : IDisposable
                 Mode = VisionReplayAdapter.ModeName,
                 External = replay.BuildExternalSnapshot(),
             };
+        }
+        if (_vision is LiveVisionBridge)
+        {
+            return new VisionInfo { Mode = LiveVisionBridge.ModeName };
         }
         return new VisionInfo
         {
@@ -1071,7 +1076,14 @@ public sealed class MatchEngine : IDisposable
         RulesetId = _scenario.Id,
         Seed = _scenario.Seed,
         CoreVersion = CoreVersion,
-        VisionMode = _vision is VisionReplayAdapter ? VisionReplayAdapter.ModeName : "default",
+        VisionMode = _vision switch
+        {
+            VisionReplayAdapter => VisionReplayAdapter.ModeName,
+            // live 桥场次: 帧到达依赖外部时序, 普通 replay 录制/复现对其无效
+            // (由 MatchEngineHost.EnsureRecordable 拒绝并指路 sidecar 证据包)。
+            LiveVisionBridge => LiveVisionBridge.ModeName,
+            _ => "default",
+        },
         VisionEvidenceId = _vision is VisionReplayAdapter evidence ? evidence.EvidenceId : null,
         VisionEvidenceSha256 = _vision is VisionReplayAdapter sha ? sha.EvidenceSha256 : null,
         PhysicsBackend = _physics.BackendId == PhysicsSpec.Mujoco ? _physics.BackendId : null,

@@ -27,6 +27,16 @@ public static class VisionReplayIO
     /// <summary>Artifact name of the archived import report inside an evidence directory.</summary>
     public const string ImportReportFileName = "import-report.json";
 
+    /// <summary>
+    /// Hard size cap for ONE source CSV, shared by the importer and the live CSV
+    /// stream (CsvStreamSource): a larger input is refused up front instead of
+    /// being read into memory.
+    /// </summary>
+    public const long MaxSourceFileBytes = 128L * 1024 * 1024;
+
+    /// <summary>Human-readable form of <see cref="MaxSourceFileBytes"/> for messages/tests.</summary>
+    public const string MaxSourceFileBytesLabel = "128MB";
+
     public static string Sha256Hex(byte[] bytes)
         => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 
@@ -45,6 +55,14 @@ public static class VisionReplayIO
 
     /// <summary>Serialize with the content fingerprint set (generatedAt excluded from the hash).</summary>
     public static VisionReplayReport Fingerprint(VisionReplayReport report, string? generatedAt)
+    {
+        var content = report with { GeneratedAt = null, ContentSha256 = null };
+        var hash = Sha256Hex(ProtocolJson.Serialize(content));
+        return report with { GeneratedAt = generatedAt, ContentSha256 = hash };
+    }
+
+    /// <summary>Serialize with the content fingerprint set (generatedAt excluded from the hash).</summary>
+    public static VisionLiveBridgeReport Fingerprint(VisionLiveBridgeReport report, string? generatedAt)
     {
         var content = report with { GeneratedAt = null, ContentSha256 = null };
         var hash = Sha256Hex(ProtocolJson.Serialize(content));

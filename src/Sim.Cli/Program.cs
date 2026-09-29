@@ -182,6 +182,8 @@ public static class Program
             DoneReason = result.DoneReason,
             EventFingerprints = result.EventFingerprints,
         };
+        // 决策⑥ 门禁: live 桥场次不可作为普通 replay 录制(校验失败零产出, 提示指路 sidecar)。
+        MatchEngineHost.EnsureRecordable(file.Header);
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(options.Out))!);
         File.WriteAllText(options.Out, ProtocolJson.Serialize(file));
         PrintResult(result);
@@ -316,6 +318,12 @@ public static class Program
               dotnet run --project src/Sim.Cli -- vision evaluate --evidence <dir>
                          --scenario scenarios/wushu-ring-2026.json --out calibration/vision-eval.json
                          [--max-age-ms 500] [--session <file>] [--json] [--force]
+              dotnet run --project src/Sim.Cli -- vision live --source <csv>
+                         --scenario scenarios/wushu-ring-2026.json --out calibration/vision-live.json
+                         [--max-age-ms 500] [--json] [--force]
+              dotnet run --project src/Sim.Cli -- vision live --process "<命令行>"
+                         --scenario scenarios/wushu-ring-2026.json --out calibration/vision-live-process.json
+                         [--realtime 1x] [--max-age-ms 500] [--json] [--force]
 
             说明:
               --controller-* 启动外部策略进程（JSONL stdio 协议, decide(obs) -> {"v":..,"w":..});
