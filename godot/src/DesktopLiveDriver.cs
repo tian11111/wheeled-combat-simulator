@@ -41,6 +41,7 @@ public sealed class DesktopLiveDriver : IDisposable
     private readonly Scenario _scenario;
     private readonly ControllerProfile _usProfile;
     private readonly ControllerProfile _themProfile;
+    private readonly Func<IVisionAdapter?>? _visionFactory;
     private readonly BlockingCollection<DriverCommand> _commands = new(128);
     private readonly ConcurrentQueue<Snapshot> _snapshots = new();
     private readonly ManualResetEventSlim _wake = new(false);
@@ -57,10 +58,16 @@ public sealed class DesktopLiveDriver : IDisposable
     private int _stopRequested;
     private int _disposed;
 
-    public DesktopLiveDriver(Scenario scenario, ControllerProfile? usProfile, ControllerProfile? themProfile)
+    /// <param name="visionFactory">
+    /// 每场一次的视觉源工厂(null = 默认 classifyRate 桩): driver 自建引擎, 必须与
+    /// 桌面 MatchSession 用同一份工厂, 否则外部控制器实况与渲染线程看到的视觉源不同。
+    /// </param>
+    public DesktopLiveDriver(Scenario scenario, ControllerProfile? usProfile, ControllerProfile? themProfile,
+        Func<IVisionAdapter?>? visionFactory = null)
     {
         ArgumentNullException.ThrowIfNull(scenario);
         _scenario = scenario;
+        _visionFactory = visionFactory;
         _usProfile = usProfile ?? new ControllerProfile();
         _themProfile = themProfile ?? new ControllerProfile();
         _status = new DesktopLiveStatus(
@@ -150,7 +157,7 @@ public sealed class DesktopLiveDriver : IDisposable
     {
         try
         {
-            _engine = MatchEngineHost.Create(_scenario);
+            _engine = MatchEngineHost.Create(_scenario, _visionFactory?.Invoke());
             _usBridge = StartBridge(_usProfile, RoleNames.Us);
             _themBridge = StartBridge(_themProfile, RoleNames.Them);
             PublishStatus();

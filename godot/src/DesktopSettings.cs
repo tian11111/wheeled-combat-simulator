@@ -4,6 +4,7 @@
 
 using Sim.Core;
 using Sim.Protocol;
+using Sim.VisionReplay;
 
 namespace Sim.GodotShell;
 
@@ -17,6 +18,18 @@ public static class DisplayModes
 {
     public const string Windowed = "windowed";
     public const string Fullscreen = "fullscreen";
+}
+
+public static class VisionSources
+{
+    /// <summary>默认: 不注入 adapter, 引擎内部 ClassifyRateVision 随机桩 ⇒ 行为逐位不变。</summary>
+    public const string ClassifyRate = "classifyRate";
+
+    /// <summary>既有证据包回放: 哈希锁定读包 → VisionReplayAdapter(与 `vision evaluate` 同一实现)。</summary>
+    public const string VisionReplay = "visionReplay";
+
+    /// <summary>真车 CSV 检测流的实时桥: CsvStreamSource + LiveVisionBridge。</summary>
+    public const string LiveBridge = "liveBridge";
 }
 
 public sealed record WindowSettings
@@ -63,6 +76,26 @@ public sealed record VehicleSettings
     public double MaxSpeed => MotorRpm / 60.0 * 2 * Math.PI * WheelRadius;
 }
 
+/// <summary>
+/// 桌面视觉源三选一(外部进程源不进桌面, CLI-only)。默认 classifyRate = 不注入
+/// adapter(引擎内部随机桩, 行为逐位不变); visionReplay 读显式证据包目录;
+/// liveBridge 读显式真车 CSV 并按固定 maxAgeMs 窗口供帧。
+/// </summary>
+public sealed record VisionSettings
+{
+    /// <summary>classifyRate | visionReplay | liveBridge。</summary>
+    public string Source { get; init; } = VisionSources.ClassifyRate;
+
+    /// <summary>visionReplay 的证据包目录(frames.jsonl + import-report.json)。</summary>
+    public string EvidencePath { get; init; } = "";
+
+    /// <summary>liveBridge 的真车 MBri hunt 方言 CSV 路径。</summary>
+    public string CsvPath { get; init; } = "";
+
+    /// <summary>帧过期窗口(ms): 旧于窗口的帧返回 unknown("stale")。默认与 CLI 同值。</summary>
+    public double MaxAgeMs { get; init; } = LiveVisionBridge.DefaultMaxAgeMs;
+}
+
 public sealed record DesktopSettings
 {
     public const int CurrentSchemaVersion = 1;
@@ -76,6 +109,8 @@ public sealed record DesktopSettings
     public Dictionary<string, double> SimulationParameters { get; init; } = new();
 
     public VehicleSettings Vehicle { get; init; } = new();
+
+    public VisionSettings Vision { get; init; } = new();
 
     public ControllerProfile UsController { get; init; } = new();
 
@@ -141,6 +176,30 @@ public sealed record DesktopSettings
             if (!double.IsFinite(Vehicle.WheelRadius) || Vehicle.WheelRadius is < 0.005 or > 0.1)
             {
                 yield return "settings: vehicle.wheelRadius must be between 0.005 and 0.1 m.";
+            }
+        }
+
+        if (Vision is null)
+        {
+            yield return "settings: vision must be present.";
+        }
+        else
+        {
+            if (Vision.Source is not (VisionSources.ClassifyRate or VisionSources.VisionReplay or VisionSources.LiveBridge))
+            {
+                yield return $"settings: unsupported vision.source '{Vision.Source}'.";
+            }
+            if (Vision.Source == VisionSources.VisionReplay && string.IsNullOrWhiteSpace(Vision.EvidencePath))
+            {
+                yield return "settings: vision.evidencePath is required for the visionReplay source.";
+            }
+            if (Vision.Source == VisionSources.LiveBridge && string.IsNullOrWhiteSpace(Vision.CsvPath))
+            {
+                yield return "settings: vision.csvPath is required for the liveBridge source.";
+            }
+            if (!double.IsFinite(Vision.MaxAgeMs) || Vision.MaxAgeMs is < 1 or > 5000)
+            {
+                yield return "settings: vision.maxAgeMs must be between 1 and 5000.";
             }
         }
 
@@ -218,6 +277,41 @@ public sealed record DesktopSettings
             }
         }
         return scenario with { Vehicles = vehicles };
+    }
+
+    /// <summary>
+    /// 按视觉设置构造"每场一次"的视觉源工厂: 默认 classifyRate 返回 null —— 不注入
+    /// adapter, 引擎内部照旧构造 ClassifyRateVision(默认链路逐位不变)。只有显式选择
+    /// visionReplay/liveBridge 时才读取证据包/CSV, 且构造工厂时先整体预检一次
+    /// (路径/哈希/方言/行级校验), 失败立即抛出 —— 壳层据此在"应用设置"时高声报错并
+    /// 停下, 绝不静默换源。适配器带每场消费台账与 SimT 0 基准, 故工厂每次调用都新建
+    /// 实例, 绝不跨场复用(与 VehicleSettings.ApplyVehicleOverrides 同样的"仅显式
+    /// 非默认设置才生效"范围语义)。
+    /// </summary>
+    public Func<IVisionAdapter?>? CreateVisionFactory()
+    {
+        var vision = Vision ?? new VisionSettings();
+        switch (vision.Source)
+        {
+            case VisionSources.ClassifyRate:
+                return null;
+            case VisionSources.VisionReplay:
+            {
+                var package = VisionEvidencePackage.Load(vision.EvidencePath);
+                var session = package.SelectSession(null);
+                return () => package.CreateAdapter(session, vision.MaxAgeMs);
+            }
+            case VisionSources.LiveBridge:
+            {
+                // 预检一次让坏路径/非方言 CSV 在"应用设置"时暴露; 源带释放游标, 每场
+                // 必须从磁盘重读(第二次走 OS 缓存, 只剩解析成本), 不复用游标。
+                _ = CsvStreamSource.Load(vision.CsvPath);
+                return () => new LiveVisionBridge(CsvStreamSource.Load(vision.CsvPath), vision.MaxAgeMs);
+            }
+            default:
+                throw new InvalidOperationException(
+                    $"settings: unsupported vision.source '{vision.Source}' (Validate 应先拦截)。");
+        }
     }
 }
 

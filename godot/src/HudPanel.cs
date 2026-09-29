@@ -187,13 +187,22 @@ public partial class HudPanel : Control
     /// </summary>
     public void ShowPreflightNotice(string role, bool ok, string message)
     {
+        var roleLabel = role == RoleNames.Us ? "我方" : "对手";
+        ShowNotice($"预检 {roleLabel} {(ok ? "通过" : "失败")} · {message}", ok);
+    }
+
+    /// <summary>
+    /// 壳层级提示(设置保存/视觉源装配/驱动): 与预检共用同一条状态行, 下一场开赛后
+    /// 由 driver 状态自然覆盖。只做呈现, 不参与任何仿真状态。
+    /// </summary>
+    public void ShowNotice(string message, bool ok)
+    {
         if (_controllerStatus is null)
         {
             return;
         }
-        var roleLabel = role == RoleNames.Us ? "我方" : "对手";
         _controllerStatus.Visible = true;
-        _controllerStatus.Text = $"预检 {roleLabel} {(ok ? "通过" : "失败")} · {message}";
+        _controllerStatus.Text = message;
         _controllerStatus.AddThemeColorOverride("font_color", ok ? AccentGreen : AccentRed);
     }
 

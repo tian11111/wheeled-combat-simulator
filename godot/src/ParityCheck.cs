@@ -43,6 +43,13 @@ public static class ParityCheck
             };
         }
 
+        // 决策⑥ 门禁: live 桥场次的帧到达依赖外部时序, 动作流复现无效 — 以失败报告
+        // 明确拒绝并指路 sidecar(本方法契约是"永不抛")。
+        if (file.Header.VisionMode == LiveVisionBridge.ModeName)
+        {
+            return new ParityReport { Pass = false, Error = MatchEngineHost.LiveBridgeReplayRefusal };
+        }
+
         using var engine = MatchEngineHost.CreateForReplay(file);
         var actionsByTick = file.Header.Ticks.ToDictionary(t => t.Tick, t => t.Actions);
         var commandsByTick = file.Header.Ticks

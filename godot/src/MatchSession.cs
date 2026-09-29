@@ -28,13 +28,21 @@ public sealed class MatchSession : IDisposable
     // replay ended with — the reset scenario always represents the current
     // live match.
     private Scenario _scenario;
+    private readonly Func<IVisionAdapter?>? _visionFactory;
     private readonly Queue<Snapshot> _pending = new();
     private double _accumulator;
 
-    public MatchSession(Scenario scenario)
+    /// <param name="scenario">Live scenario the session resets to.</param>
+    /// <param name="visionFactory">
+    /// 每场一次的视觉源工厂(null = 默认 classifyRate 桩, 行为逐位不变)。适配器带
+    /// 本场消费台账与 SimT 0 基准, 不能跨场复用, 故构造与 ResetToLive 各自调用一次
+    /// 工厂新建实例 —— 由 DesktopSettings.CreateVisionFactory 决定三源之一。
+    /// </param>
+    public MatchSession(Scenario scenario, Func<IVisionAdapter?>? visionFactory = null)
     {
         _scenario = scenario;
-        Engine = MatchEngineHost.Create(scenario);
+        _visionFactory = visionFactory;
+        Engine = MatchEngineHost.Create(scenario, visionFactory?.Invoke());
     }
 
     public MatchEngine Engine { get; private set; }
@@ -145,7 +153,7 @@ public sealed class MatchSession : IDisposable
     /// <summary>Rebuilds a fresh engine for the same scenario (reset same seed).</summary>
     public void ResetToLive()
     {
-        var next = MatchEngineHost.Create(_scenario);
+        var next = MatchEngineHost.Create(_scenario, _visionFactory?.Invoke());
         var previous = Engine;
         Engine = next;
         previous.Dispose();

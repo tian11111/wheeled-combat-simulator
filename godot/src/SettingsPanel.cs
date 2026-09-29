@@ -36,6 +36,11 @@ public partial class SettingsPanel : Control
     private SpinBox? _vehicleTorque;
     private SpinBox? _vehicleWheelRadius;
     private Label? _vehicleNote;
+    private OptionButton? _visionSource;
+    private LineEdit? _visionEvidencePath;
+    private LineEdit? _visionCsvPath;
+    private SpinBox? _visionMaxAge;
+    private Label? _visionNote;
     private OptionButton? _usMode;
     private LineEdit? _usCommand;
     private SpinBox? _usTimeout;
@@ -101,8 +106,8 @@ public partial class SettingsPanel : Control
         if (_pendingNote is not null)
         {
             _pendingNote.Text = pendingSimulationChanges
-                ? "已有仿真/控制器修改待下一场生效 · F5 可立即重置并应用"
-                : "显示设置立即生效 · 仿真与控制器设置在下一场或 F5 重置后生效";
+                ? "已有仿真/控制器/视觉修改待下一场生效 · F5 可立即重置并应用"
+                : "显示设置立即生效 · 仿真/控制器/视觉设置在下一场或 F5 重置后生效";
         }
         ClearError();
         Visible = true;
@@ -180,9 +185,11 @@ public partial class SettingsPanel : Control
         tabs.SetTabTitle(2, "小车控制器");
         tabs.AddChild(BuildVehiclePage());
         tabs.SetTabTitle(3, "小车");
+        tabs.AddChild(BuildVisionPage());
+        tabs.SetTabTitle(4, "视觉");
 
         _pendingNote = AddLabel(root,
-            "显示设置立即生效 · 仿真与控制器设置在下一场或 F5 重置后生效",
+            "显示设置立即生效 · 仿真/控制器/视觉设置在下一场或 F5 重置后生效",
             11, Yellow);
         _pendingNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 
@@ -487,6 +494,30 @@ public partial class SettingsPanel : Control
         }
         UpdateVehicleNote();
 
+        var vision = settings.Vision ?? new VisionSettings();
+        if (_visionSource is not null)
+        {
+            _visionSource.Select(vision.Source switch
+            {
+                VisionSources.VisionReplay => 1,
+                VisionSources.LiveBridge => 2,
+                _ => 0,
+            });
+        }
+        if (_visionEvidencePath is not null)
+        {
+            _visionEvidencePath.Text = vision.EvidencePath;
+        }
+        if (_visionCsvPath is not null)
+        {
+            _visionCsvPath.Text = vision.CsvPath;
+        }
+        if (_visionMaxAge is not null)
+        {
+            _visionMaxAge.Value = vision.MaxAgeMs;
+        }
+        UpdateVisionInputs();
+
         var values = settings.SimulationParameters ?? new Dictionary<string, double>();
         foreach (var definition in SimulationParameterCatalog.All)
         {
@@ -556,6 +587,13 @@ public partial class SettingsPanel : Control
                 MotorRpm = _vehicleRpm?.Value ?? 120,
                 MotorTorque = _vehicleTorque?.Value ?? 1.72,
                 WheelRadius = _vehicleWheelRadius?.Value ?? 0.0325,
+            },
+            Vision = new VisionSettings
+            {
+                Source = SelectedVisionSource(),
+                EvidencePath = _visionEvidencePath?.Text.Trim() ?? "",
+                CsvPath = _visionCsvPath?.Text.Trim() ?? "",
+                MaxAgeMs = _visionMaxAge?.Value ?? LiveVisionBridge.DefaultMaxAgeMs,
             },
             UsController = ReadController(_usMode, _usCommand, _usTimeout),
             ThemController = ReadController(_themMode, _themCommand, _themTimeout),
@@ -636,6 +674,104 @@ public partial class SettingsPanel : Control
             + "扭矩当前仅存档（仿真为速度伺服）。";
     }
 
+    private Control BuildVisionPage()
+    {
+        var page = MakePage();
+        AddLabel(page, "视觉源", 16, Primary);
+        AddLabel(page,
+            "三选一：默认识别率模型不注入外部源（行为与既有比赛逐位一致）；证据包回放与实时 CSV 桥读取本机文件，"
+            + "下一场或 F5 重置后生效（外部进程源仅 CLI 可用，不进桌面）。",
+            11, Secondary);
+
+        var grid = new GridContainer { Columns = 2, CustomMinimumSize = new Vector2(0, 210) };
+        grid.AddThemeConstantOverride("h_separation", 18);
+        grid.AddThemeConstantOverride("v_separation", 10);
+        page.AddChild(grid);
+
+        AddLabel(grid, "视觉来源", 12, Secondary);
+        _visionSource = MakeOption(
+            ("默认识别率（classifyRate）", VisionSources.ClassifyRate),
+            ("证据包回放（visionReplay）", VisionSources.VisionReplay),
+            ("实时 CSV 桥（liveBridge）", VisionSources.LiveBridge));
+        grid.AddChild(_visionSource);
+
+        AddLabel(grid, "证据包目录", 12, Secondary);
+        _visionEvidencePath = MakePathInput("例如：vision/evidence-mini（含 frames.jsonl + import-report.json）");
+        grid.AddChild(_visionEvidencePath);
+
+        AddLabel(grid, "真车 CSV 路径", 12, Secondary);
+        _visionCsvPath = MakePathInput("例如：vision/hunt_drive_20260817_095205.csv（MBri 73 列方言）");
+        grid.AddChild(_visionCsvPath);
+
+        AddLabel(grid, "帧过期窗口", 12, Secondary);
+        _visionMaxAge = MakeSpin(1, 5000, 1, "ms");
+        grid.AddChild(_visionMaxAge);
+
+        _visionSource.ItemSelected += _ => UpdateVisionInputs();
+        if (_visionMaxAge is not null)
+        {
+            _visionMaxAge.ValueChanged += _ => UpdateVisionNote();
+        }
+        if (_visionEvidencePath is not null)
+        {
+            _visionEvidencePath.TextChanged += _ => UpdateVisionNote();
+        }
+        if (_visionCsvPath is not null)
+        {
+            _visionCsvPath.TextChanged += _ => UpdateVisionNote();
+        }
+
+        _visionNote = AddLabel(page, "", 12, Blue);
+        _visionNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        UpdateVisionInputs();
+
+        page.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
+        return page;
+    }
+
+    /// <summary>只让当前来源用到的输入可编辑；默认源的两个路径框保持可见但禁用。</summary>
+    private void UpdateVisionInputs()
+    {
+        var source = SelectedVisionSource();
+        if (_visionEvidencePath is not null)
+        {
+            _visionEvidencePath.Editable = source == VisionSources.VisionReplay;
+        }
+        if (_visionCsvPath is not null)
+        {
+            _visionCsvPath.Editable = source == VisionSources.LiveBridge;
+        }
+        if (_visionMaxAge is not null)
+        {
+            _visionMaxAge.Editable = source != VisionSources.ClassifyRate;
+        }
+        UpdateVisionNote();
+    }
+
+    private void UpdateVisionNote()
+    {
+        if (_visionNote is null)
+        {
+            return;
+        }
+        var maxAge = _visionMaxAge?.Value ?? LiveVisionBridge.DefaultMaxAgeMs;
+        _visionNote.Text = SelectedVisionSource() switch
+        {
+            VisionSources.VisionReplay =>
+                $"证据包回放：哈希锁定读包后按 {maxAge:0} ms 窗口供帧；包缺文件或哈希不一致会在应用设置时直接报错。",
+            VisionSources.LiveBridge =>
+                $"实时 CSV 桥：按仿真时间释放真车检测流，帧龄超过 {maxAge:0} ms 记 stale（unknown）；路径不可用会在应用设置时直接报错。",
+            _ => "默认视觉源：引擎内部识别率模型（classifyRate），不注入外部源，行为与既有比赛逐位一致。",
+        };
+    }
+
+    private string SelectedVisionSource() => (_visionSource?.Selected ?? 0) switch
+    {
+        1 => VisionSources.VisionReplay,
+        2 => VisionSources.LiveBridge,
+        _ => VisionSources.ClassifyRate,
+    };
+
     private void RestoreDefaults()
     {
         _settings = DesktopSettings.Default;
@@ -695,6 +831,20 @@ public partial class SettingsPanel : Control
         };
         ApplySpinTheme(spin);
         return spin;
+    }
+
+    /// <summary>路径输入框（证据包目录 / 真车 CSV）: 只做文本编辑, 校验与读取留给应用时。</summary>
+    private static LineEdit MakePathInput(string placeholder)
+    {
+        var line = new LineEdit
+        {
+            PlaceholderText = placeholder,
+            CustomMinimumSize = new Vector2(0, 34),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            TooltipText = "本机绝对或相对路径；留空时该来源不可用（应用时直接报错）",
+        };
+        ApplyLineEditTheme(line);
+        return line;
     }
 
     private static OptionButton MakeOption(params (string Label, string Id)[] items)

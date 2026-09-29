@@ -42,6 +42,10 @@ public partial class Main : Node
     private SettingsStore _settingsStore = null!;
     private SettingsPanel _settingsPanel = null!;
     private DesktopSettings _settings = DesktopSettings.Default;
+    // 视觉源工厂: 与 _settings.Vision 同步重建; null = 默认 classifyRate 桩(不注入
+    // adapter, 行为逐位不变)。每场(ReplaceSession/ResetLiveSession/驱动)都调一次
+    // 工厂新建适配器 —— 台账与 SimT 0 基准不跨场复用。
+    private Func<IVisionAdapter?>? _visionFactory;
     private Scenario _scenarioTemplate = null!;
     private DesktopLiveDriver? _liveDriver;
     private Snapshot? _driverSnapshot;
@@ -1006,6 +1010,7 @@ public partial class Main : Node
         var path = ProjectSettings.GlobalizePath($"user://{SettingsStore.DefaultFileName}");
         _settingsStore = new SettingsStore(path, GD.PrintErr);
         _settings = _settingsStore.Load();
+        RebuildVisionFactory();
         ApplyDisplaySettings(_settings);
         GD.Print($"[settings] 已加载 {path}: {DisplaySettingsLine(_settings)}");
     }
@@ -1024,14 +1029,39 @@ public partial class Main : Node
         }
 
         ApplyDisplaySettings(settings);
+        RebuildVisionFactory();
         if (matchChanged)
         {
             _pendingMatchSettings = true;
-            GD.Print("[settings] 仿真参数/控制器已保存，将在下一场或 F5 重置后生效");
+            GD.Print("[settings] 仿真参数/控制器/视觉设置已保存，将在下一场或 F5 重置后生效");
         }
         else
         {
             GD.Print("[settings] 显示设置已应用");
+        }
+    }
+
+    /// <summary>
+    /// 按当前设置装配视觉源工厂: 默认 classifyRate 不注入(逐位不变)。证据包/CSV 预检
+    /// 失败时高声报错(控制台 + HUD)并回退默认源 —— 桌面必须始终能开赛, 但绝不静默换源。
+    /// </summary>
+    private void RebuildVisionFactory()
+    {
+        try
+        {
+            _visionFactory = _settings.CreateVisionFactory();
+            var source = _settings.Vision?.Source ?? VisionSources.ClassifyRate;
+            GD.Print(source == VisionSources.ClassifyRate
+                ? "[vision] 视觉源: 默认 classifyRate 桩 (不注入 adapter)"
+                : $"[vision] 视觉源: {source}");
+        }
+        catch (Exception error)
+        {
+            // 视觉源是外部文件/进程边界: 坏路径、哈希不一致、方言不符都在此收敛为
+            // "本场用默认源 + 显式告警", 与 DesktopLiveDriver 的 fault 处理同一取向。
+            _visionFactory = null;
+            GD.PrintErr($"[vision] 视觉源装配失败，本场回退默认 classifyRate: {error.Message}");
+            _hud?.ShowNotice($"视觉源装配失败，已回退默认源 · {error.Message}", ok: false);
         }
     }
 
@@ -1082,7 +1112,7 @@ public partial class Main : Node
     private void ReplaceSession(Scenario scenario)
     {
         var previous = _session;
-        _session = new MatchSession(scenario);
+        _session = new MatchSession(scenario, _visionFactory);
         previous?.Dispose();
     }
 
@@ -1106,7 +1136,8 @@ public partial class Main : Node
         }
         StopLiveDriver();
         _driverSnapshot = null;
-        _liveDriver = new DesktopLiveDriver(scenario, _settings.UsController, _settings.ThemController);
+        _liveDriver = new DesktopLiveDriver(
+            scenario, _settings.UsController, _settings.ThemController, _visionFactory);
         _liveDriver.Start();
         GD.Print("[controller] 已启动桌面后台 driver；实况渲染线程不等待外部策略");
     }
@@ -1146,7 +1177,14 @@ public partial class Main : Node
     private static bool MatchSettingsEqual(DesktopSettings left, DesktopSettings right)
         => DictionaryEqual(left.SimulationParameters, right.SimulationParameters)
             && ControllerEqual(left.UsController, right.UsController)
-            && ControllerEqual(left.ThemController, right.ThemController);
+            && ControllerEqual(left.ThemController, right.ThemController)
+            && VisionEqual(left.Vision, right.Vision);
+
+    private static bool VisionEqual(VisionSettings? left, VisionSettings? right)
+        => left?.Source == right?.Source
+            && left?.EvidencePath == right?.EvidencePath
+            && left?.CsvPath == right?.CsvPath
+            && left?.MaxAgeMs == right?.MaxAgeMs;
 
     private static bool DictionaryEqual(IReadOnlyDictionary<string, double>? left,
         IReadOnlyDictionary<string, double>? right)
