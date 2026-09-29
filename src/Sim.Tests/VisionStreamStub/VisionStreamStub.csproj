@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>VisionStreamStub</RootNamespace>
+    <!--
+      Minimal JSONL vision-stream stub for live-bridge protocol tests (not part
+      of the product): writes VisionStreamFrame lines on stdout with a per-frame
+      flush, so ExternalProcessStreamSource and the `vision live` process source
+      can be exercised in CI without Python or model weights. Built as a
+      dependency of Sim.Tests so the apphost lands in the test output directory;
+      tests launch it like a real yolo-bridge subprocess.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Sim.Core\Sim.Core.csproj" />
+  </ItemGroup>
+
+</Project>
