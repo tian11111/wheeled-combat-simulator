@@ -998,3 +998,182 @@ grill 规划后执行：60 段轨迹回放校准显示已批准的 approach-spee
 ### Next Steps
 
 - Trellis 仅剩真机遥测采集（P2）；回放播放速度可在桌面端手动确认一次
+
+
+## Session 30: 代码审查六项缺陷修复（mbri 跳帧/会话泄漏/测试静态污染 + 三条 P3）
+
+**Date**: 2026-09-28
+**Task**: 代码审查六项缺陷修复（mbri 跳帧/会话泄漏/测试静态污染 + 三条 P3）
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×P3 缺陷 + 1 条规范记录项，分四批修复并归档任务 09-28-review-remediation；全量质量门通过。
+
+### Main Changes
+
+- mbri_adapter._check_tick 跳帧分支重置基准，避免一次丢帧致整场 healthy=False + 零动作（P1）
+- Main.ReplaceSession 统一三处会话替换并释放旧引擎，修 MuJoCo 场景 F5 泄漏 mjModel/mjData（P2）
+- InPlaceTurnCompensation 改进程级静态为实例注入（工厂可选参数），消除 5 个并行 MuJoCo 测试类的污染（P2）
+- rl-env --duration 改 InvariantCulture 校验（非法值应答 error + 退出码 2）；dotnet 解析候选存在性检查；训练 factory 单次生成 MJCF（P3×3）
+- rl-split-contract §3/§4 与 score_block_rl README 记录盲集索引本地守卫的失效面（不改代码，用户决定）
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3b67612` | (see git log) |
+| `df46726` | (see git log) |
+| `20a1980` | (see git log) |
+| `accf487` | (see git log) |
+| `4d517aa` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 393/393；mbri_adapter_selftest 16/16；score_block_rl selftest 44 passed/0 failed
+- [OK] replay-check 逐位 PASS；Godot 工程构建 0 错误；无头 --parity-check PASS（2400/2400 ticks, 752/752 事件）
+- [OK] 全量首跑 1 例性能门并行抖动，隔离 ratio 0.148、复跑 2 次全绿，判定既有 flaky 未改门槛
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 如需推送：git push origin test/score-block-ppo-checkpoint-round
+- 盲集索引本地守卫失效面已入 spec，跨机正式盲验前人工核对揭示证据
+
+
+## Session 31: MuJoCo v2：真车几何碰撞体落地 + 轮径纠错 + 登台困难决策
+
+**Date**: 2026-09-28
+**Task**: MuJoCo v2：真车几何碰撞体落地 + 轮径纠错 + 登台困难决策
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+工作流(实验→独立复核→落地→验证门)把 装配.glb 的关键结构件与真实轮径落进 MuJoCo 物理；独立复核推翻早期错误轮径(0.046→0.0325)；用户决策接受真车登台困难。
+
+### Main Changes
+
+- v2 碰撞几何：后铲+底盘凸体 mesh + 四个真轮(r=0.0325)，资产入库，内存 VFS，哈希并入资产字节
+- 轮径纠错：inspect_glb.py 八角点法假膨胀，实测四轮一致 φ0.065；prd/design 已回写
+- 登台实测：真轮能上但不稳(末态半悬/on_stage 1 帧)；用户选择接受该真实约束，不动物理
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c74cd0c` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 402/402；replay-check v1 逐位 PASS；v3 mujoco replay PASS；构建 0 错误
+- [OK] 独立复核复现五个候选逐 tick 曲线(max|Δ|≤5e-6)并更正轮径
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 立任务实现翻覆/失去行动能力状态处理(停车等待重启)
+
+
+## Session 32: MuJoCo 倾覆门控：翻覆后停车等待裁判重启
+
+**Date**: 2026-09-28
+**Task**: MuJoCo 倾覆门控：翻覆后停车等待裁判重启
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+实现 IPhysicsBackend.IsFlipped(MuJoCo 姿态判定, legacy 恒 false)与 FSM Incapacitated 状态: 持续倾覆 0.5s 停车+事件, 恢复直立回 SEARCH, 裁判重启清计时; CoreVersion 升 1.0.3。
+
+### Main Changes
+
+- IPhysicsBackend.IsFlipped + MujocoPhysicsBackend upright 跟踪(点积<0.5) + legacy 恒 false
+- FsmState.Incapacitated + FlippedGateFor + EventKind.Incapacitated + FsmStateNames 映射
+- CoreVersion 1.0.2→1.0.3; 门控测试与 restart replay fixture 同步
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9b12367` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 405/405; seed-42 与 godot-parity 两份 legacy replay-check 逐位 PASS; Godot 构建 0 错误
+- [OK] IncapacitatedTests 3 条(姿态投影/翻覆停车/legacy 永不出现)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 半悬/卡死判定与 v2 几何翻覆率测量(未覆盖项)
+- 如需推送: git push origin test/score-block-ppo-checkpoint-round
+
+
+## Session 33: 传感器真车标定与 3D 化（grilling 共识 + 动态工作流实施）
+
+**Date**: 2026-09-29
+**Task**: 传感器真车标定与 3D 化（grilling 共识 + 动态工作流实施）
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+换车模后传感器未随动的问题按 grilling 三轮共识三层全做：挂点真值取装配.glb 光电节点（双实现交叉校验）、通道对齐真车 11 路、MuJoCo 传感器改 mj_ray 打真实几何（探针先行验证），legacy 平面退化位不变。CoreVersion 1.0.4 并入 v2 重训身份。验证矩阵 6/6；评审抓到 3D 光束 yaw 双算并修复。吞吐软门 -99.35%：归因是 3D 传感器语义改变 FSM 行为引发 reset 风暴（旧 v4 策略行为崩坏），非 raycast 开销——按退出准则⑥停，等重训窗口决策。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d4cb895` | (see git log) |
+| `e667f7b` | (see git log) |
+| `601e8e3` | (see git log) |
+| `cf284df` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 418/418；replay-check seed-42 与 godot-parity PASS；mbri 16/16；score_block_rl 44 passed；Godot headless 构建+parity exit 0
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 用户拍板重训窗口（v5 身份）或对吞吐门另行决策；桌面目检 v2 场景（尾铲登台/scan 避边/翻覆停车）
+
+
+## Session 34: 小车设置界面与真车电机参数建模（用户指正整车质量）
+
+**Date**: 2026-09-29
+**Task**: 小车设置界面与真车电机参数建模（用户指正整车质量）
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+用户指正: 整车质量旧默认 1kg 漏算电池/电机/主控, 车过轻被顶飞。落地: 3.5kg + 博创尚和 2342 电机真值 (120RPM -> 轮端极速 0.408 m/s; 1.72N·m)、Fsm 行走时限按极速缩放 (legacy 不变)、配重封顶+组3 对 raycast 不可见、设置面板新增“小车”页 (质量/转速/扭矩/轮径可填, 默认 2342+3.5kg, 仅应用 v2 场景)。翻覆 136->11 (-92%), QACC 0, 全量 421 过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `764ad00` | (see git log) |
+| `72f096b` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test 421/421+1Skip; 11 seeds v2: 翻覆 11/QACC 0/超限 2; Godot 构建+设置面板零 ERROR
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 桌面目检“小车”页与真车参数行为; 后续方向: Fsm 爬坡姿态控制/坡道几何 (残余 wheelie 翻覆); 力矩级建模可消费扭矩字段

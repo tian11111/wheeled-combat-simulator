@@ -229,6 +229,16 @@ public sealed record PhysicsSpec
     public const string Mujoco = "mujoco";
     public const string MujocoModelV1 = "wushu-mjcf-v1";
 
+    /// <summary>
+    /// 真车几何物理模型(2026-09-28): 车体 = 底盘 + 后铲两个 mesh 凸体, 四个驱动轮用
+    /// 模型实测尺寸(r=0.0325 / 轴距 0.150 / 轮距 0.229)。新增版本而不改 v1, 既有的
+    /// v1 replay 身份校验(physicsModelSha256)才能继续逐位成立。
+    /// </summary>
+    public const string MujocoModelV2 = "wushu-mjcf-v2";
+
+    /// <summary>MuJoCo 后端接受的模型版本。</summary>
+    public static readonly string[] MujocoModelVersions = [MujocoModelV1, MujocoModelV2];
+
     public string Backend { get; init; } = Legacy;
 
     /// <summary>Version of the generated contact model, required for MuJoCo.</summary>
@@ -240,9 +250,14 @@ public sealed record PhysicsSpec
         {
             yield return $"physics: unsupported backend '{Backend}'.";
         }
-        if (Backend == Mujoco && ModelVersion != MujocoModelV1)
+        if (Backend == Mujoco && ModelVersion is null)
         {
-            yield return $"physics: mujoco requires modelVersion '{MujocoModelV1}'.";
+            yield return $"physics: mujoco requires modelVersion '{MujocoModelV1}' or '{MujocoModelV2}'.";
+        }
+        else if (Backend == Mujoco && !MujocoModelVersions.Contains(ModelVersion))
+        {
+            yield return $"physics: unsupported mujoco modelVersion '{ModelVersion}'; "
+                + $"expected '{MujocoModelV1}' or '{MujocoModelV2}'.";
         }
         if (Backend == Legacy && ModelVersion is not null)
         {

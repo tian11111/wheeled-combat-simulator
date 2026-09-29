@@ -17,13 +17,36 @@ import numpy as np
 MAX_POLICY_TICKS = 2400
 
 
+#: Portable-SDK install locations, newest first. Only existing files are used.
+_PORTABLE_DOTNET_CANDIDATES = (
+    "AppData/Local/Programs/robot-simulator-dotnet/dotnet.exe",
+    "AppData/Local/Temp/robot-simulator-dotnet-sdk/dotnet.exe",
+)
+
+
 def resolve_dotnet_executable(override: str | None = None) -> str:
+    """Resolve the dotnet executable: explicit override, then PATH, then portable SDK.
+
+    Every branch must yield an existing file: returning a stale path only moves the
+    failure into ``subprocess.Popen`` and hides the real cause, so a missing dotnet
+    raises ``FileNotFoundError`` naming both ways out.
+    """
     executable = shutil.which(override or "dotnet")
     if executable:
         return executable
     if override:
-        return str(Path(override).expanduser().resolve())
-    return str(Path.home() / "AppData/Local/Temp/robot-simulator-dotnet-sdk/dotnet.exe")
+        candidate = Path(override).expanduser()
+        if candidate.is_file():
+            return str(candidate.resolve())
+        raise FileNotFoundError(f"dotnet executable not found at --dotnet {candidate}")
+    home = Path.home()
+    for relative in _PORTABLE_DOTNET_CANDIDATES:
+        candidate = home / relative
+        if candidate.is_file():
+            return str(candidate)
+    raise FileNotFoundError(
+        "dotnet executable not found: pass --dotnet <path> "
+        f"(portable SDK: {home / _PORTABLE_DOTNET_CANDIDATES[0]}) or put dotnet on PATH")
 
 
 class ScoreBlockEnv(gym.Env):

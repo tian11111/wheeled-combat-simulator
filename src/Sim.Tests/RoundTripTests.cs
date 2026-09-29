@@ -63,6 +63,55 @@ public class RoundTripTests
     }
 
     [Fact]
+    public void SensorChannel_Height_RoundTrips()
+    {
+        // null Height must be omitted from the wire; a set value must survive.
+        var withHeight = SensorProfiles.WheeledCombat11.Channels[0]; // gray_front: height = 0.0025 (standing ground clearance)
+        Assert.Equal(0.0025, withHeight.Height);
+        var json = ProtocolJson.Serialize(withHeight);
+        Assert.Contains("\"height\":0.0025", json);
+        var restored = ProtocolJson.Deserialize<SensorChannel>(json);
+        Assert.Equal(withHeight.Height, restored.Height);
+
+        // Built-in layouts are referencable by id only (protocol add-only).
+        var reference = ProtocolJson.Deserialize<SensorProfile>("""{"id":"wheeledCombat11"}""");
+        Assert.NotNull(reference);
+        Assert.Equal(SensorProfiles.WheeledCombat11, reference);
+        Assert.Equal(11, reference!.Channels.Count);
+
+        // An explicit (possibly partial) channel list still binds as before.
+        var explicitProfile = ProtocolJson.Deserialize<SensorProfile>(
+            """{"id":"custom","channels":[{"id":"gF","type":"gray","forward":0.11,"lateral":0}]}""");
+        Assert.Equal("custom", explicitProfile!.Id);
+        Assert.Single(explicitProfile.Channels);
+        Assert.Null(explicitProfile.Channels[0].Height);
+    }
+
+    [Fact]
+    public void ScenarioFile_IdOnlySensorReference_ExpandsAndValidates()
+    {
+        // 09-29 桌面回归: 场景文件里 vehicles 按 id 简写引用传感器 profile,
+        // 反序列化必须展开成完整 11 路并通过 Scenario 校验 (Godot live 加载
+        // 走的就是 ProtocolJson.Deserialize<Scenario> 这条路径)。
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "scenarios", "wushu-ring-2026-mujoco-v2.json")))
+        {
+            dir = dir.Parent;
+        }
+        Assert.NotNull(dir);
+        var path = Path.Combine(dir!.FullName, "scenarios", "wushu-ring-2026-mujoco-v2.json");
+        var scenario = ProtocolJson.Deserialize<Scenario>(File.ReadAllText(path));
+        foreach (var role in new[] { "us", "them" })
+        {
+            var sensors = scenario.Vehicles[role].Sensors;
+            Assert.NotNull(sensors);
+            Assert.Equal("wheeledCombat11", sensors!.Id);
+            Assert.Equal(11, sensors.Channels.Count);
+        }
+        Assert.Empty(scenario.Validate());
+    }
+
+    [Fact]
     public void Observation_UsesLegacyWireNames()
     {
         var json = ProtocolJson.Serialize(Samples.Observation());

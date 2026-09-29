@@ -60,6 +60,9 @@ public enum EventKind
 
     /// <summary>Stage-clock score tick: the only robot on stage earns +1 per 10 s (登台/掉台读秒).</summary>
     ScoreClock,
+
+    /// <summary>Robot flipped over on MuJoCo physics and lost mobility (stopped, awaiting referee restart).</summary>
+    Incapacitated,
 }
 
 /// <summary>

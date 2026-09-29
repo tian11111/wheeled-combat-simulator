@@ -36,7 +36,11 @@ public sealed class MatchEngine : IDisposable
     /// <summary>Version stamped into replay headers produced by this core.</summary>
     // 2026-09-25: mujoco 执行器边界加原地转向补偿(SEARCH 索敌闭环), 控制映射变更
     // 以 CoreVersion 增量标识; MuJoCo 回放创建/校验会额外比较此字段(legacy 不加门禁)。
-    public const string CoreVersion = "sim-core-1.0.2";
+    // 2026-09-28: 1.0.3 — MuJoCo 倾覆门控(车体翻覆 → INCAPACITATED 停车等待重启),
+    // FSM 行为变更同样改变 MuJoCo 轨迹, 因此一并纳入版本标识。
+    // 2026-09-29: 1.0.4 — 传感器 3D 化(探点重标装配.glb 光电节点 + WheeledCombat11
+    // 显式启用 + MuJoCo mj_ray 真实几何探测), 感知语义与通道清单都变, MuJoCo 轨迹必变。
+    public const string CoreVersion = "sim-core-1.0.4";
 
     private readonly Scenario _scenario;
     private readonly FieldModel _field;
@@ -140,9 +144,9 @@ public sealed class MatchEngine : IDisposable
             _physics = new PhysicsWorld(_field, _params, _us, _them, _blocks, _events,
                 context.AntiStallPhaseUs, context.AntiStallPhaseThem);
         }
-        _sensors = new SensorSampler(_field, _params, _us, _them, _blocks, scenario.Seed, () => SimStepIndex);
+        _sensors = new SensorSampler(_field, _params, _us, _them, _blocks, scenario.Seed, () => SimStepIndex, _physics);
         _fsm = new FsmController(_field, _physics, _params, () => _rng.Next(), _us, _them, _blocks, _events,
-            _vision, OnBothDone);
+            _vision, OnBothDone, onAutoRestart: r => RestartRobot(r.Role));
 
         // resetAll tail: refresh sensors once so PREP-phase views show real data.
         _sensors.SampleSensorsFor(_us);
@@ -472,6 +476,9 @@ public sealed class MatchEngine : IDisposable
             Armed = true,
             State = FsmState.MountRing,
             Mount = new MountState(),
+            // 裁判重启 = 复位到出发点: 倾覆计时一并清零, 否则重启后会立刻再次判为翻覆。
+            FlipT = 0,
+            UprightT = 0,
         };
         _physics.ResetRobot(r);
         // resetAll tail: refresh sensors once so paused/pre-commit views show

@@ -14,6 +14,8 @@ public enum FsmState
     Recover,
     Finished,
     Manual,
+    /// <summary>MuJoCo 下车辆倾覆(底朝天/侧躺)后的停车态: 等待裁判重启。</summary>
+    Incapacitated,
 }
 
 /// <summary>Legacy wire spelling of an FSM state.</summary>
@@ -29,6 +31,7 @@ public static class FsmStateNames
         FsmState.Recover => "RECOVER",
         FsmState.Finished => "FINISHED",
         FsmState.Manual => "MANUAL",
+        FsmState.Incapacitated => "INCAPACITATED",
         _ => throw new ArgumentOutOfRangeException(nameof(state)),
     };
 }
@@ -91,6 +94,10 @@ public sealed class FsmRuntime
     public string DoneReason = "";
     public double InactiveT;
     public bool InactiveWarned;
+    /// <summary>倾覆持续时长(s); legacy 恒 0。</summary>
+    public double FlipT;
+    /// <summary>恢复直立持续时长(s), 用于离开 INCAPACITATED。</summary>
+    public double UprightT;
 }
 
 /// <summary>Hysteresis state of one sensor channel (per robot, keyed by channel id).</summary>

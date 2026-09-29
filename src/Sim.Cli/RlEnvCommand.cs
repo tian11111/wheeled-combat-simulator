@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using Sim.Core;
 using Sim.Hosting;
@@ -31,7 +32,14 @@ public static class RlEnvCommand
         for (var i = 0; i < args.Length; i++)
         {
             if (args[i] == "--scenario" && i + 1 < args.Length) scenarioPath = args[i + 1];
-            if (args[i] == "--duration" && i + 1 < args.Length) duration = double.Parse(args[i + 1]);
+            if (args[i] == "--duration" && i + 1 < args.Length
+                && !TryParseDuration(args[i + 1], out duration, out var durationError))
+            {
+                // 启动参数非法: 明确应答一条 error 再以 2 退出, 而不是让持久环境
+                // 进程在第一条请求前抛未捕获异常。
+                EmitError(durationError!);
+                return 2;
+            }
         }
 
         var factory = new MujocoTrainingPhysicsBackendFactory();
@@ -137,6 +145,23 @@ public static class RlEnvCommand
 
     private static void EmitError(string message) =>
         Emit(new { type = "error", message });
+
+    /// <summary>
+    /// `--duration` 解析必须用不变文化: 逗号小数点区域会把 "120.5" 静默读成 1205;
+    /// 非法取值则由调用方应答 error 并退出, 不抛未捕获异常。
+    /// </summary>
+    internal static bool TryParseDuration(string? raw, out double seconds, out string? error)
+    {
+        if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out seconds)
+            || !double.IsFinite(seconds) || seconds <= 0)
+        {
+            seconds = 0;
+            error = $"invalid --duration '{raw}' (expected a finite positive number of seconds)";
+            return false;
+        }
+        error = null;
+        return true;
+    }
 
     // 静态单例: JsonSerializerOptions 的元数据缓存挂在实例上, 持久进程逐 tick new 会
     // 每步重建元数据（训练热路径）。选项内容与旧实现逐字节一致, 输出不变。

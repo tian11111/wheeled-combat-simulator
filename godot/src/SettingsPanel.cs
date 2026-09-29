@@ -31,6 +31,11 @@ public partial class SettingsPanel : Control
     private SpinBox? _height;
     private OptionButton? _windowMode;
     private SpinBox? _uiScale;
+    private SpinBox? _vehicleMass;
+    private SpinBox? _vehicleRpm;
+    private SpinBox? _vehicleTorque;
+    private SpinBox? _vehicleWheelRadius;
+    private Label? _vehicleNote;
     private OptionButton? _usMode;
     private LineEdit? _usCommand;
     private SpinBox? _usTimeout;
@@ -173,6 +178,8 @@ public partial class SettingsPanel : Control
         tabs.SetTabTitle(1, "仿真参数");
         tabs.AddChild(BuildControllerPage());
         tabs.SetTabTitle(2, "小车控制器");
+        tabs.AddChild(BuildVehiclePage());
+        tabs.SetTabTitle(3, "小车");
 
         _pendingNote = AddLabel(root,
             "显示设置立即生效 · 仿真与控制器设置在下一场或 F5 重置后生效",
@@ -462,6 +469,23 @@ public partial class SettingsPanel : Control
         {
             _uiScale.Value = settings.UiScale;
         }
+        if (_vehicleMass is not null)
+        {
+            _vehicleMass.Value = settings.Vehicle?.Mass ?? 3.5;
+        }
+        if (_vehicleRpm is not null)
+        {
+            _vehicleRpm.Value = settings.Vehicle?.MotorRpm ?? 120;
+        }
+        if (_vehicleTorque is not null)
+        {
+            _vehicleTorque.Value = settings.Vehicle?.MotorTorque ?? 1.72;
+        }
+        if (_vehicleWheelRadius is not null)
+        {
+            _vehicleWheelRadius.Value = settings.Vehicle?.WheelRadius ?? 0.0325;
+        }
+        UpdateVehicleNote();
 
         var values = settings.SimulationParameters ?? new Dictionary<string, double>();
         foreach (var definition in SimulationParameterCatalog.All)
@@ -526,6 +550,13 @@ public partial class SettingsPanel : Control
             },
             UiScale = _uiScale?.Value ?? 1.0,
             SimulationParameters = values,
+            Vehicle = new VehicleSettings
+            {
+                Mass = _vehicleMass?.Value ?? 3.5,
+                MotorRpm = _vehicleRpm?.Value ?? 120,
+                MotorTorque = _vehicleTorque?.Value ?? 1.72,
+                WheelRadius = _vehicleWheelRadius?.Value ?? 0.0325,
+            },
             UsController = ReadController(_usMode, _usCommand, _usTimeout),
             ThemController = ReadController(_themMode, _themCommand, _themTimeout),
         };
@@ -547,6 +578,63 @@ public partial class SettingsPanel : Control
             Command = command?.Text.Trim() ?? "",
             TimeoutMs = timeout?.Value ?? 100,
         };
+
+    private Control BuildVehiclePage()
+    {
+        var page = MakePage();
+        AddLabel(page, "小车", 16, Primary);
+        AddLabel(page,
+            "比赛双方同款真车的物理规格；应用于 v2 真车几何场景，下一场或 F5 重置后生效。",
+            11, Secondary);
+
+        var grid = new GridContainer { Columns = 2, CustomMinimumSize = new Vector2(0, 210) };
+        grid.AddThemeConstantOverride("h_separation", 18);
+        grid.AddThemeConstantOverride("v_separation", 10);
+        page.AddChild(grid);
+
+        AddLabel(grid, "整车质量（含电池/电机/主控）", 12, Secondary);
+        _vehicleMass = MakeSpin(0.2, 20, 0.05, "kg");
+        grid.AddChild(_vehicleMass);
+
+        AddLabel(grid, "电机减速后转速（空载）", 12, Secondary);
+        _vehicleRpm = MakeSpin(10, 2000, 1, "RPM");
+        grid.AddChild(_vehicleRpm);
+
+        AddLabel(grid, "电机输出扭矩（额定）", 12, Secondary);
+        _vehicleTorque = MakeSpin(0.05, 50, 0.01, "N·m");
+        grid.AddChild(_vehicleTorque);
+
+        AddLabel(grid, "驱动轮半径（装配实测）", 12, Secondary);
+        _vehicleWheelRadius = MakeSpin(0.005, 0.1, 0.0001, "m");
+        grid.AddChild(_vehicleWheelRadius);
+
+        foreach (var spin in new[] { _vehicleMass, _vehicleRpm, _vehicleTorque, _vehicleWheelRadius })
+        {
+            spin.ValueChanged += _ => UpdateVehicleNote();
+        }
+
+        _vehicleNote = AddLabel(page, "", 12, Blue);
+        _vehicleNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        UpdateVehicleNote();
+
+        page.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
+        return page;
+    }
+
+    private void UpdateVehicleNote()
+    {
+        if (_vehicleNote is null)
+        {
+            return;
+        }
+        var rpm = _vehicleRpm?.Value ?? 120;
+        var wheelRadius = _vehicleWheelRadius?.Value ?? 0.0325;
+        var maxSpeed = rpm / 60.0 * 2 * Math.PI * wheelRadius;
+        _vehicleNote.Text =
+            $"默认配套：博创尚和 2342 开环电机（12V，减速后 {rpm:0} RPM）。"
+            + $"轮端极速 ≈ {maxSpeed:0.000} m/s；登台/恢复时限随极速自动缩放；"
+            + "扭矩当前仅存档（仿真为速度伺服）。";
+    }
 
     private void RestoreDefaults()
     {

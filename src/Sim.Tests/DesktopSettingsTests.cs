@@ -57,6 +57,73 @@ public class DesktopSettingsTests
     }
 
     [Fact]
+    public void VehicleSettings_DefaultsMatchTheRealVehicle_AndDeriveMaxSpeed()
+    {
+        var vehicle = DesktopSettings.Default.Vehicle;
+
+        Assert.Equal(3.5, vehicle.Mass, 9);
+        Assert.Equal(120, vehicle.MotorRpm, 9);
+        Assert.Equal(1.72, vehicle.MotorTorque, 9);
+        Assert.Equal(0.0325, vehicle.WheelRadius, 9);
+        // 轮端极速 = rpm/60 × 2π × r ≈ 0.408 m/s (博创尚和 2342 减速后 120 RPM)
+        Assert.Equal(120.0 / 60 * 2 * Math.PI * 0.0325, vehicle.MaxSpeed, 9);
+        Assert.Equal(0.408, vehicle.MaxSpeed, 3);
+        Assert.Empty(DesktopSettings.Default.Validate());
+    }
+
+    [Fact]
+    public void VehicleSettings_ValidationRejectsOutOfRangeValues()
+    {
+        var settings = DesktopSettings.Default with
+        {
+            Vehicle = DesktopSettings.Default.Vehicle with { Mass = 0.1 },
+        };
+        Assert.Contains(settings.Validate(), error => error.Contains("vehicle.mass"));
+
+        settings = DesktopSettings.Default with
+        {
+            Vehicle = DesktopSettings.Default.Vehicle with { MotorRpm = double.NaN },
+        };
+        Assert.Contains(settings.Validate(), error => error.Contains("vehicle.motorRpm"));
+    }
+
+    [Fact]
+    public void ApplyVehicleOverrides_TouchesOnlyV2MujocoScenarios()
+    {
+        var settings = DesktopSettings.Default with
+        {
+            Vehicle = DesktopSettings.Default.Vehicle with { Mass = 4.2, MotorRpm = 200 },
+        };
+
+        // v2 真车几何场景: us/them 质量与极速按设置覆盖。
+        var v2 = new Scenario
+        {
+            Seed = 42,
+            Physics = new PhysicsSpec { Backend = PhysicsSpec.Mujoco, ModelVersion = PhysicsSpec.MujocoModelV2 },
+            Vehicles = new Dictionary<string, VehicleProfile>
+            {
+                [RoleNames.Us] = new() { Id = "glb-2026", Mass = 3.5, MaxSpeed = 0.408 },
+                [RoleNames.Them] = new() { Id = "glb-2026", Mass = 3.5, MaxSpeed = 0.408 },
+            },
+        };
+        var appliedV2 = settings.ApplyVehicleOverrides(v2);
+        foreach (var role in new[] { RoleNames.Us, RoleNames.Them })
+        {
+            Assert.Equal(4.2, appliedV2.Vehicles[role].Mass, 9);
+            Assert.Equal(200.0 / 60 * 2 * Math.PI * 0.0325, appliedV2.Vehicles[role].MaxSpeed, 9);
+        }
+
+        // legacy 与 v1 场景: 一律不触碰(行为逐位不变)。
+        var legacy = new Scenario { Seed = 42, Blocks = OfficialLayout.Blocks };
+        Assert.Same(legacy, settings.ApplyVehicleOverrides(legacy));
+        var v1 = legacy with
+        {
+            Physics = new PhysicsSpec { Backend = PhysicsSpec.Mujoco, ModelVersion = PhysicsSpec.MujocoModelV1 },
+        };
+        Assert.Same(v1, settings.ApplyVehicleOverrides(v1));
+    }
+
+    [Fact]
     public void ExternalController_RequiresCommand_AndValidTimeout()
     {
         var settings = DesktopSettings.Default with

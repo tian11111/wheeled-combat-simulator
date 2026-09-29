@@ -101,6 +101,40 @@ def test_digi_ir_synthesis_and_polarity():
     print("OK digi IR synthesis/polarity (synthesized, marked approximate)")
 
 
+def test_digi_ir_wheeledcombat11_raw_keys():
+    """真车 11 路 wheeledCombat11 的 rawSensors 键是物理通道 id (无 uL/uR/r/f/
+    dLB/dRB): digi/analog 必须经物理 id 回退取到等价值, r(Unmapped) 恒 0,
+    f 取两路前对角 max —— 不得静默恒 0 而 valid=1 照发 (2026-09-29 评审修复)。"""
+    stub = StubController()
+    adapter = make_oracle_adapter(stub)
+    # 与 base_obs 的 legacy14 数值逐一对应:
+    #   uL=1.0→shovel_under_left, uR=0.0→shovel_under_right, r→(无键, Unmapped→0)
+    #   f=0.1→max(diag_left_front=0.1, diag_right_front=0.0)=0.1
+    #   dLB=0.6→diag_left_rear, dRB=1.2→diag_right_rear
+    obs = base_obs() | {
+        "rawSensors": {
+            "shovel_under_left": 1.0, "shovel_under_right": 0.0,
+            "diag_left_front": 0.1, "diag_right_front": 0.0,
+            "diag_left_rear": 0.6, "diag_right_rear": 1.2,
+        },
+    }
+    adapter.handle(obs)
+    digi = stub.last_args["digi"]
+    assert digi["left_rear"] == 1 and digi["right_rear"] == 0, digi
+    assert digi["rear"] == 0, digi  # 11 路无后向通道, 兼容值恒 0 (非静默缺键)
+    assert digi["front"] == 0, digi  # max(0.1, 0.0)=0.1 ≤ 0.3 → 0
+    assert digi["valid"] == 1, digi
+    analog = stub.last_args["analog"]
+    assert abs(analog["left"] - 0.6 * (10000.0 / 1.2)) < 1e-6, analog
+    assert abs(analog["right"] - 10000.0) < 1e-6, analog  # 1.2 → ADC 满量程
+    assert analog["valid"] == 1, analog
+    # f 虚拟 max 的二值化: 前对角任一路高电平 → front=1
+    obs["rawSensors"]["diag_right_front"] = 0.9
+    adapter.handle(obs)
+    assert stub.last_args["digi"]["front"] == 1, stub.last_args["digi"]
+    print("OK digi/analog wheeledCombat11 raw-key fallback (incl. r unmapped, f virtual max)")
+
+
 def test_oracle_vision_format_and_privilege_marking():
     stub = StubController()
     adapter = make_oracle_adapter(stub)
@@ -185,6 +219,41 @@ def test_tick_jump_returns_zero_action_and_healthy_false():
     print("OK tick jump -> zero action + healthy=False to car")
 
 
+def test_tick_jump_recovers_on_next_frame():
+    """跳帧只丢一帧: 基准对齐到该 tick, 下一帧必须恢复正常决策而非永久零动作。"""
+    stub = StubController(1000, 1000)
+    adapter = make_oracle_adapter(stub)
+    adapter.mode = "calibrated"
+    adapter.k = 0.00055
+    adapter.track_width = 0.18
+    adapter.handle(base_obs())                       # tick 10
+    adapter.handle(base_obs() | {"tick": 14})       # 跳帧 (faults=1)
+    assert adapter.faults == 1
+    reply = adapter.handle(base_obs() | {"tick": 15, "requestId": 10})
+    assert adapter.faults == 1, f"跳帧后的正常帧不得再计故障: faults={adapter.faults}"
+    assert adapter._last_tick == 15
+    assert stub.last_args["healthy"] is True
+    assert reply["requestId"] == 10 and reply["v"] != 0.0, reply
+    print("OK tick jump recovers on the next frame (no sticky fault)")
+
+
+def test_duplicate_tick_then_next_frame_recovers():
+    """重复 tick 不推进基准, 但随后递增的帧仍必须被接受。"""
+    stub = StubController(1000, 1000)
+    adapter = make_oracle_adapter(stub)
+    adapter.mode = "calibrated"
+    adapter.k = 0.00055
+    adapter.track_width = 0.18
+    adapter.handle(base_obs())                       # tick 10
+    adapter.handle(base_obs() | {"tick": 10})        # 重复 (faults=1)
+    assert adapter.faults == 1 and adapter._last_tick == 10
+    reply = adapter.handle(base_obs() | {"tick": 11, "requestId": 11})
+    assert adapter.faults == 1, f"重复帧后的正常帧不得再计故障: faults={adapter.faults}"
+    assert stub.last_args["healthy"] is True
+    assert reply["requestId"] == 11 and reply["v"] != 0.0, reply
+    print("OK duplicate tick then next frame recovers")
+
+
 def test_calibrated_without_k_fails_startup():
     try:
         MbriAdapter(mode="calibrated", k=None, track_width=None,
@@ -208,6 +277,7 @@ if __name__ == "__main__":
     test_gray_scaling_and_boundaries()
     test_missing_gray_channel_fails_frame()
     test_digi_ir_synthesis_and_polarity()
+    test_digi_ir_wheeledcombat11_raw_keys()
     test_oracle_vision_format_and_privilege_marking()
     test_time_injection_uses_obs_t()
     test_tick_fault_on_non_monotonic()
@@ -215,6 +285,8 @@ if __name__ == "__main__":
     test_calibrated_motion_clamped_to_vehicle_limits()
     test_vehicle_limits_read_from_robot_vehicle()
     test_tick_jump_returns_zero_action_and_healthy_false()
+    test_tick_jump_recovers_on_next_frame()
+    test_duplicate_tick_then_next_frame_recovers()
     test_calibrated_without_k_fails_startup()
     test_smoke_mode_zero_action_no_car_import()
     print("ALL ADAPTER SELFTESTS PASSED")

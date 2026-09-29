@@ -26,6 +26,8 @@ evaluate.py --split final_holdout_v4 --model <zip> --require-freeze <path> --out
 
 冻结记录必须绑定 v4 开发/最终 split 及精确 seed、唯一模型 SHA-256/训练步数、场景和 CLI DLL SHA-256。当前工作树的正式运行索引为 `.sim_runs/score-block-final-holdout-v4-run.json`；开始前以独占创建消耗机会，失败或中断仍阻止重跑。该本地索引是操作守卫，归档报告仍是跨工作树的最终证据。
 
+索引的失效面：`.sim_runs/` 在仓库 `.gitignore` 中忽略（本地评测产物不入库），因此索引**只对当前工作树有效** —— 换机器、重新 clone 或清理该目录后它不再阻止重跑。由此产生一条人工要求：正式 v4 盲验前须先核对仓库内是否已有 `final_holdout_v4` 的揭示证据（归档任务报告、结果 JSON、历史索引副本），有则视为该盲集已消费、不得再运行；索引只增不改，任何删除或改写都必须在任务归档报告里留证（`--force` 从不绕过索引）。
+
 ## 4. Validation & Error Matrix
 
 | 输入或状态 | 行为 |
@@ -35,6 +37,7 @@ evaluate.py --split final_holdout_v4 --model <zip> --require-freeze <path> --out
 | 自定义 seed 与任一命名 split 或训练池重叠 | `SplitError` 拒绝 |
 | v4 最终集缺冻结记录、模型/seed/场景/CLI 哈希不符 | 在仿真前拒绝 |
 | v4 运行索引已存在，包括 `started` 或失败记录 | 拒绝再次正式运行，`--force` 也不能绕过 |
+| 索引缺失，但归档报告/结果 JSON 已含 v4 揭示记录 | 人工判定为已消费：停止并留证，不得当作首次盲验 |
 | `--freeze` 与 `--out` 同路径或冻结文件已存在 | 在写入前拒绝 |
 
 ## 5. Good / Base / Bad Cases

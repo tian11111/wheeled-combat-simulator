@@ -148,7 +148,12 @@ class MbriAdapter:
         return (float(vehicle["maxSpeed"]), float(vehicle["maxTurnRate"]))
 
     def _check_tick(self, tick) -> bool:
-        """返回 True=本帧带故障(重复/非单调/步长异常); 仍按零动作应答。"""
+        """返回 True=本帧带故障(重复/非单调/步长异常); 仍按零动作应答。
+
+        三分支语义: 重复/倒退 tick 不推进基准(该帧不携带新时间点); 跳帧在报故障
+        的同时把基准对齐到本帧 —— 它确实是新的时间点, 不对齐会让一次丢帧之后的
+        每一帧都被判为跳帧, 适配器整场 healthy=False + 零动作。
+        """
         if tick is None:
             return False
         if self._last_tick is not None:
@@ -161,9 +166,33 @@ class MbriAdapter:
                 print(f"[mbri-adapter] protocol fault: tick jump {self._last_tick} -> {tick}",
                       file=sys.stderr)
                 self.faults += 1
+                self._last_tick = tick
                 return True
         self._last_tick = tick
         return False
+
+    # rawSensors 键名兼容两代 profile: legacy14 的物理通道 id 就是兼容别名
+    # (uL/uR/r/f/dLB/dRB); 真车 11 路 wheeledCombat11 的键是物理通道 id
+    # (shovel_under_left/shovel_under_right/diag_left_rear/diag_right_rear/...),
+    # 且没有后向通道("r" 逻辑别名显式 Unmapped → 兼容值恒 0)、"f" 是两路前
+    # 对角的虚拟 max(WheeledCombat11.Logical 同口径)。缺键回退按此映射,
+    # 两代 profile 下 digi/analog 语义一致, 不会静默恒 0。
+    RAW_ALIASES: dict[str, tuple[str, ...]] = {
+        "uL": ("shovel_under_left",),
+        "uR": ("shovel_under_right",),
+        "r": (),  # 11 路无后向物理通道: Unmapped, 兼容值 0
+        "f": ("diag_left_front", "diag_right_front"),
+        "dLB": ("diag_left_rear",),
+        "dRB": ("diag_right_rear",),
+    }
+
+    @classmethod
+    def _raw_value(cls, raw: dict, key: str) -> float:
+        """legacy 键直取; 缺键按 11 路物理 id 回退(多候选取 max, 与 Logical 一致)。"""
+        if key in raw:
+            return float(raw[key])
+        candidates = [float(raw[a]) for a in cls.RAW_ALIASES.get(key, ()) if a in raw]
+        return max(candidates) if candidates else 0.0
 
     def _car_sensor_inputs(self, obs: dict):
         gray = obs.get("sensors") or {}
@@ -175,18 +204,18 @@ class MbriAdapter:
             gray_raw[car_key] = clamp(float(gray[sim_key]), 0.0, 1000.0) * self.GRAY_SCALE
         # 数字红外合成: 阈值化仿真近距/铲下通道(显式标记的仿真近似)。
         digi = {
-            "left_rear": 1 if float(raw.get("uL", 0.0)) > self.ir_threshold else 0,
-            "right_rear": 1 if float(raw.get("uR", 0.0)) > self.ir_threshold else 0,
-            "rear": 1 if float(raw.get("r", 0.0)) > self.ir_threshold else 0,
-            "front": 1 if float(raw.get("f", 0.0)) > self.ir_threshold else 0,
+            "left_rear": 1 if self._raw_value(raw, "uL") > self.ir_threshold else 0,
+            "right_rear": 1 if self._raw_value(raw, "uR") > self.ir_threshold else 0,
+            "rear": 1 if self._raw_value(raw, "r") > self.ir_threshold else 0,
+            "front": 1 if self._raw_value(raw, "f") > self.ir_threshold else 0,
         }
         digi["left_front"] = digi["front"]
         digi["right_front"] = digi["front"]
         digi["valid"] = 1
         # 模拟对角红外: 仿真 0-1.2 → 车端 ADC 0-10000。
         analog = {
-            "left": clamp(float(raw.get("dLB", 0.0)), 0.0, 1.2) * (10000.0 / 1.2),
-            "right": clamp(float(raw.get("dRB", 0.0)), 0.0, 1.2) * (10000.0 / 1.2),
+            "left": clamp(self._raw_value(raw, "dLB"), 0.0, 1.2) * (10000.0 / 1.2),
+            "right": clamp(self._raw_value(raw, "dRB"), 0.0, 1.2) * (10000.0 / 1.2),
             "valid": 1,
         }
         return gray_raw, digi, analog

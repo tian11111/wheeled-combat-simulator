@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -32,12 +33,131 @@ internal static class MujocoModel
     // 冻结整车, 已弃用。)
     internal const double ChassisClearanceLift = 0.02;
 
-    internal static (string Xml, string Sha256) Generate(PhysicsBackendContext context)
+    // ---- v2 真车几何(实测常量, 见 tools/mesh/README.md 与 tools/mesh/extract_vehicle_mesh.py) ----
+    // v2 的体坐标系原点 = 轮轴平面(模型原点), 车体网格直接以自身坐标挂在 body 原点;
+    // v1 的"原点在车体中心 + 轮轴下移 0.04 + 抬升 0.02"只在 v1 分支保留。
+    /// <summary>胎皮外径实测 0.064899–0.064990(四轮), 取名义半径 0.0325 m。</summary>
+    internal const double WheelRadiusV2 = 0.0325;
+    /// <summary>胎宽实测 0.0290, 半宽 0.0145。</summary>
+    internal const double WheelHalfWidthV2 = 0.0145;
+    internal const double WheelMassV2 = 0.03;
+    internal const double ShovelMassV2 = 0.02;
+    /// <summary>
+    /// 车底重物质量(kg, 电池/电机/主控): mesh 默认惯性把质心放在几何中部(偏高),
+    /// 真车重物贴底盘。2026-09-29: 整车质量此前沿用 1kg 旧默认(漏算电池/电机/
+    /// 主控 → 车过轻被顶飞); v2 场景整车 2.5kg, 其中 0.9kg 作为底部配重从
+    /// chassis mesh 质量中扣除(总质量不变), 质心拉到轮轴上方 ~9mm。
+    /// </summary>
+    internal const double ChassisBallastV2 = 0.9;
+    /// <summary>v1 的轮/铲质量(历史字面量, 与 v2 数值相同但语义独立, 不得随之改动)。</summary>
+    internal const double WheelMassV1 = 0.03;
+    /// <summary>轮心(车体局部系, 实测): 前 x=+0.0730 / 后 x=−0.0770(轴距 0.150)。</summary>
+    internal const double WheelFrontX = 0.0730;
+    internal const double WheelRearX = -0.0770;
+    /// <summary>轮心(车体局部系, 实测): 左 y=+0.11635 / 右 y=−0.11265(轮距 0.229)。</summary>
+    internal const double WheelLeftY = 0.11635;
+    internal const double WheelRightY = -0.11265;
+    /// <summary>轮心高度: 与体坐标系原点同面(实测 −0.00025, 取 0 使 spawn 高度 = 半径)。</summary>
+    internal const double WheelLocalZ = 0.0;
+    /// <summary>后铲网格最低边的实测高度(=−0.01245), 用于自检。</summary>
+    internal const double ShovelLowestZ = -0.01245;
+    /// <summary>底板/上板合并凸体的实测最低点(=−0.00825)。</summary>
+    internal const double ChassisLowestZ = -0.00825;
+
+    /// <summary>v2 场景(PhysicsSpec.MujocoModelV2)走真车几何分支。</summary>
+    internal static bool IsV2(PhysicsBackendContext context)
+        => context.Scenario.Physics?.ModelVersion == PhysicsSpec.MujocoModelV2;
+
+    /// <summary>驱动轮半径(执行器把 m/s 指令换算成 rad/s)。</summary>
+    internal static double RadiusFor(PhysicsBackendContext context) => IsV2(context) ? WheelRadiusV2 : WheelRadius;
+
+    /// <summary>spawn 时体坐标系原点相对轮轴平面的高度(轮心 z 偏移)。</summary>
+    internal static double SpawnAxleOffset(PhysicsBackendContext context)
+        => IsV2(context) ? WheelLocalZ : 0.04 + ChassisClearanceLift;
+
+    /// <summary>
+    /// 裁判 ResetRobot 时体坐标系原点相对轮轴平面的高度。v1 的 reset 高度与 spawn
+    /// 高度刻意不同(历史行为, 不得改动); v2 直接把轮心放在ground + r。
+    /// </summary>
+    internal static double ResetAxleOffset(PhysicsBackendContext context)
+        => IsV2(context) ? WheelLocalZ : 0.04;
+
+    /// <summary>
+    /// 生成 MJCF。返回值带资产字节, 供 <see cref="MujocoNative.CreateModel(string, IReadOnlyList{MujocoMeshAsset}?)"/>
+    /// 挂进内存 VFS; v1 场景无资产(v1 生成路径与 v1 哈希保持逐字节不变)。
+    /// </summary>
+    internal static (string Xml, IReadOnlyList<MujocoMeshAsset> Assets, string Sha256) Generate(PhysicsBackendContext context)
+        => Generate(context, IsV2(context) ? MujocoMeshAssets.Load() : Array.Empty<MujocoMeshAsset>());
+
+    /// <summary>
+    /// 显式资产版本(测试注入用): 资产内容参与 <paramref name="context"/> 对应模型的哈希,
+    /// 改一个字节则 ModelSha256 必变。非 v2 场景忽略传入资产。
+    /// </summary>
+    internal static (string Xml, IReadOnlyList<MujocoMeshAsset> Assets, string Sha256) Generate(
+        PhysicsBackendContext context, IReadOnlyList<MujocoMeshAsset> assets)
     {
         var field = context.Scenario.Field;
-        var t = context.Field.Transform;
+        var isV2 = IsV2(context);
+        var used = isV2 ? assets : Array.Empty<MujocoMeshAsset>();
+        if (isV2)
+        {
+            foreach (var name in MujocoMeshAssets.Required)
+            {
+                if (!used.Any(a => a.Name == name))
+                {
+                    throw new ArgumentException($"MuJoCo model v2 requires mesh asset '{name}'.", nameof(assets));
+                }
+            }
+        }
         var sb = new StringBuilder(8192);
-        sb.Append("<mujoco model=\"wushu-mjcf-v1\"><compiler angle=\"radian\"/><option timestep=\"0.005\" gravity=\"0 0 -9.81\" integrator=\"implicitfast\"/><size njmax=\"2000\" nconmax=\"500\"/><default><geom friction=\"0.85 0.01 0.002\" solref=\"0.008 1\" solimp=\"0.95 0.99 0.001\"/></default><worldbody>");
+        Header(sb, isV2);
+        if (isV2)
+        {
+            sb.Append("<asset>");
+            foreach (var mesh in Meshes)
+            {
+                sb.Append("<mesh name=\"").Append(mesh.Geom).Append("\" file=\"").Append(mesh.File)
+                    .Append("\" maxhullvert=\"256\"/>");
+            }
+            sb.Append("</asset>");
+        }
+        sb.Append("<worldbody>");
+        Arena(sb, field, context.Field);
+        if (isV2)
+        {
+            RobotV2(sb, context.Us, context.Field);
+            RobotV2(sb, context.Them, context.Field);
+        }
+        else
+        {
+            Robot(sb, context.Us, context.Field);
+            Robot(sb, context.Them, context.Field);
+        }
+        Blocks(sb, context);
+        sb.Append("</worldbody>");
+        Actuators(sb);
+        sb.Append("</mujoco>");
+        var xml = sb.ToString();
+        return (xml, used, Hash(xml, used));
+    }
+
+    /// <summary>资产在 MJCF 里的 mesh 名与逻辑文件名(v2)。</summary>
+    internal static readonly (string Geom, string File)[] Meshes =
+    [
+        ("chassis", MujocoMeshAssets.Chassis),
+        ("rear_shovel", MujocoMeshAssets.RearShovel),
+    ];
+
+    private static void Header(StringBuilder sb, bool isV2)
+    {
+        sb.Append("<mujoco model=\"").Append(isV2 ? PhysicsSpec.MujocoModelV2 : PhysicsSpec.MujocoModelV1)
+            .Append("\"><compiler angle=\"radian\"/><option timestep=\"0.002\" gravity=\"0 0 -9.81\" integrator=\"implicitfast\"/>")
+            .Append("<size njmax=\"2000\" nconmax=\"500\"/><default><geom friction=\"0.85 0.01 0.002\" solref=\"0.008 1\" solimp=\"0.95 0.99 0.001\"/></default>");
+    }
+
+    private static void Arena(StringBuilder sb, FieldParams field, FieldModel model)
+    {
+        var t = model.Transform;
         // The field is placed once by a rigid parent; entity initial poses are already world poses.
         sb.Append("<body name=\"arena\" pos=\"").Append(N(t.X)).Append(' ').Append(N(t.Y))
             .Append(" 0\" euler=\"0 0 ").Append(N(t.Th)).Append("\">");
@@ -64,8 +184,11 @@ internal static class MujocoModel
         Box(sb, "fence_e", fs + fenceThickness / 2, fs / 2, field.FenceHeight / 2,
             fenceThickness / 2, fs / 2, field.FenceHeight / 2);
         sb.Append("</body>");
-        Robot(sb, context.Us, context.Field);
-        Robot(sb, context.Them, context.Field);
+    }
+
+    private static void Blocks(StringBuilder sb, PhysicsBackendContext context)
+    {
+        var field = context.Scenario.Field;
         for (var i = 0; i < context.Blocks.Count; i++)
         {
             var b = context.Blocks[i];
@@ -78,7 +201,11 @@ internal static class MujocoModel
                 .Append(N(field.BlockSize / 2)).Append("\" mass=\"0.3\" friction=\"0.6 0.01 0.002\"/>");
             sb.Append("</body>");
         }
-        sb.Append("</worldbody><actuator>");
+    }
+
+    private static void Actuators(StringBuilder sb)
+    {
+        sb.Append("<actuator>");
         foreach (var role in new[] { RoleNames.Us, RoleNames.Them })
         {
             foreach (var axle in new[] { "front", "rear" })
@@ -92,9 +219,34 @@ internal static class MujocoModel
                     .Append(N(WheelForceLimit)).Append(' ').Append(N(WheelForceLimit)).Append("\"/>");
             }
         }
-        sb.Append("</actuator></mujoco>");
-        var xml = sb.ToString();
-        return (xml, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(xml))).ToLowerInvariant());
+        sb.Append("</actuator>");
+    }
+
+    /// <summary>
+    /// ModelSha256 = SHA256( xml ‖ 各资产[按名字升序: 名字 ‖ 8 字节小端长度 ‖ 字节] )。
+    /// 无资产时退化为 SHA256(xml), v1 的既有哈希因此逐位不变。名字与长度入哈希是为了
+    /// 让"换名/换绑定/截断拼接"都会改变身份, 而不只是内容字节本身。
+    /// </summary>
+    private static string Hash(string xml, IReadOnlyList<MujocoMeshAsset> assets)
+    {
+        var payload = Encoding.UTF8.GetBytes(xml);
+        if (assets.Count == 0)
+        {
+            return Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant();
+        }
+        using var sha = SHA256.Create();
+        sha.TransformBlock(payload, 0, payload.Length, null, 0);
+        foreach (var asset in assets.OrderBy(a => a.Name, StringComparer.Ordinal))
+        {
+            var name = Encoding.UTF8.GetBytes(asset.Name);
+            sha.TransformBlock(name, 0, name.Length, null, 0);
+            var length = new byte[8];
+            BinaryPrimitives.WriteInt64LittleEndian(length, asset.Bytes.Length);
+            sha.TransformBlock(length, 0, length.Length, null, 0);
+            sha.TransformBlock(asset.Bytes, 0, asset.Bytes.Length, null, 0);
+        }
+        sha.TransformFinalBlock([], 0, 0);
+        return Convert.ToHexString(sha.Hash!).ToLowerInvariant();
     }
 
     private static void Robot(StringBuilder sb, RobotRuntime r, FieldModel field)
@@ -116,22 +268,69 @@ internal static class MujocoModel
             .Append(N(-z + ground + v.ShovelHeight + 0.006))
             .Append("\" size=\"").Append(N(v.ShovelLength / 2)).Append(' ')
             .Append(N(v.ShovelWidth / 2)).Append(" 0.006\" mass=\"0.02\"/>");
-        foreach (var axle in new[] { "front", "rear" })
-        foreach (var side in new[] { "left", "right" })
+        WheelBodies(sb, r, WheelRadius, 0.03, WheelMassV1, -0.04 - ChassisClearanceLift,
+            v.WheelBase / 2, -v.WheelBase / 2, v.TrackWidth / 2, -v.TrackWidth / 2);
+        sb.Append("</body>");
+    }
+
+    /// <summary>
+    /// v2 真车几何: 车体 = chassis + rear_shovel 两个 mesh geom(保留两者之间的凹角,
+    /// 不做整车单一凸包), 四个驱动轮用实测半径/半宽/轮心位置。
+    /// </summary>
+    private static void RobotV2(StringBuilder sb, RobotRuntime r, FieldModel field)
+    {
+        var v = r.Vehicle;
+        var ground = field.StageHeightAt(r.X, r.Y);
+        var z = ground + WheelRadiusV2 + WheelLocalZ;
+        var chassisMass = v.Mass - 4 * WheelMassV2 - ShovelMassV2;
+        if (!(chassisMass > 0))
         {
-            var x = (axle == "front" ? 1 : -1) * v.WheelBase / 2;
-            var y = (side == "left" ? 1 : -1) * v.TrackWidth / 2;
+            throw new ArgumentException(
+                $"MuJoCo model v2 needs vehicle mass > {4 * WheelMassV2 + ShovelMassV2} kg (wheels + rear shovel), got {v.Mass}.",
+                nameof(r));
+        }
+        sb.Append("<body name=\"robot_").Append(r.Role).Append("\" pos=\"")
+            .Append(N(r.X)).Append(' ').Append(N(r.Y)).Append(' ').Append(N(z))
+            .Append("\" euler=\"0 0 ").Append(N(r.Th)).Append("\"><freejoint name=\"robot_joint_")
+            .Append(r.Role).Append("\"/>");
+        // 配重按可分配车体质量封顶: 轻车(默认 1kg)下 0.9 会超过 chassis 质量;
+        // 真车 3.5kg 时取满 (chassisMass=2.36)。见 ChassisBallastV2 注释。
+        var ballast = Math.Min(ChassisBallastV2, chassisMass * 0.7);
+        sb.Append("<geom name=\"robot_chassis_").Append(r.Role).Append("\" type=\"mesh\" mesh=\"")
+            .Append(Meshes[0].Geom).Append("\" mass=\"").Append(N(chassisMass - ballast)).Append("\"/>");
+        // 真车配重(无碰撞、组 3): 贴车底内侧, 把整车质心拉低; 组 3 使传感器
+        // raycast(mj_ray 组掩码 0-2)完全不可见。
+        sb.Append("<geom name=\"robot_ballast_").Append(r.Role)
+            .Append("\" type=\"box\" pos=\"0 0 -0.0008\" size=\"0.06 0.08 0.0015\" mass=\"")
+            .Append(N(ballast)).Append("\" group=\"3\" contype=\"0\" conaffinity=\"0\"/>");
+        sb.Append("<geom name=\"robot_shovel_").Append(r.Role).Append("\" type=\"mesh\" mesh=\"")
+            .Append(Meshes[1].Geom).Append("\" mass=\"").Append(N(ShovelMassV2)).Append("\"/>");
+        // v2 轮摩擦与 v1 一致(1.5); 摩擦降档(1.0)单变量试验把翻覆数从 84 抬到 129
+        // (打滑→冲坡-滑落循环), 已回退。参数化保留供后续调参。
+        WheelBodies(sb, r, WheelRadiusV2, WheelHalfWidthV2, WheelMassV2, WheelLocalZ,
+            WheelFrontX, WheelRearX, WheelLeftY, WheelRightY);
+        sb.Append("</body>");
+    }
+
+    private static void WheelBodies(StringBuilder sb, RobotRuntime r, double radius, double halfWidth,
+        double mass, double localZ, double frontX, double rearX, double leftY, double rightY,
+        double friction = 1.5)
+    {
+        foreach (var (axle, x) in new[] { ("front", frontX), ("rear", rearX) })
+        foreach (var (side, y) in new[] { ("left", leftY), ("right", rightY) })
+        {
             var name = $"{r.Role}_{axle}_{side}";
             sb.Append("<body name=\"wheel_body_").Append(name).Append("\" pos=\"")
-                .Append(N(x)).Append(' ').Append(N(y)).Append(' ').Append(N(-0.04 - ChassisClearanceLift)).Append("\">");
+                .Append(N(x)).Append(' ').Append(N(y)).Append(' ').Append(N(localZ)).Append("\">");
             sb.Append("<joint name=\"wheel_").Append(name)
                 .Append("\" type=\"hinge\" axis=\"0 1 0\" damping=\"0.02\"/>");
             sb.Append("<geom name=\"wheel_geom_").Append(name)
                 .Append("\" type=\"cylinder\" euler=\"1.5707963267948966 0 0\" size=\"")
-                .Append(N(WheelRadius)).Append(" 0.03\" mass=\"0.03\" friction=\"1.5 0.02 0.002\" solref=\"0.02 1\"/>");
+                .Append(N(radius)).Append(' ').Append(N(halfWidth))
+                .Append("\" mass=\"").Append(N(mass))
+                .Append("\" friction=\"").Append(N(friction)).Append(" 0.02 0.002\" solref=\"0.02 1\"/>");
             sb.Append("</body>");
         }
-        sb.Append("</body>");
     }
 
     private static void AppendChamfers(StringBuilder sb, Region p, double height)
