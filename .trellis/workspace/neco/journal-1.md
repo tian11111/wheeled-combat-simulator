@@ -1177,3 +1177,37 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - 桌面目检“小车”页与真车参数行为; 后续方向: Fsm 爬坡姿态控制/坡道几何 (残余 wheelie 翻覆); 力矩级建模可消费扭矩字段
+
+
+## Session 35: 实时 YOLO 桥接：活源桥架构与真推理接入
+
+**Date**: 2026-09-30
+**Task**: 实时 YOLO 桥接：活源桥架构与真推理接入
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+动态工作流(deepseek-v4.1-flash)六批落地实时 YOLO 桥: LiveVisionBridge/CsvStreamSource/等价门(模拟流≡VisionReplayAdapter 逐位)、CLI vision live(基线对比+sidecar 录证)、桌面三源视觉装配、ExternalProcessStreamSource(stdout JSONL)+mbri_yolo_bridge stub、录制门禁(VisionMode=liveBridge 拒绝普通 replay)。全量 496+1 Skip 零回归、replay-check seed-42 逐位 PASS、Godot 构建零错、py 自测过; 两轮独立评审 5 个 high/medium 缺陷已修复复测(最重: null detections 帧致 NRE 炸场、重复接收组错并、CSV 128MB 上限缺失)。spec vision-replay-contract 收窄旧纪律。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3e4cfe6` | (see git log) |
+| `57cff99` | (see git log) |
+| `d29efaf` | (see git log) |
+| `888a60a` | (see git log) |
+| `3c86ae9` | (see git log) |
+| `230b177` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test -m:1 全量 496 通过+1 Skip; replay-check replays/seed-42.json 逐位 PASS; dotnet build godot/GodotSim.csproj 0 警 0 错; py -3.12 tools/yolo-bridge/selftest.py ALL PASSED; CLI --process stub 冒烟等价成立且 sidecar 两次复跑逐位一致
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 真推理端到端待用户环境(权重在手不在仓库); 桌面三源人工目检; 18 条 low 级评审发现按 report.md 披露待拍板; 本地领先 origin 27 提交待用户说推再推
