@@ -33,6 +33,14 @@ public sealed record SensorChannel
 
     public double Lateral { get; init; }
 
+    /// <summary>
+    /// 探点离地高度 (m, 站立于承载面时探点相对 ZG 基准面的世界高度)。
+    /// null = 旧 2D 平面语义(逐位兼容路径); 配置后探点世界坐标含姿态换算的
+    /// 高度, 地面类读数随姿态变化(3D 感知)。来源 = 装配.glb 节点车体系 z
+    /// (原点=轮轴平面) + 轮半径 0.0325; 真车底盘灰度贴地 → 0.0025。
+    /// </summary>
+    public double? Height { get; init; }
+
     public double Angle { get; init; }
 
     /// <summary>Sensing range in meters. Ground/gray channels use 0.</summary>
@@ -69,6 +77,10 @@ public sealed record SensorChannel
         if (Fov < 0)
         {
             yield return $"sensor channel '{Id}': fov must be >= 0 (0 is valid for ground/gray channels).";
+        }
+        if (Height is { } height && (!double.IsFinite(height) || height is < -0.2 or > 0.5))
+        {
+            yield return $"sensor channel '{Id}': height must be a finite number in [-0.2, 0.5] m (body frame; chassis probes are negative).";
         }
         if (Max <= Min)
         {
@@ -141,6 +153,58 @@ public sealed record SensorProfile
             }
         }
     }
+}
+
+    /// <summary>
+    /// JSON binding for sensor profiles. New capability (protocol add-only):
+    /// a scene/replay may reference a built-in layout by id only,
+    /// <c>{"id":"wheeledCombat11"}</c> or <c>{"id":"legacy14"}</c>, which expands
+    /// to the full built-in profile. Objects carrying their own <c>channels</c>
+    /// bind as before, and serialization always writes the full profile, so
+    /// existing wire shapes are unchanged.
+public sealed class SensorProfileJsonConverter : JsonConverter<SensorProfile>
+{
+    public override SensorProfile? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Null)
+        {
+            return null;
+        }
+        if (reader.TokenType != JsonTokenType.StartObject)
+        {
+            throw new JsonException("sensor profile must be a JSON object.");
+        }
+        var element = JsonElement.ParseValue(ref reader);
+        if (!element.TryGetProperty("channels", out _) && BuiltinById(element) is { } builtin)
+        {
+            return builtin;
+        }
+        return new SensorProfile
+        {
+            Id = element.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String ? id.GetString()! : "custom",
+            Label = element.TryGetProperty("label", out var label) && label.ValueKind == JsonValueKind.String ? label.GetString() : null,
+            Channels = element.TryGetProperty("channels", out var channels)
+                ? channels.Deserialize<List<SensorChannel>>(ProtocolJson.BareOptions) ?? new List<SensorChannel>()
+                : new List<SensorChannel>(),
+            Logical = element.TryGetProperty("logical", out var logical)
+                ? logical.Deserialize<Dictionary<string, LogicalSensorMap>>(ProtocolJson.BareOptions)
+                : null,
+        };
+    }
+
+    public override void Write(Utf8JsonWriter writer, SensorProfile value, JsonSerializerOptions options)
+        => JsonSerializer.Serialize(writer, value, ProtocolJson.BareOptions);
+
+    /// <summary>Resolves an id-only reference to the built-in profile, or null.</summary>
+    private static SensorProfile? BuiltinById(JsonElement element)
+        => element.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String
+            ? id.GetString() switch
+            {
+                "legacy14" => SensorProfiles.Legacy14,
+                "wheeledCombat11" => SensorProfiles.WheeledCombat11,
+                _ => null,
+            }
+            : null;
 }
 
 /// <summary>
@@ -286,13 +350,14 @@ public static class SensorProfiles
     private static SensorChannel Ch(
         string id, string label, SensorType type,
         double forward, double lateral, double angle,
-        double range, double fov, string mode) => new()
+        double range, double fov, string mode, double? height = null) => new()
     {
         Id = id,
         Label = label,
         Type = type,
         Forward = forward,
         Lateral = lateral,
+        Height = height,
         Angle = angle,
         Range = range,
         Fov = fov,
@@ -348,6 +413,14 @@ public static class SensorProfiles
     /// shovel-front channel feeds both sFL/sFR compatibility aliases; there is
     /// no dedicated front/rear digital IR, so "f" is a virtual max() of the two
     /// front diagonal channels and "r" is unmapped (compatibility value 0).
+    ///
+    /// Forward/Lateral 来自装配.glb 光电节点的实测车体坐标, Height 为站立时
+    /// 离地高度 = 节点车体系 z(原点=轮轴平面) + 轮半径 0.0325 —— 运行时探点
+    /// 世界 Z 以 ZG(承载面高度, legacy 四轮采样语义) 为锚, 核心层不持有轮半径,
+    /// 因此以离地高度入档 (tools/mesh/sensor_mounts.json, 2026-09-29 重标):
+    /// 对角/铲下/铲前为节点实测值(高/中置信), 底盘灰度 4 路为工程默认兜底
+    /// (低置信, 投影内贴地, 离地 2.5mm)。通道 id 与 Angle/Range/Fov/Mode
+    /// 语义保持现行定义不变(决策⑦)。
     /// </summary>
     public static SensorProfile WheeledCombat11 { get; } = new()
     {
@@ -355,17 +428,17 @@ public static class SensorProfiles
         Label = "本车 11 路",
         Channels =
         [
-            Ch("gray_front", "底盘灰度·前", SensorType.Gray, 0.11, 0, 0, 0, 0, "ground"),
-            Ch("gray_rear", "底盘灰度·后", SensorType.Gray, -0.11, 0, Math.PI, 0, 0, "ground"),
-            Ch("gray_left", "底盘灰度·左", SensorType.Gray, 0, 0.11, Math.PI / 2, 0, 0, "ground"),
-            Ch("gray_right", "底盘灰度·右", SensorType.Gray, 0, -0.11, -Math.PI / 2, 0, 0, "ground"),
-            Ch("diag_left_front", "数字红外·左前", SensorType.Digital, 0, 0, -Math.PI / 4, 1.60, 0.55, "target"),
-            Ch("diag_left_rear", "数字红外·左后", SensorType.Digital, 0, 0, 3 * Math.PI / 4, 1.60, 0.55, "target"),
-            Ch("diag_right_front", "数字红外·右前", SensorType.Digital, 0, 0, Math.PI / 4, 1.60, 0.55, "target"),
-            Ch("diag_right_rear", "数字红外·右后", SensorType.Digital, 0, 0, -3 * Math.PI / 4, 1.60, 0.55, "target"),
-            Ch("shovel_under_left", "铲下红外·左", SensorType.IrGround, 0.14, 0.06, 0, 0.25, 0.35, "ground"),
-            Ch("shovel_under_right", "铲下红外·右", SensorType.IrGround, 0.14, -0.06, 0, 0.25, 0.35, "ground"),
-            Ch("shovel_front", "铲前红外", SensorType.IrEdge, 0.16, 0, 0, 0.90, 0.30, "edge"),
+            Ch("gray_front", "底盘灰度·前", SensorType.Gray, 0.06, 0, 0, 0, 0, "ground", 0.0025),
+            Ch("gray_rear", "底盘灰度·后", SensorType.Gray, -0.06, 0, Math.PI, 0, 0, "ground", 0.0025),
+            Ch("gray_left", "底盘灰度·左", SensorType.Gray, 0, 0.06, Math.PI / 2, 0, 0, "ground", 0.0025),
+            Ch("gray_right", "底盘灰度·右", SensorType.Gray, 0, -0.06, -Math.PI / 2, 0, 0, "ground", 0.0025),
+            Ch("diag_left_front", "数字红外·左前", SensorType.Digital, 0.099598, 0.055462, -Math.PI / 4, 1.60, 0.55, "target", 0.05825),
+            Ch("diag_left_rear", "数字红外·左后", SensorType.Digital, 0.029459, 0.100622, 3 * Math.PI / 4, 1.60, 0.55, "target", 0.05825),
+            Ch("diag_right_front", "数字红外·右前", SensorType.Digital, 0.085178, -0.078079, Math.PI / 4, 1.60, 0.55, "target", 0.05825),
+            Ch("diag_right_rear", "数字红外·右后", SensorType.Digital, 0.008171, -0.118071, -3 * Math.PI / 4, 1.60, 0.55, "target", 0.05825),
+            Ch("shovel_under_left", "铲下红外·左", SensorType.IrGround, -0.002, 0.108845, 0, 0.25, 0.35, "ground", 0.04125),
+            Ch("shovel_under_right", "铲下红外·右", SensorType.IrGround, -0.002, -0.105155, 0, 0.25, 0.35, "ground", 0.04125),
+            Ch("shovel_front", "铲前红外", SensorType.IrEdge, -0.165405, 0.001845, 0, 0.90, 0.30, "edge", 0.093694),
         ],
         Logical = new Dictionary<string, LogicalSensorMap>
         {

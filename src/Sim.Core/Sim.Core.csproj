@@ -8,4 +8,10 @@
     <ProjectReference Include="..\Sim.Protocol\Sim.Protocol.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- 3D 探点的姿态换算矩阵(SensorPoint/SensorDownZ)按 Sim.Cli 既有做法只对
+         本测试程序集开放 internal, 供 Sensor3DTests 直接断言 Rz·Ry·Rx 组合。 -->
+    <InternalsVisibleTo Include="Sim.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -43,7 +43,8 @@
       "accelK": 12,
       "pushFactor": 1.0,
       "latFrictionK": 8,
-      "angDamping": 3
+      "angDamping": 3,
+      "sensors": { "id": "wheeledCombat11" }
     },
     "them": {
       "id": "glb-2026",
@@ -65,7 +66,8 @@
       "accelK": 12,
       "pushFactor": 1.0,
       "latFrictionK": 8,
-      "angDamping": 3
+      "angDamping": 3,
+      "sensors": { "id": "wheeledCombat11" }
     }
   }
 }

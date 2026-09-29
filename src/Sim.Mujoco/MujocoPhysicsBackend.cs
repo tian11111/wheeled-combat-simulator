@@ -11,6 +11,7 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     private readonly HashSet<int> _themGeoms = [];
     private readonly Dictionary<int, BlockRuntime> _blockGeoms = [];
     private readonly Dictionary<string, double> _driveV = [];
+    private readonly Dictionary<int, string> _staticTags = [];
 
     // 09-25 SEARCH 索敌闭环: 原地转向补偿系数。四轮横向滑动摩擦使原地偏航速率
     // 仅为指令的 ~3%(kv=0.25 为登台柔性所必需, 不能提高); 对 |CmdV|≤0.02 的
@@ -252,6 +253,178 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     /// <summary>纯判定(可单测): 车体 up 分量低于阈值即视为倾覆。</summary>
     internal static bool IsFlippedAt(double upright) => upright < FlippedUprightThreshold;
 
+    // ---------- 传感器探测 (R3 3D 化) ----------
+
+    /// <summary>平面查询(通道未配 Height)退化到与 legacy 相同的解析实现 —— 逐位兼容;
+    /// 3D 查询用 mj_ray 打真实碰撞 geom(传感器所见 = 物理所碰)。</summary>
+    public SensorProbe? ProbeRay(ProbeQuery query)
+    {
+        ThrowIfDisposed();
+        if (query.Planar)
+        {
+            return PlanarSensors.IrProbe(_context.Field, query.Robot, OpponentRole(query.Robot), _context.Blocks,
+                query.X, query.Y, query.Angle, query.HalfFov, query.Range,
+                query.IncludeEdge, query.IncludeFence);
+        }
+        return ProbeRay3D(query);
+    }
+
+    /// <summary>地面类: 平面查询只看 XY(逐位兼容); 3D 查询附加光轴朝向 + 高度差
+    /// 量程判定 —— 半悬/翘头/翻覆不再凭"XY 落在台内"误报在台面。</summary>
+    public double ProbeGround(GroundQuery query)
+    {
+        ThrowIfDisposed();
+        var field = _context.Field;
+        if (!query.Planar && query.DownZ > GroundFacingLimit)
+        {
+            return 0; // 传感器光轴偏离朝下超过 60°(翻覆朝天/侧躺): 读不到地面
+        }
+        if (!query.Planar)
+        {
+            var diff = query.Z - field.StageHeightAt(query.X, query.Y);
+            if (diff < -HeightTolerance || diff > query.MaxHeight)
+            {
+                return 0; // 探点低于承载面(倒扣压进台面)或离面超量程(半悬/翘头)
+            }
+        }
+        return query.SpotRadius > 0
+            ? PlanarSensors.GraySpot(field, query.X, query.Y, query.SpotRadius)
+            : (field.OnPlatform(query.X, query.Y) ? 1 : 0);
+    }
+
+    /// <summary>光轴朝向门限: DownZ = -cos(倾角), 倾角超过 60° 视为读不到地面。</summary>
+    private const double GroundFacingLimit = -0.5;
+
+    /// <summary>高度差判定允许探点略低于承载面的数值容差(m)。</summary>
+    private const double HeightTolerance = 0.002;
+
+    /// <summary>mj_ray 命中自身 geom 后的外推步长(m): 探点在自身 mesh 表面上
+    /// (挂点=节点原点恰在底盘顶面), 光束与顶面共面时命中点需以毫米级步长爬出
+    /// 共面段(前缘剩余 ≈3.4mm), 步长过小会在穿透上限内耗尽; 步长只影响穿透段
+    /// 起点偏移, 命中距离按 advance 精确累加。</summary>
+    private const double SelfHitSkip = 0.002;
+
+    /// <summary>自身遮挡穿透上限: chassis + shovel + 轮最多遮少数几层。</summary>
+    private const int MaxSelfHits = 4;
+
+    private SensorProbe? ProbeRay3D(ProbeQuery query)
+    {
+        // 已知边界(记录备查): 传感器采样在 Tick 内 Step 之前执行, _data 自上个
+        // tick 末子步 integrate 后未再 mj_forward, geom_xpos 滞后一个子步
+        // (v×5ms, 1.5m/s 车速下 ≈7.5mm), 命中距离存在同量级系统偏移 —— 与
+        // irNoise 0.02~0.05 的噪声幅值同量级, 且按 spec"传感器在物理步进前采样
+        // (读上一提交帧)"的既有口径一致, 不为 ray 路径单独 mj_forward(吞吐)。
+        var beam = BeamDirection(query);
+        var normal = new double[3];
+        var geomId = new int[1];
+        var selfGeoms = query.Robot.IsUs ? _usGeoms : _themGeoms;
+        var advance = 0.0;
+        for (var attempt = 0; attempt <= MaxSelfHits; attempt++)
+        {
+            var pnt = new[]
+            {
+                query.X + beam[0] * advance,
+                query.Y + beam[1] * advance,
+                query.Z + beam[2] * advance,
+            };
+            var t = MujocoNative.Ray(_model, _data, pnt, beam, null, 1, -1, geomId, normal);
+            if (t < 0)
+            {
+                return null; // 未命中
+            }
+            var distance = advance + t;
+            if (distance > query.Range)
+            {
+                return null;
+            }
+            if (!selfGeoms.Contains(geomId[0]))
+            {
+                return ClassifyRayHit(query, beam, geomId[0], distance, normal);
+            }
+            advance = distance + SelfHitSkip;
+        }
+        return null; // 光束被自身几何连续遮挡
+    }
+
+    /// <summary>光束世界系单位方向。ProbeQuery.Angle 是**世界系**水平方位角
+    /// (SensorSampler 传 SensorAngle = r.Th + ch.Angle, 与平面分支 PlanarSensors
+    /// 直接消费同一值) —— 本地方位 = Angle − 车体航向, 姿态修正
+    /// Rz(yaw)·Ry(pitch)·Rx(roll) 作用于本地向量。roll=pitch=0 时退化为
+    /// (cos Angle, sin Angle, 0), 与平面分支逐位一致; 倾斜姿态下光束随车体
+    /// 翻转。(曾把世界系 Angle 当本地角再转一次 yaw, 造成方位偏差恒等于航向。)</summary>
+    internal static double[] BeamDirection(ProbeQuery query)
+    {
+        var th = query.Robot.Th;
+        var cr = Math.Cos(query.Robot.Roll);
+        var sr = Math.Sin(query.Robot.Roll);
+        var cp = Math.Cos(query.Robot.Pitch);
+        var sp = Math.Sin(query.Robot.Pitch);
+        var cb = Math.Cos(th);
+        var sb = Math.Sin(th);
+        var localAzimuth = query.Angle - th;
+        var localX = Math.Cos(query.Elevation) * Math.Cos(localAzimuth);
+        var localY = Math.Cos(query.Elevation) * Math.Sin(localAzimuth);
+        var localZ = Math.Sin(query.Elevation);
+        var ry = cr * localY - sr * localZ;
+        var rz = sr * localY + cr * localZ;
+        var rx = cp * localX + sp * rz;
+        rz = -sp * localX + cp * rz;
+        return [cb * rx - sb * ry, sb * rx + cb * ry, rz];
+    }
+
+    private SensorProbe? ClassifyRayHit(ProbeQuery query, double[] beam, int geomId, double distance, double[] normal)
+    {
+        // 命中面法线衰减: mj_ray 的 normal 朝向射线来向 → 入射余弦 = |beam·normal|。
+        var atten = Math.Abs(beam[0] * normal[0] + beam[1] * normal[1] + beam[2] * normal[2]);
+        if (_blockGeoms.TryGetValue(geomId, out var block))
+        {
+            var z = _context.Field.StageHeightAt(block.X, block.Y) + _context.Scenario.Field.BlockSize / 2;
+            if (!InTargetFov(query, beam, block.X, block.Y, z, block.R))
+            {
+                return null; // 目标中心偏离光束轴超过半视场
+            }
+            return new SensorProbe { D = distance, Obj = block, Atten = atten };
+        }
+        var opponent = OpponentGeom(query, geomId);
+        if (opponent is not null)
+        {
+            if (!InTargetFov(query, beam, opponent.X, opponent.Y, opponent.ZG, opponent.R))
+            {
+                return null;
+            }
+            return new SensorProbe { D = distance, Obj = opponent, Atten = atten };
+        }
+        if (_staticTags.TryGetValue(geomId, out var tag))
+        {
+            // 静态面(台壁/台沿倒角/围栏/走道)不是点目标, 不做 FOV 过滤。
+            return new SensorProbe { D = distance, Obj = tag, Atten = atten };
+        }
+        return new SensorProbe { D = distance, Obj = null, Atten = atten };
+    }
+
+    /// <summary>目标(块/对手车)中心偏离光束轴的角度过滤, 口径与平面语义一致。</summary>
+    private static bool InTargetFov(ProbeQuery query, double[] beam, double ox, double oy, double oz, double radius)
+    {
+        var dx = ox - query.X;
+        var dy = oy - query.Y;
+        var dz = oz - query.Z;
+        var d = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+        if (d < 1e-9)
+        {
+            return true;
+        }
+        var cos = Math.Clamp((dx * beam[0] + dy * beam[1] + dz * beam[2]) / d, -1, 1);
+        var angle = Math.Acos(cos);
+        return Math.Abs(angle) <= query.HalfFov + Math.Asin(Math.Min(1, radius / Math.Max(0.05, d)));
+    }
+
+    private RobotRuntime OpponentRole(RobotRuntime robot) => robot.IsUs ? _context.Them : _context.Us;
+
+    private RobotRuntime? OpponentGeom(ProbeQuery query, int geomId)
+        => query.Robot.IsUs
+            ? (_themGeoms.Contains(geomId) ? _context.Them : null)
+            : (_usGeoms.Contains(geomId) ? _context.Us : null);
+
     public bool HangOn(RobotRuntime robot)
     {
         var v = robot.Vehicle;
@@ -407,6 +580,14 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
         }
         for (var i = 0; i < _context.Blocks.Count; i++)
             _blockGeoms.Add(GeomId($"block_geom_{i}"), _context.Blocks[i]);
+        // 传感器 ray 命中的静态面归类(legacy SensorProbe 的 string tag 口径):
+        // 走道地面 vs 台壁/台沿倒角/围栏。
+        _staticTags[GeomId("ground")] = "地面";
+        foreach (var name in new[] { "platform", "chamfer_s", "chamfer_n", "chamfer_w", "chamfer_e",
+                     "fence_s", "fence_n", "fence_w", "fence_e" })
+        {
+            _staticTags[GeomId(name)] = "台壁";
+        }
     }
     private int GeomId(string name)
     {
@@ -414,6 +595,11 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
         if (id < 0) throw new InvalidOperationException($"MuJoCo model is missing geom '{name}'.");
         return id;
     }
+
+    /// <summary>测试专用(Sim.Tests 经 InternalsVisibleTo): 探测类测试需要直接
+    /// 注入 qpos 后再调 ProbeRay/ProbeGround; 只读访问, 不改变生命周期归属。</summary>
+    internal IntPtr ExposedModel => _model;
+    internal IntPtr ExposedData => _data;
 
     private void ThrowIfDisposed()
     {

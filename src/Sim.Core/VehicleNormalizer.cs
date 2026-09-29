@@ -85,6 +85,7 @@ public static class VehicleNormalizer
                 Id = string.IsNullOrWhiteSpace(channel.Id) ? $"sensor_{index}" : channel.Id,
                 Forward = Js.Clamp(channel.Forward, -1, 1),
                 Lateral = Js.Clamp(channel.Lateral, -1, 1),
+                Height = channel.Height is { } height ? Js.Clamp(height, -0.2, 0.5) : null,
                 Angle = Js.Clamp(channel.Angle, -Math.PI, Math.PI),
                 Range = Js.Clamp(channel.Range, 0.05, 3),
                 Fov = Js.Clamp(channel.Fov, 0.01, Math.PI),

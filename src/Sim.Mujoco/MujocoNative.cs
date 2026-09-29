@@ -111,6 +111,23 @@ internal static unsafe class MujocoNative
     [DllImport(LibraryName, EntryPoint = "mj_geomDistance", CallingConvention = CallingConvention.Cdecl)]
     private static extern double GeomDistanceNative(IntPtr model, IntPtr data, int geom1, int geom2, double distmax, double[] fromto);
 
+    // mj_ray 3.14.0 C 原型 (include/mujoco/mujoco.h):
+    //   mjtNum mj_ray(const mjModel*, const mjData*, const mjtNum pnt[3],
+    //     const mjtNum vec[3], const mjtByte* geomgroup, mjtBool flg_static,
+    //     int bodyexclude, int geomid[1], mjtNum normal[3]);
+    // 四个致命细节 (tmp/rayprobe 探针实证, 违反即延迟 CLR 崩溃或读数错位):
+    //  1. 末参数是 mjtNum normal[3] 输出(命中面法线) —— 3.14.0 已把旧版 pdist[1]
+    //     改成 normal[3], 传 double[1] 会被 native zero3/copy3 越界写 16 字节踩坏
+    //     GC 堆, 延迟 fatal (0x80131506) 且崩溃点漂移。
+    //  2. flg_static 是 mjtBool = 1 字节 _Bool, 必须用 byte 传; C# bool 默认
+    //     marshal 成 4 字节 Win32 BOOL 会错位。
+    //  3. flgStatic=1 才能命中 worldbody 静态 geom; bodyexclude 传 -1 不排除。
+    //  4. 返回值是沿 vec 的命中参数 t(单位 vec 时 = 几何距离), 命中点 = pnt + t*vec;
+    //     未命中返回 -1。调用前必须 mj_forward 过(d->geom_xpos 已填)。
+    [DllImport(LibraryName, EntryPoint = "mj_ray", CallingConvention = CallingConvention.Cdecl)]
+    internal static extern double Ray(IntPtr model, IntPtr data, double[] pnt, double[] vec,
+        byte[]? geomgroup, byte flgStatic, int bodyExclude, int[] geomId, double[] normal);
+
     /// <summary>mjVFS 未公开 sizeof; 2000×1000 文件名表 ≈ 2.02 MB, 留一倍余量。</summary>
     private const int VfsBytes = 4 << 20;
 

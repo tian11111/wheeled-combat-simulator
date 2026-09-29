@@ -34,8 +34,30 @@ public static class ProtocolJson
         // Enum converters are attached via [JsonConverter] attributes on the enum
         // declarations so each enum keeps its own legacy spelling.
 
+        // Sensor profile: scene/replay files may reference the built-in layouts
+        // by id only ({"id":"wheeledCombat11"}). Registered here (not via
+        // attribute) so the converter can hold a converter-free options set
+        // (BareOptions) for its recursive fields.
         Options = options;
+        BareOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            IncludeFields = false,
+            WriteIndented = false,
+        };
+        options.Converters.Add(new SensorProfileJsonConverter());
     }
+
+    /// <summary>
+    /// Same settings as <see cref="Options"/> but without the sensor-profile
+    /// converter, for serializing/deserializing the nested members of a
+    /// <see cref="SensorProfile"/> without recursing into the converter.
+    /// Attribute-attached converters (enum spellings, logical maps) still apply.
+    /// </summary>
+    public static JsonSerializerOptions BareOptions { get; }
 
     /// <summary>The canonical serializer options for all protocol messages.</summary>
     public static JsonSerializerOptions Options { get; }

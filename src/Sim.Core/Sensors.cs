@@ -33,9 +33,23 @@ public sealed class SensorSampler
     private readonly List<BlockRuntime> _blocks;
     private readonly long _seed;
     private readonly Func<long> _stepIndex;
+    private readonly IPhysicsBackend _physics;
+
+    // 3D 地面类通道的高度差量程 (m, 工程默认, 非真机标定): 探点世界 Z 与承载面
+    // (台面 0.06 / 走道 0)之差超过量程 → 无反射。工况矩阵:
+    //   站立贴地: 灰度 diff≈0.0025 / 铲下 ≈0.0413 → 都放行;
+    //   20° 台沿倒角爬坡(倒车登台, 车尾 gB 探点随姿态抬升): diff ≈
+    //     sin20°×0.06 + cos20°×0.0025 ≈ 0.0229 → 灰度量程必须放行 (0.02 会
+    //     拦截爬坡段的登台信号, 0.03 放行);
+    //   翘头 30°(半悬前兆): 前灰度 diff ≈ 0.0025+0.06×sin30° = 0.0325 → 0.03
+    //     拦截 (拦截起点 pitch ≈ 27°);
+    //   铲下 forward≈-0.002 几乎无 pitch 耦合, 半悬由 XY 出台 + 翻覆由光轴
+    //   朝向(DownZ)拦截, 量程 0.06 只需覆盖常态 0.0413。
+    private const double GrayHeightRange = 0.03;
+    private const double IrGroundHeightRange = 0.06;
 
     public SensorSampler(FieldModel field, SimParameters parameters, RobotRuntime us, RobotRuntime them,
-        List<BlockRuntime> blocks, long seed, Func<long> stepIndex)
+        List<BlockRuntime> blocks, long seed, Func<long> stepIndex, IPhysicsBackend physics)
     {
         _field = field;
         _params = parameters;
@@ -44,16 +58,41 @@ public sealed class SensorSampler
         _blocks = blocks;
         _seed = seed;
         _stepIndex = stepIndex;
+        _physics = physics;
     }
 
     private RobotRuntime Other(RobotRuntime r) => r.IsUs ? _them : _us;
 
-    private static (double X, double Y) SensorPoint(RobotRuntime r, SensorChannel ch)
+    /// <summary>
+    /// 探点世界坐标。通道未配置 Height 时为 (x, y, 0) —— Z 无效果的旧 2D 平面语义,
+    /// 与升级前 SensorPoint 逐位一致; 配置后本地 (forward, lateral, height) 经
+    /// Rz(yaw)·Ry(pitch)·Rx(roll) 完整旋转加到车体原点(与 RobotRuntime roll/pitch
+    /// 的 ZYX 欧拉分解一致), 半悬/翻覆姿态下探点随姿态抬升/翻转。(曾把平面旋转
+    /// 结果当车体原点再叠加一次旋转, 造成 3D 通道探点 XY 双算偏移。)
+    /// internal 供测试直接断言姿态矩阵。
+    /// </summary>
+    internal static (double X, double Y, double Z) SensorPoint(RobotRuntime r, SensorChannel ch)
     {
         var c = Math.Cos(r.Th);
         var s = Math.Sin(r.Th);
-        return (r.X + c * ch.Forward - s * ch.Lateral, r.Y + s * ch.Forward + c * ch.Lateral);
+        if (ch.Height is not { } h)
+        {
+            return (r.X + c * ch.Forward - s * ch.Lateral, r.Y + s * ch.Forward + c * ch.Lateral, 0);
+        }
+        var cr = Math.Cos(r.Roll);
+        var sr = Math.Sin(r.Roll);
+        var cp = Math.Cos(r.Pitch);
+        var sp = Math.Sin(r.Pitch);
+        var ry = cr * ch.Lateral - sr * h;
+        var rz = sr * ch.Lateral + cr * h;
+        var rx = cp * ch.Forward + sp * rz;
+        rz = -sp * ch.Forward + cp * rz;
+        return (r.X + c * rx - s * ry, r.Y + s * rx + c * ry, r.ZG + rz);
     }
+
+    /// <summary>传感器光轴(车体系朝下 (0,0,-1))在世界系的 Z 分量: 直立 -1, 倒扣 +1。
+    /// internal 供测试直接断言姿态矩阵。</summary>
+    internal static double SensorDownZ(RobotRuntime r) => -Math.Cos(r.Pitch) * Math.Cos(r.Roll);
 
     private static double SensorAngle(RobotRuntime r, SensorChannel ch) => r.Th + ch.Angle;
 
@@ -100,137 +139,70 @@ public sealed class SensorSampler
         return Math.Max(0, Math.Abs(beamX * fnx + beamY * fny));
     }
 
-    private SensorProbe? IrProbeFor(RobotRuntime r, double ox, double oy, double ang, double half, double range, bool inclEdge, bool inclFence)
-    {
-        SensorProbe? best = null;
-        var targets = new List<object>(_blocks.Count + 1);
-        targets.AddRange(_blocks);
-        targets.Add(Other(r));
-        var beamX = Math.Cos(ang);
-        var beamY = Math.Sin(ang);
-        foreach (var o in targets)
+    /// <summary>IR 探测经后端接口取命中: 平面查询由 backend 退化到 PlanarSensors(逐位
+    /// 兼容), 3D 查询由 MuJoCo 用 mj_ray 打真实碰撞几何。</summary>
+    private SensorProbe? ProbeRayFor(RobotRuntime r, SensorChannel ch, (double X, double Y, double Z) p,
+        double ang, double half, double range, bool inclEdge, bool inclFence)
+        => _physics.ProbeRay(new ProbeQuery
         {
-            double oxo, oyo, oro;
-            if (o is BlockRuntime b)
-            {
-                oxo = b.X; oyo = b.Y; oro = b.R;
-            }
-            else
-            {
-                var rb = (RobotRuntime)o;
-                oxo = rb.X; oyo = rb.Y; oro = rb.R;
-            }
-            var dx = oxo - ox;
-            var dy = oyo - oy;
-            var d = Js.Hypot(dx, dy);
-            if (d > range + oro)
-            {
-                continue;
-            }
-            var a = Js.Norm(Math.Atan2(dy, dx) - ang);
-            if (Math.Abs(a) > half + Math.Asin(Math.Min(1, oro / Math.Max(0.05, d))))
-            {
-                continue;
-            }
-            var dd = d - oro;
-            // 入射角余弦衰减: 能量块最近点法线沿径向 → cosθ≈1; 对手按矩形车身取面法线。
-            double atten = 1;
-            if (o is RobotRuntime)
-            {
-                atten = RobotFaceCos((RobotRuntime)o, ox, oy, beamX, beamY);
-            }
-            if (best is null || dd < best.D)
-            {
-                best = new SensorProbe { D = dd, Obj = o, Atten = atten };
-            }
-        }
-        if (inclEdge && !_field.OnPlatform(ox, oy))
-        {
-            // 从台下探测台沿
-            for (var s = 0.05; s <= range; s += 0.05)
-            {
-                var px = ox + Math.Cos(ang) * s;
-                var py = oy + Math.Sin(ang) * s;
-                if (_field.OnPlatform(px, py))
-                {
-                    if (best is null || s < best.D)
-                    {
-                        best = new SensorProbe { D = s, Obj = null, Atten = 1 };
-                    }
-                    break;
-                }
-            }
-        }
-        if (inclFence)
-        {
-            // 围栏(后向)
-            var s = FenceDist(ox, oy, ang, range);
-            if (s is { } fence && (best is null || fence < best.D))
-            {
-                best = new SensorProbe { D = fence, Obj = null, Atten = 1 };
-            }
-        }
-        return best;
-    }
+            Robot = r,
+            X = p.X,
+            Y = p.Y,
+            Z = p.Z,
+            Angle = ang,
+            HalfFov = half,
+            Range = range,
+            IncludeEdge = inclEdge,
+            IncludeFence = inclFence,
+            Planar = ch.Height is null,
+        });
 
-    private double? FenceDist(double ox, double oy, double ang, double range)
-    {
-        // The fence square is axis-aligned in field-local coordinates.
-        var t = _field.Transform;
-        var (x, y) = t.WorldToLocalPoint(ox, oy);
-        var lang = t.WorldToLocalHeading(ang);
-        var hi = _field.Field.FieldSize - 0.05;
-        for (var s = 0.05; s <= range; s += 0.05)
+    /// <summary>地面类探测经后端接口: SpotRadius>0 灰度采样, 否则台面反射 0/1;
+    /// 3D 查询附加高度差量程与光轴朝向判定(半悬/翻覆不再凭 XY 在台内误报)。</summary>
+    private double ProbeGroundFor(RobotRuntime r, SensorChannel ch, (double X, double Y, double Z) p, bool spot)
+        => _physics.ProbeGround(new GroundQuery
         {
-            var px = x + Math.Cos(lang) * s;
-            var py = y + Math.Sin(lang) * s;
-            if (px < 0.05 || px > hi || py < 0.05 || py > hi)
-            {
-                return s;
-            }
-        }
-        return null;
-    }
-
-    /// <summary>台壁反射: 走道上铲前红外对白台壁的反射距离。</summary>
-    private double? WallProbe(double px, double py, double ang, double range)
-    {
-        if (_field.OnPlatform(px, py))
-        {
-            return null; // 起点已在台上 → 无台壁可反射
-        }
-        for (var s = 0.06; s <= range; s += 0.06)
-        {
-            if (_field.OnPlatform(px + Math.Cos(ang) * s, py + Math.Sin(ang) * s))
-            {
-                return s;
-            }
-        }
-        return null;
-    }
+            X = p.X,
+            Y = p.Y,
+            Z = p.Z,
+            Planar = ch.Height is null,
+            SpotRadius = spot ? (_params.GraySpotRadius != 0 ? _params.GraySpotRadius : 0.025) : 0,
+            MaxHeight = ch.Type == SensorType.Gray ? GrayHeightRange : IrGroundHeightRange,
+            DownZ = SensorDownZ(r),
+        });
 
     private static double IrVal(SensorProbe? pr, double range)
         => pr is null ? 0 : Js.Clamp((pr.Atten ?? 1) * (1 - pr.D / range), 0, 1);
 
-    private SensorProbe? EdgeProbeFor(RobotRuntime r, SensorChannel ch, (double X, double Y) p)
+    private SensorProbe? EdgeProbeFor(RobotRuntime r, SensorChannel ch, (double X, double Y, double Z) p)
     {
         var ang = SensorAngle(r, ch);
         var range = ch.Range != 0 ? ch.Range : 0.9;
         var half = ch.Fov != 0 ? ch.Fov : 0.30;
         // `edge` measures the raised platform wall; `fence` measures the outer perimeter.
         var fenceMode = ch.Mode == "fence";
-        var target = IrProbeFor(r, p.X, p.Y, ang, half, range,
+        var target = ProbeRayFor(r, ch, p, ang, half, range,
             !fenceMode && !_field.OnPlatform(p.X, p.Y), fenceMode);
-        var wall = fenceMode ? null : WallProbe(p.X, p.Y, ang, range);
-        var ground = 0.0;
+        // 台面反射候选: 平面语义看 XY 投影; 3D 语义用探点垂线的地面判定
+        // (OnPlatform + 高度差量程 + 光轴朝向) —— 半悬/翻覆不再误报"铲前仍在
+        // 台面"。该候选不可省: 水平光束打不到台面顶, 铲前红外(探点在车尾,
+        // 语义模式 angle=0 朝车头, 设计⑦不改)在台面上依赖此反射维持高电平,
+        // 砍掉会使 FSM 的 rush(前冲找墙)永不退出而冲出场外。
+        double ground;
         if (!_field.OnPlatform(r.X, r.Y))
         {
             ground = 0.3;              // 走道地面有弱反射
         }
-        else if (_field.OnPlatform(p.X, p.Y))
+        else if (ProbeGroundFor(r, ch, p, spot: false) > 0)
         {
             ground = 1;                // 铲前仍在台面
         }
+        else
+        {
+            ground = 0;                // 3D: 探点离面超量程/朝向不对 → 无反射
+        }
+        var wall = fenceMode ? null
+            : (ch.Height is null ? PlanarSensors.WallProbe(_field, p.X, p.Y, ang, range) : null);
         var candidates = new List<SensorProbe?>
         {
             target,
@@ -246,19 +218,6 @@ public sealed class SensorSampler
             }
         }
         return best;
-    }
-
-    /// <summary>灰度近地圆形光斑加权采样 (中心 + 四个方向边缘点)。</summary>
-    private double GraySpotSample(double x, double y)
-    {
-        var radius = _params.GraySpotRadius != 0 ? _params.GraySpotRadius : 0.025;
-        double sum = 0;
-        sum += _field.FieldGray(x, y);
-        sum += _field.FieldGray(x + radius, y);
-        sum += _field.FieldGray(x - radius, y);
-        sum += _field.FieldGray(x, y + radius);
-        sum += _field.FieldGray(x, y - radius);
-        return sum / 5;
     }
 
     /// <summary>施密特触发器: 数字红外二值输出, 进入/释放阈值分离。</summary>
@@ -310,15 +269,15 @@ public sealed class SensorSampler
         SensorProbe? probe = null;
         if (ch.Type == SensorType.Gray)
         {
-            value = GraySpotSample(p.X, p.Y);
+            value = ProbeGroundFor(r, ch, p, spot: true);
         }
         else if (ch.Type == SensorType.IrGround)
         {
-            // 台面/地面反射=1, 悬空=0
-            value = _field.OnPlatform(p.X, p.Y) ? 1 : 0;
+            // 台面/地面反射=1, 悬空/离面超量程/光轴朝向不对=0
+            value = ProbeGroundFor(r, ch, p, spot: false);
             if (ch.Mode == "target")
             {
-                probe = IrProbeFor(r, p.X, p.Y, ang, half, range, false, false);
+                probe = ProbeRayFor(r, ch, p, ang, half, range, false, false);
                 value = Math.Max(value, IrVal(probe, range));
             }
         }
@@ -336,7 +295,7 @@ public sealed class SensorSampler
         {
             var inclEdge = ch.Mode is "edge_target" or "edge";
             var inclFence = ch.Mode == "fence";
-            probe = IrProbeFor(r, p.X, p.Y, ang, half, range, inclEdge, inclFence);
+            probe = ProbeRayFor(r, ch, p, ang, half, range, inclEdge, inclFence);
             value = IrVal(probe, range);
             if (ch.Mode == "edge_target" && _field.OnPlatform(r.X, r.Y))
             {
@@ -400,7 +359,9 @@ public sealed class SensorSampler
         SensorProbe? best = null;
         foreach (var id in spec.Ids)
         {
-            if (probes.TryGetValue(id, out var p) && (best is null || p.D < best.D))
+            // 3D 化后无命中通道的 probe 为 null (probes 字典里存 null), 必须跳过;
+            // best 为 null 时的短路曾掩盖这一点。
+            if (probes.TryGetValue(id, out var p) && p is not null && (best is null || p.D < best.D))
             {
                 best = p;
             }

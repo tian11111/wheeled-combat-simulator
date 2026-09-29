@@ -18,6 +18,23 @@ public sealed class PhysicsWorld : IPhysicsBackend
     // The legacy 2D solver has no roll/pitch degrees of freedom: a robot can never flip.
     public bool IsFlipped(RobotRuntime robot) => false;
 
+    /// <summary>
+    /// 平面语义退化: legacy 没有 Z 自由度, 任何探测(含配置了 Height 的 3D 查询)
+    /// 都按 (x, y) 平面投影计算, 与升级前的 SensorSampler 解析结果逐位一致。
+    /// </summary>
+    public SensorProbe? ProbeRay(ProbeQuery query)
+        => PlanarSensors.IrProbe(_field, query.Robot, OtherOf(query.Robot), _blocks,
+            query.X, query.Y, query.Angle, query.HalfFov, query.Range,
+            query.IncludeEdge, query.IncludeFence);
+
+    /// <summary>平面语义退化: 灰度走颜色场采样, 铲下走台面矩形判定; Z/量程无效。</summary>
+    public double ProbeGround(GroundQuery query)
+        => query.SpotRadius > 0
+            ? PlanarSensors.GraySpot(_field, query.X, query.Y, query.SpotRadius)
+            : (_field.OnPlatform(query.X, query.Y) ? 1 : 0);
+
+    private RobotRuntime OtherOf(RobotRuntime robot) => robot.IsUs ? _them : _us;
+
     // The legacy solver keeps no separate mutable state outside RobotRuntime.
     public void ResetRobot(RobotRuntime robot) { }
 
