@@ -48,6 +48,7 @@ public sealed class DesktopLiveDriver : IDisposable
     private readonly object _lifecycleGate = new();
     private Thread? _worker;
     private MatchEngine? _engine;
+    private LiveVisionBridge? _liveVision;
     private ExternalControllerBridge? _usBridge;
     private ExternalControllerBridge? _themBridge;
     private string? _usStartupFault;
@@ -153,11 +154,25 @@ public sealed class DesktopLiveDriver : IDisposable
         _wake.Dispose();
     }
 
+    /// <summary>当前场的 live 桥记录 (进程源换场必须释放; 与 MatchSession 同模式)。</summary>
+    private IVisionAdapter? CreateVision()
+    {
+        if (_visionFactory?.Invoke() is not { } adapter)
+        {
+            return null;
+        }
+        if (adapter is LiveVisionBridge bridge)
+        {
+            _liveVision = bridge;
+        }
+        return adapter;
+    }
+
     private void Run()
     {
         try
         {
-            _engine = MatchEngineHost.Create(_scenario, _visionFactory?.Invoke());
+            _engine = MatchEngineHost.Create(_scenario, CreateVision());
             _usBridge = StartBridge(_usProfile, RoleNames.Us);
             _themBridge = StartBridge(_themProfile, RoleNames.Them);
             PublishStatus();
@@ -204,6 +219,8 @@ public sealed class DesktopLiveDriver : IDisposable
         }
         finally
         {
+            _liveVision?.DisposeSource();
+            _liveVision = null;
             _usBridge?.Dispose();
             _themBridge?.Dispose();
             _usBridge = null;

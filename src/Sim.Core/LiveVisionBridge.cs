@@ -31,7 +31,7 @@ public sealed class LiveVisionBridge : IVisionAdapter
     /// <summary>Default staleness window (ms) of the live bridge (the `vision live --max-age-ms` default).</summary>
     public const double DefaultMaxAgeMs = 500;
 
-    private readonly IVisionStreamSource _source;
+    private IVisionStreamSource? _source;
     private readonly double _maxAgeMs;
     private readonly List<VisionReplayFrame> _frames = [];
     private readonly Dictionary<string, VisionReplayConsumeRecord> _lastByRole = new();
@@ -93,14 +93,25 @@ public sealed class LiveVisionBridge : IVisionAdapter
     }
 
     /// <summary>
+    /// 释放底层流源 (桌面每场替换适配器时调用): CSV 源无资源、进程源结束子进程。
+    /// 释放后的桥不得再参与 classify (Pump 会抛 ObjectDisposedException)。
+    /// </summary>
+    public void DisposeSource()
+    {
+        var source = Interlocked.Exchange(ref _source, null);
+        (source as IDisposable)?.Dispose();
+    }
+
+    /// <summary>
     /// Lazy pump: ask the source for everything that has arrived by
     /// <paramref name="simT"/> and merge it into the working set. The source never
     /// blocks, so this cannot stall the engine.
     /// </summary>
     private void Pump(double simT)
     {
-        _source.PumpUntil(simT);
-        var released = _source.Released;
+        var source = _source ?? throw new ObjectDisposedException(nameof(LiveVisionBridge));
+        source.PumpUntil(simT);
+        var released = source.Released;
         for (var i = _pulled; i < released.Count; i++)
         {
             Merge(released[i]);

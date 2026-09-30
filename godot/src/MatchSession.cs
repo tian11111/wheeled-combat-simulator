@@ -29,8 +29,28 @@ public sealed class MatchSession : IDisposable
     // live match.
     private Scenario _scenario;
     private readonly Func<IVisionAdapter?>? _visionFactory;
+    private LiveVisionBridge? _liveVision;
     private readonly Queue<Snapshot> _pending = new();
     private double _accumulator;
+
+    /// <summary>当前场的 live 桥 (进程源有子进程, 换场必须释放; CSV 源释放为空操作)。</summary>
+    private IVisionAdapter? CreateVision()
+    {
+        if (_visionFactory?.Invoke() is not { } adapter)
+        {
+            return null;
+        }
+        if (adapter is LiveVisionBridge bridge)
+        {
+            _liveVision = bridge;
+        }
+        return adapter;
+    }
+
+    private void ReleaseVision()
+    {
+        Interlocked.Exchange(ref _liveVision, null)?.DisposeSource();
+    }
 
     /// <param name="scenario">Live scenario the session resets to.</param>
     /// <param name="visionFactory">
@@ -42,7 +62,7 @@ public sealed class MatchSession : IDisposable
     {
         _scenario = scenario;
         _visionFactory = visionFactory;
-        Engine = MatchEngineHost.Create(scenario, visionFactory?.Invoke());
+        Engine = MatchEngineHost.Create(scenario, CreateVision());
     }
 
     public MatchEngine Engine { get; private set; }
@@ -153,7 +173,8 @@ public sealed class MatchSession : IDisposable
     /// <summary>Rebuilds a fresh engine for the same scenario (reset same seed).</summary>
     public void ResetToLive()
     {
-        var next = MatchEngineHost.Create(_scenario, _visionFactory?.Invoke());
+        ReleaseVision();
+        var next = MatchEngineHost.Create(_scenario, CreateVision());
         var previous = Engine;
         Engine = next;
         previous.Dispose();
@@ -223,7 +244,11 @@ public sealed class MatchSession : IDisposable
         }
     }
 
-    public void Dispose() => Engine.Dispose();
+    public void Dispose()
+    {
+        ReleaseVision();
+        Engine.Dispose();
+    }
 
     /// <summary>Steps the replay cursor; returns false when already at an end.</summary>
     public bool ReplayStep(int delta)
