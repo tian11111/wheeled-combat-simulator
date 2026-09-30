@@ -1211,3 +1211,33 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - 真推理端到端待用户环境(权重在手不在仓库); 桌面三源人工目检; 18 条 low 级评审发现按 report.md 披露待拍板; 本地领先 origin 27 提交待用户说推再推
+
+
+## Session 36: 时基回归修复 + 2342 电机扭矩级标定
+
+**Date**: 2026-09-30
+**Task**: 时基回归修复 + 2342 电机扭矩级标定
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+保真度评估坐实头号 bug: 2dd61d9 只改 MJCF timestep 未同步 C# 子步常量, 每 tick 只积分 0.02s(0.4× 慢动作), 既往行为基线全部失真。工作流(deepseek)两批修复: 时基单一真值化(25 子步=0.05s/tick)+不变量钉住; 轮驱动标定 2342 真值(kv=τ/ω_noload 速度伺服等价直流电机线性扭矩曲线, 按轮 duty=PWM 口径, 轮端极速收敛 0.408 m/s)。行为重扫两轮: 时基后翻覆10/QACC0/满场11; 电机后翻覆1(-90%)/重启0/满场10——登台 wheelie 翻覆被真实电机扭矩上限自然抑制。legacy 逐位不变(replay-check PASS), 全量 510+1Skip。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6e79688` | (see git log) |
+| `db101b8` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test -m:1 全量 510 过+1 跳; replay-check seed-42 逐位 PASS; 电机特性单测(kv/range/起步扭矩/duty); 两轮 11-seed 扫描确定性复核(逐字节一致)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 6 条 low 评审发现已由主会话修复(注释/spec 口径); 剩余保真度缺口: 坡道几何(待台沿决策)/FSM 特权收敛/RL 特权治理/电池压降(接口已留待实测); 训练吞吐待重训口径复测; 本地领先 origin 30 提交待用户说推再推

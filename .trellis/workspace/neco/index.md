@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 35
+- **Total Sessions**: 36
 - **Last Active**: 2026-09-30
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1213 | Active |
+| `journal-1.md` | ~1243 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 36 | 2026-09-30 | 时基回归修复 + 2342 电机扭矩级标定 | `6e79688`, `db101b8` | `test/score-block-ppo-checkpoint-round` |
 | 35 | 2026-09-30 | 实时 YOLO 桥接：活源桥架构与真推理接入 | `3e4cfe6`, `57cff99`, `d29efaf`, `888a60a`, `3c86ae9`, `230b177` | `test/score-block-ppo-checkpoint-round` |
 | 34 | 2026-09-29 | 小车设置界面与真车电机参数建模（用户指正整车质量） | `764ad00`, `72f096b` | `test/score-block-ppo-checkpoint-round` |
 | 33 | 2026-09-29 | 传感器真车标定与 3D 化（grilling 共识 + 动态工作流实施） | `d4cb895`, `e667f7b`, `601e8e3`, `cf284df` | `test/score-block-ppo-checkpoint-round` |
