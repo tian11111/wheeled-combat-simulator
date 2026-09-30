@@ -102,7 +102,7 @@ public sealed record SensorOffset(double Dx, double Dy, double Dz, double Yaw);
 /// </summary>
 public sealed record VisionSettings
 {
-    /// <summary>classifyRate | visionReplay | liveBridge。</summary>
+    /// <summary>classifyRate | visionReplay | liveBridge | liveProcess。</summary>
     public string Source { get; init; } = VisionSources.ClassifyRate;
 
     /// <summary>visionReplay 的证据包目录(frames.jsonl + import-report.json)。</summary>
@@ -224,7 +224,8 @@ public sealed record DesktopSettings
         }
         else
         {
-            if (Vision.Source is not (VisionSources.ClassifyRate or VisionSources.VisionReplay or VisionSources.LiveBridge))
+            if (Vision.Source is not (VisionSources.ClassifyRate or VisionSources.VisionReplay
+                or VisionSources.LiveBridge or VisionSources.LiveProcess))
             {
                 yield return $"settings: unsupported vision.source '{Vision.Source}'.";
             }
@@ -329,14 +330,15 @@ public sealed record DesktopSettings
 
     /// <summary>
     /// 传感器覆盖解析: 显式预设(或场景自带 profile)为基底, 叠加通道开关与挂点
-    /// 偏移生成自定义 profile 写入车辆; 无任何覆盖时返回 null 保持场景自带(位不变)。
+    /// 偏移生成自定义 profile 写入车辆; 无任何覆盖时原样返回场景自带 profile
+    /// (返回 null 会把它清空成 fallback, 违反"无覆盖位不变")。
     /// </summary>
     private SensorProfile? ResolveSensorProfile(VehicleProfile profile)
     {
         var vehicle = Vehicle;
         if (vehicle.SensorProfileId is null && vehicle.SensorDisabled.Count == 0 && vehicle.SensorOffsets.Count == 0)
         {
-            return null;
+            return profile.Sensors;
         }
         var baseProfile = vehicle.SensorProfileId switch
         {

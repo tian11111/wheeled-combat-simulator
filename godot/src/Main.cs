@@ -51,6 +51,7 @@ public partial class Main : Node
     private Snapshot? _driverSnapshot;
     private bool _pendingMatchSettings;
     private Dictionary<string, RobotModelConfig>? _robotModels;
+    private string? _robotModelsPath;
     private double _replayAlphaAccumulator;
     // 暂停/收尾时插值 alpha 的收敛速率 (由旧实现 0.02/帧 @60fps 折算, 与帧率解耦)。
     private const double ReplayAlphaSettlePerSecond = 1.2;
@@ -118,6 +119,7 @@ public partial class Main : Node
         GetNode<CanvasLayer>("Hud").AddChild(_settingsPanel);
         _settingsPanel.SetUiScale(_settings.UiScale);
         _settingsPanel.Applied += ApplyDesktopSettings;
+        _settingsPanel.RobotModelsApplied += SaveRobotModels;
         _settingsPanel.PreflightCompleted += (role, ok, message)
             => _hud.ShowPreflightNotice(role, ok, message);
         _hud.ConfigureSettings(OpenSettings);
@@ -1087,7 +1089,7 @@ public partial class Main : Node
         {
             return;
         }
-        _settingsPanel.Open(_settings, _pendingMatchSettings);
+        _settingsPanel.Open(_settings, _pendingMatchSettings, _robotModels);
     }
 
     private Scenario BuildScenario()
@@ -1295,6 +1297,38 @@ public partial class Main : Node
         }
     }
 
+    /// <summary>
+    /// 设置面板外观区的落盘 + 立即重挂: 写回读入时解析的同一文件 (未显式指定时默认
+    /// res://robot-models.json), 原子替换; 之后 ApplyRobotModels 让新绑定即时可见。
+    /// 路径留空的 role 不产生条目 —— 重挂时自动回退 primitive 分件。
+    /// </summary>
+    private void SaveRobotModels(IReadOnlyDictionary<string, RobotModelConfig> models)
+    {
+        _robotModelsPath ??= "res://robot-models.json";
+        _robotModels = new Dictionary<string, RobotModelConfig>(models, StringComparer.Ordinal);
+        try
+        {
+            var global = _robotModelsPath.StartsWith("res://", StringComparison.Ordinal)
+                ? ProjectSettings.GlobalizePath(_robotModelsPath)
+                : _robotModelsPath;
+            var directory = System.IO.Path.GetDirectoryName(global);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                System.IO.Directory.CreateDirectory(directory);
+            }
+            var temporaryPath = global + ".tmp";
+            System.IO.File.WriteAllText(temporaryPath, ProtocolJson.Serialize(_robotModels));
+            System.IO.File.Move(temporaryPath, global, overwrite: true);
+            ApplyRobotModels();
+            GD.Print($"[models] 外观偏好已保存: {_robotModelsPath}");
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr($"[models] 外观偏好保存失败 {_robotModelsPath}: {e.Message}");
+            _hud?.ShowNotice($"外观模型保存失败: {e.Message}", ok: false);
+        }
+    }
+
     /// <summary>本地外观偏好 (渲染层, 永不进入 Scenario/回放): --robot-models 参数或 res://robot-models.json。</summary>
     private void LoadRobotModelPreferences(string[] userArgs)
     {
@@ -1308,6 +1342,7 @@ public partial class Main : Node
         {
             return;
         }
+        _robotModelsPath = path;
         try
         {
             var text = path.StartsWith("res://", StringComparison.Ordinal)
