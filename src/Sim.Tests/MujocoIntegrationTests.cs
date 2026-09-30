@@ -221,11 +221,11 @@ public class MujocoIntegrationTests
     {
         if (!OperatingSystem.IsWindows()) return;
         // 09-25 索敌闭环: 控制映射变更以 CoreVersion 标识, MuJoCo 回放创建时
-        // 额外比较; legacy 回放不加此门禁 (1.0.4: 传感器 3D 化 + 真车通道清单)。
+        // 额外比较; legacy 回放不加此门禁 (1.0.5: v2 能量块 seed 随机布局)。
         var mujocoScenario = Scenario();
         using var engine = MatchEngineHost.Create(mujocoScenario);
         var header = engine.BuildReplayHeader();
-        Assert.Equal("sim-core-1.0.4", header.CoreVersion);
+        Assert.Equal("sim-core-1.0.5", header.CoreVersion);
 
         var file = new ReplayFile { Header = header, Scenario = mujocoScenario };
         using (var replayEngine = MatchEngineHost.CreateForReplay(file))
@@ -237,7 +237,7 @@ public class MujocoIntegrationTests
         var staleFile = new ReplayFile { Header = stale, Scenario = mujocoScenario };
         var error = Assert.Throws<InvalidOperationException>(() => MatchEngineHost.CreateForReplay(staleFile));
         Assert.Contains("sim-core-1.0.1", error.Message);
-        Assert.Contains("sim-core-1.0.4", error.Message);
+        Assert.Contains("sim-core-1.0.5", error.Message);
     }
 
     [Fact]

@@ -19,9 +19,9 @@
     "tickSeconds": 0.05
   },
   "blocks": [
-    { "kind": "buff", "x": 1.35, "y": 1.35 },
-    { "kind": "buff", "x": 2.5, "y": 2.6 },
-    { "kind": "debuff", "x": 1.6, "y": 2.4 }
+    { "kind": "buff" },
+    { "kind": "buff" },
+    { "kind": "debuff" }
   ],
   "vehicles": {
     "us": {
