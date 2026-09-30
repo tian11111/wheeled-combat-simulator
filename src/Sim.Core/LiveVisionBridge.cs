@@ -71,6 +71,15 @@ public sealed class LiveVisionBridge : IVisionAdapter
     /// <summary>Re-received frames (same timestamp + sequence) ignored after the first delivery.</summary>
     public int DuplicateFrames { get; private set; }
 
+    /// <summary>
+    /// Re-received frames whose CONTENT differs from the first delivery (status,
+    /// error, selection or any detection row). The stream path keeps the first
+    /// delivery and counts (never kills the engine); the import path hard-rejects
+    /// the same input, so a non-zero count here is a real protocol violation by
+    /// the source and the report surfaces it loudly.
+    /// </summary>
+    public int ConflictingDuplicates { get; private set; }
+
     public VisionDetection Classify(VisionContext context)
     {
         // 纪律(与 VisionReplayAdapter 同一条契约)：绝不读 context.Target（模拟
@@ -131,7 +140,11 @@ public sealed class LiveVisionBridge : IVisionAdapter
     /// its package into, so the shared binary search sees the same sequence. A
     /// re-received frame (same pair) keeps the FIRST delivery, mirroring the import
     /// collapse rule (later duplicates are protocol violations; they must not
-    /// rewrite a frame the FSM has already been served).
+    /// rewrite a frame the FSM has already been served). A re-received frame whose
+    /// content differs from the first delivery additionally counts into
+    /// <see cref="ConflictingDuplicates"/> — the import path rejects that input
+    /// outright; the stream path degrades to counting so a bad source stays
+    /// visible without killing the session.
     /// </summary>
     private void Merge(VisionReplayFrame frame)
     {
@@ -141,10 +154,29 @@ public sealed class LiveVisionBridge : IVisionAdapter
             && _frames[index].Sequence == frame.Sequence)
         {
             DuplicateFrames++;
+            if (!SameContent(_frames[index], frame))
+            {
+                ConflictingDuplicates++;
+            }
             return;
         }
         _frames.Insert(index, frame);
     }
+
+    /// <summary>
+    /// Content comparison for re-received frames: the same field set the import
+    /// path's collapse rule validates (status/error/selection + every detection
+    /// row). Arrival-side bookkeeping is intentionally NOT compared — a
+    /// re-received row legitimately carries a different receive age.
+    /// </summary>
+    private static bool SameContent(VisionReplayFrame first, VisionReplayFrame later)
+        => first.Status == later.Status
+            && first.Error == later.Error
+            && first.SelectedTargetIndex == later.SelectedTargetIndex
+            && first.Detections.Count == later.Detections.Count
+            && first.Detections.Zip(later.Detections, (a, b) =>
+                a.Label == b.Label && a.Confidence == b.Confidence && a.OffsetX == b.OffsetX)
+                .All(equal => equal);
 
     /// <summary>First index with (TimestampMs, Sequence) &gt;= the given key.</summary>
     private int LowerBound(double timestampMs, long sequence)

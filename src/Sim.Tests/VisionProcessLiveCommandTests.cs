@@ -112,6 +112,19 @@ public class VisionProcessLiveCommandTests(ITestOutputHelper output) : IDisposab
         Assert.Equal(1, RunLive("vision", "live",
             "--process", StubExe(), "--scenario", scenario, "--out", outPath, "--realtime"));
         Assert.False(File.Exists(outPath));
+        // 等号形式: 坏取值同样显式拒绝(等号形式曾被静默忽略, 落回快跑假阴性路径)。
+        Assert.Equal(1, RunLive("vision", "live",
+            "--process", StubExe(), "--realtime=2x", "--scenario", scenario, "--out", outPath));
+        Assert.False(File.Exists(outPath));
+        // 两种形式同给: 显式拒绝, 不猜。
+        Assert.Equal(1, RunLive("vision", "live",
+            "--process", StubExe(), "--realtime", "1x", "--realtime=1x",
+            "--scenario", scenario, "--out", outPath));
+        Assert.False(File.Exists(outPath));
+        // 空命令行: 用法错误归 2(曾落到 ArgumentException 兜底成 1)。
+        Assert.Equal(2, RunLive("vision", "live",
+            "--process", "", "--realtime=1x", "--scenario", scenario, "--out", outPath));
+        Assert.False(File.Exists(outPath));
     }
 
     [Fact]
@@ -163,12 +176,14 @@ public class VisionProcessLiveCommandTests(ITestOutputHelper output) : IDisposab
         var work = NewWorkDir();
         var scenario = ShortScenario(work);
         var outPath = Path.Combine(work, "vision-live-process.json");
-        // 100 帧 @50ms 时间戳/墙钟节奏, 提前 400ms 发出(补偿进程启动与管道延迟, 并给
-        // CI 负载留出调度余量): 比赛时长 6s 内流在 ~4.6s 结束 —— 之后 classify 走
-        // stale, 也是要覆盖的路径。
-        var command = $"\"{StubExe()}\" --count 100 --step-ms 50 --interval-ms 50 --lead-ms 400";
+        // 100 帧 @50ms 时间戳/墙钟节奏, 提前 1000ms 发出(补偿进程启动与管道延迟): 余量按
+        // 真权重实测留 —— 无 lead 时进程源的"读到行"到达可落后时间戳网格 1-2 个帧位
+        // (~250ms @8fps), 等价判据(到达 ≤ 时间戳-SimT)在边界帧上翻转; 1000ms ≈ 20 个
+        // 50ms 帧位, CI 调度抖动吃不掉。比赛时长 6s 内流在 ~4.0s 结束 —— 之后 classify
+        // 走 stale, 也是要覆盖的路径。
+        var command = $"\"{StubExe()}\" --count 100 --step-ms 50 --interval-ms 50 --lead-ms 1000";
         var exit = RunLive("vision", "live",
-            "--process", command, "--realtime", "1x",
+            "--process", command, "--realtime=1x",
             "--scenario", scenario, "--out", outPath, "--force");
         Assert.Equal(0, exit);
 

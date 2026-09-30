@@ -447,7 +447,19 @@ public static class VisionCommand
             // 与 evaluate 同一纪律: 不可解析的取值显式拒绝, 不静默回退默认窗口。
             throw new VisionEvidenceException($"--max-age-ms 不是有效数值: '{maxAgeRaw}'");
         }
-        var realtime = args.Contains("--realtime");
+        // 等号形式显式支持: --realtime=1x 与 --realtime 1x 同义; 两种形式同给显式拒绝,
+        // 绝不静默忽略任何一种写法(否则等号形式会落回快跑的假阴性路径)。
+        var realtimeEquals = Array.Find(args, a => a.StartsWith("--realtime=", StringComparison.Ordinal));
+        if (realtimeEquals is not null)
+        {
+            if (realtimeRaw is not null)
+            {
+                throw new VisionEvidenceException(
+                    "--realtime 不能同时以 '--realtime <v>' 与 '--realtime=<v>' 给出");
+            }
+            realtimeRaw = realtimeEquals["--realtime=".Length..];
+        }
+        var realtime = args.Contains("--realtime") || realtimeEquals is not null;
         if (realtime && realtimeRaw != "1x")
         {
             // 外部流按墙钟到达: 只有 1x 有意义(其它倍率会系统性失真), 拒绝猜测。
@@ -463,6 +475,13 @@ public static class VisionCommand
         if (sourcePath is not null && args.Contains("--process"))
         {
             Console.Error.WriteLine("--source 与 --process 只能二选一");
+            return 2;
+        }
+        if (processCommand is not null && string.IsNullOrWhiteSpace(processCommand))
+        {
+            // 空命令行会走 ExternalProcessStreamSource.Start 的 ArgumentException 兜底成 exit 1;
+            // 用法错误按惯例归 2。
+            Console.Error.WriteLine("--process 命令行不能为空");
             return 2;
         }
         if (scenarioPath is null || outPath is null)
@@ -550,12 +569,21 @@ public static class VisionCommand
                 Faults = processSource.Faults,
                 RejectedLines = processSource.RejectedLines,
                 LastFault = processSource.LastFault,
+                ConflictingDuplicates = bridge.ConflictingDuplicates,
                 Realtime = realtime ? 1.0 : 0.0,
             };
             if (processSource is { Faults: > 0 })
             {
                 Console.Error.WriteLine($"vision live: 警告 — 外部流故障 {processSource.Faults} 次"
                     + $"(坏行 {processSource.RejectedLines}): {processSource.LastFault}");
+            }
+            if (bridge.ConflictingDuplicates > 0)
+            {
+                // 同 (timestampMs,sequence) 但内容不同的重复帧: 桥按契约保留首次交付继续跑
+                // (流路径不炸引擎), 但这是 import 路径会硬拒绝的协议违例, 必须高声披露。
+                Console.Error.WriteLine($"vision live: 警告 — {bridge.ConflictingDuplicates} 个重复"
+                    + " (timestampMs,sequence) 帧的内容与首次交付不一致(已保留首次交付,"
+                    + " 详见报告 process.conflictingDuplicates)");
             }
 
             // 3) sidecar: 本场交付帧流 → vision-replay-v1 证据包(含会话首帧作为 SimT 0 锚点)。
@@ -884,10 +912,11 @@ public static class VisionCommand
         }
         if (divergence is null && liveDump.Count != replayDump.Count)
         {
+            // 前 extra 条已逐条相同, 分叉点就是第一条多出的记录, 下标如实指名而不是硬编码 #0。
             var extra = Math.Min(liveDump.Count, replayDump.Count);
             divergence = liveDump.Count > replayDump.Count
-                ? $"#0 live 多出 {liveDump.Count - extra} 条 (live={liveDump[extra]})"
-                : $"#0 replay 多出 {replayDump.Count - extra} 条 (replay={replayDump[extra]})";
+                ? $"#{extra} live 多出 {liveDump.Count - extra} 条 (live={liveDump[extra]})"
+                : $"#{extra} replay 多出 {replayDump.Count - extra} 条 (replay={replayDump[extra]})";
         }
         var consumptionMatches = divergence is null;
         var eventsMatch = liveRun.EventFingerprint == replayRun.EventFingerprint;

@@ -314,6 +314,15 @@ public sealed record VisionStreamFrame
 /// scenario always releases the same frames at the same SimT. Implementations
 /// (CSV at scaled SimT, external YOLO process at wall clock) live outside the
 /// deterministic core and only refresh the bridge's cache.
+///
+/// Deliberate interface boundary (known, disclosed): the interface exposes only
+/// the pump + working-set view. Two capabilities stay concrete-type-only —
+/// <c>IDisposable</c> (the process source owns a child process tree; the CSV
+/// source holds none) and the canonical evidence frames (audit fields the
+/// sidecar writer needs, exposed by <c>CsvStreamSource.ReleasedEvidenceFrames</c>
+/// / <c>ExternalProcessStreamSource.DeliveredFrames</c>). Lifetime management and
+/// sidecar writing belong to the concrete-type holders (CLI, desktop shell,
+/// tests), not to bridge consumers programming against this interface.
 /// </summary>
 public interface IVisionStreamSource
 {

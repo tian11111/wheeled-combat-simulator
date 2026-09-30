@@ -61,9 +61,17 @@ public sealed class ExternalProcessStreamSource : IVisionStreamSource, IDisposab
     /// <summary>审计用方言标记(报告 source.dialect; 与 CSV 的 mbri-hunt-detections 区分)。</summary>
     public const string StreamDialect = "yolo-bridge-jsonl";
 
+    /// <summary>
+    /// 已缓冲行上限(有界等待背压): 子进程输出远快于引擎消费(失控输出/引擎快跑)时,
+    /// 读取线程停止并把流定性为故障, 由管道背压阻塞子进程 —— 队列不无界吃内存,
+    /// 已缓冲的完整行仍可交付。合法流(8fps×120s ≈ 960 行)距此上限几个数量级。
+    /// </summary>
+    internal const int DefaultMaxQueuedLines = 100_000;
+
     private readonly Process _process;
     private readonly ConcurrentQueue<string> _lines = new();
     private readonly Thread _reader;
+    private readonly int _maxQueuedLines;
     private readonly List<VisionReplayFrame> _released = [];
     private readonly List<VisionStreamFrame> _delivered = [];
     private readonly object _gate = new();
@@ -75,11 +83,12 @@ public sealed class ExternalProcessStreamSource : IVisionStreamSource, IDisposab
     private int _rejectedLines;
     private int _disposed;
 
-    private ExternalProcessStreamSource(Process process, string command, string session)
+    private ExternalProcessStreamSource(Process process, string command, string session, int maxQueuedLines)
     {
         _process = process;
         Command = command;
         Session = session;
+        _maxQueuedLines = maxQueuedLines;
         _reader = new Thread(ReadLoop) { IsBackground = true, Name = "vision-stream-stdout" };
         _reader.Start();
     }
@@ -87,8 +96,10 @@ public sealed class ExternalProcessStreamSource : IVisionStreamSource, IDisposab
     /// <summary>启动子进程并开始后台读取 stdout(不等待任何一行到达)。</summary>
     /// <param name="commandLine">完整命令行(可执行文件 + 参数); 拆分语义与外部控制器桥一致。</param>
     /// <param name="session">会话标签(sidecar/报告的 session 字段); 缺省 <see cref="DefaultSession"/>。</param>
+    /// <param name="maxQueuedLines">已缓冲行上限(测试注入小上限用); 缺省 <see cref="DefaultMaxQueuedLines"/>。</param>
     public static ExternalProcessStreamSource Start(
-        string commandLine, string session = DefaultSession)
+        string commandLine, string session = DefaultSession,
+        int maxQueuedLines = DefaultMaxQueuedLines)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandLine);
         ArgumentException.ThrowIfNullOrWhiteSpace(session);
@@ -114,7 +125,7 @@ public sealed class ExternalProcessStreamSource : IVisionStreamSource, IDisposab
             // 启动失败(可执行文件不存在/权限等)是配置错误: 收敛成一条明确消息, 调用方按校验失败处理。
             throw new InvalidOperationException($"启动视觉流进程失败 '{fileName}': {error.Message}", error);
         }
-        return new ExternalProcessStreamSource(process, commandLine, session);
+        return new ExternalProcessStreamSource(process, commandLine, session, maxQueuedLines);
     }
 
     /// <summary>完整命令行(报告 source.path 的出处)。</summary>
@@ -247,6 +258,14 @@ public sealed class ExternalProcessStreamSource : IVisionStreamSource, IDisposab
         {
             while (true)
             {
+                // 上限检查(单读者线程, 无竞态): 超限即停止读取并把流定性为故障 ——
+                // 子进程随后被管道写满自然阻塞(背压), 队列内存有界; 已入队行仍可交付。
+                if (_lines.Count >= _maxQueuedLines)
+                {
+                    Fault($"视觉流队列超过 {_maxQueuedLines} 行上限: 子进程输出远快于引擎消费"
+                        + "(疑似失控输出或引擎快跑), 读取线程停止, 由管道背压阻塞子进程");
+                    break;
+                }
                 var line = _process.StandardOutput.ReadLine();
                 if (line is null)
                 {
