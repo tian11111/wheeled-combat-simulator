@@ -377,6 +377,14 @@ public sealed class SensorSampler
         var probes = new Dictionary<string, SensorProbe>();
         foreach (var ch in profile.Channels)
         {
+            // 禁用通道(自定义覆盖层): 读数恒为下限(灰度/数字=0), 探点无命中语义,
+            // 不做 raycast —— 逻辑别名经既有缺键容错自然降级, FSM 映射不断。
+            if (ch.Disabled)
+            {
+                raw[ch.Id] = ch.Min;
+                probes[ch.Id] = null!;
+                continue;
+            }
             var (value, probe) = SampleSensorChannelFor(r, ch);
             raw[ch.Id] = value;
             probes[ch.Id] = probe!;

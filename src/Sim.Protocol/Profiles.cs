@@ -64,6 +64,14 @@ public sealed record SensorChannel
     /// <summary>True when a high output means "reflection detected" (front shovel IR is active-high).</summary>
     public bool ActiveHigh { get; init; } = true;
 
+    /// <summary>
+    /// 禁用通道 (add-only, 默认 false 位不变): 采样读数恒为下限、探点按无命中处理、
+    /// 不做 raycast。用于桌面"传感器覆盖"的通道开关 —— 逻辑别名映射保留, 缺读数
+    /// 经 SensorSampler 既有容错自然降级 (FSM 门限不触发)。默认值不序列化(wire 不变)。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Disabled { get; init; }
+
     public IEnumerable<string> Validate()
     {
         if (string.IsNullOrWhiteSpace(Id))

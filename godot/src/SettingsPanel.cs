@@ -24,6 +24,7 @@ public partial class SettingsPanel : Control
     private readonly Dictionary<string, CheckButton> _automaticInputs = new(StringComparer.Ordinal);
 
     private PanelContainer? _dialog;
+    private TabContainer? _tabs;
     private Label? _error;
     private Label? _pendingNote;
     private Button? _apply;
@@ -36,6 +37,18 @@ public partial class SettingsPanel : Control
     private SpinBox? _vehicleTorque;
     private SpinBox? _vehicleWheelRadius;
     private Label? _vehicleNote;
+    private OptionButton? _visionSource;
+    private LineEdit? _visionEvidencePath;
+    private LineEdit? _visionCsvPath;
+    private LineEdit? _visionProcessCommand;
+    private SpinBox? _visionMaxAge;
+    private Label? _visionNote;
+    private OptionButton? _sensorProfile;
+    private GridContainer? _sensorChannelGrid;
+    private readonly List<(string ChannelId, CheckButton Enabled, SpinBox Dx, SpinBox Dy, SpinBox Dz, SpinBox Yaw)> _sensorChannelRows = new();
+    private Label? _sensorBaseNote;
+    private readonly Dictionary<string, LineEdit> _modelPathInputs = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, SpinBox[]> _modelTransformInputs = new(StringComparer.Ordinal);
     private OptionButton? _usMode;
     private LineEdit? _usCommand;
     private SpinBox? _usTimeout;
@@ -48,9 +61,14 @@ public partial class SettingsPanel : Control
     private Label? _themPreflightResult;
     private Button? _restore;
     private DesktopSettings _settings = DesktopSettings.Default;
+    private IReadOnlyDictionary<string, RobotModelConfig> _robotModels =
+        new Dictionary<string, RobotModelConfig>();
     private int _preflightBusy;
 
     public event Action<DesktopSettings>? Applied;
+
+    /// <summary>Raised on apply with the edited render-only appearance bindings; Main persists robot-models.json.</summary>
+    public event Action<IReadOnlyDictionary<string, RobotModelConfig>>? RobotModelsApplied;
 
     public event Action? Cancelled;
 
@@ -58,6 +76,15 @@ public partial class SettingsPanel : Control
     public event Action<string, bool, string>? PreflightCompleted;
 
     public bool IsOpen => Visible;
+
+    /// <summary>QA/冒烟用: 无交互切换到指定页 (0=显示 1=仿真 2=控制器 3=小车 4=视觉)。</summary>
+    public void SelectTab(int index)
+    {
+        if (_tabs is not null)
+        {
+            _tabs.CurrentTab = Mathf.Clamp(index, 0, _tabs.GetTabCount() - 1);
+        }
+    }
 
     /// <summary>True while a preflight probe is in flight; Arm must wait for it.</summary>
     public bool PreflightInProgress => Volatile.Read(ref _preflightBusy) != 0;
@@ -93,16 +120,18 @@ public partial class SettingsPanel : Control
         UpdatePivot();
     }
 
-    public void Open(DesktopSettings settings, bool pendingSimulationChanges)
+    public void Open(DesktopSettings settings, bool pendingSimulationChanges,
+        IReadOnlyDictionary<string, RobotModelConfig>? robotModels = null)
     {
         SyncViewportRect();
         _settings = settings;
+        _robotModels = robotModels ?? new Dictionary<string, RobotModelConfig>();
         LoadControls(settings);
         if (_pendingNote is not null)
         {
             _pendingNote.Text = pendingSimulationChanges
-                ? "已有仿真/控制器修改待下一场生效 · F5 可立即重置并应用"
-                : "显示设置立即生效 · 仿真与控制器设置在下一场或 F5 重置后生效";
+                ? "已有仿真/控制器/视觉修改待下一场生效 · F5 可立即重置并应用"
+                : "显示设置立即生效 · 仿真/控制器/视觉设置在下一场或 F5 重置后生效";
         }
         ClearError();
         Visible = true;
@@ -172,6 +201,7 @@ public partial class SettingsPanel : Control
             TabsVisible = true,
         };
         root.AddChild(tabs);
+        _tabs = tabs;
         tabs.AddChild(BuildDisplayPage());
         tabs.SetTabTitle(0, "显示与窗口");
         tabs.AddChild(BuildSimulationPage());
@@ -180,9 +210,11 @@ public partial class SettingsPanel : Control
         tabs.SetTabTitle(2, "小车控制器");
         tabs.AddChild(BuildVehiclePage());
         tabs.SetTabTitle(3, "小车");
+        tabs.AddChild(BuildVisionPage());
+        tabs.SetTabTitle(4, "视觉");
 
         _pendingNote = AddLabel(root,
-            "显示设置立即生效 · 仿真与控制器设置在下一场或 F5 重置后生效",
+            "显示设置立即生效 · 仿真/控制器/视觉设置在下一场或 F5 重置后生效",
             11, Yellow);
         _pendingNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 
@@ -487,6 +519,61 @@ public partial class SettingsPanel : Control
         }
         UpdateVehicleNote();
 
+        if (_sensorProfile is not null)
+        {
+            var presetId = settings.Vehicle?.SensorProfileId;
+            _sensorProfile.Select(
+                presetId == SensorProfiles.WheeledCombat11.Id ? 1
+                : presetId == SensorProfiles.Legacy14.Id ? 2
+                : 0);
+        }
+        RebuildSensorChannelRows();
+
+        foreach (var role in new[] { RoleNames.Us, RoleNames.Them })
+        {
+            _robotModels.TryGetValue(role, out var config);
+            config ??= new RobotModelConfig();
+            if (_modelPathInputs.TryGetValue(role, out var pathInput))
+            {
+                pathInput.Text = config.Path;
+            }
+            if (_modelTransformInputs.TryGetValue(role, out var transforms))
+            {
+                transforms[0].Value = config.Scale > 0 ? config.Scale : 1.0;
+                transforms[1].Value = config.YawOffset;
+                transforms[2].Value = config.HeightOffset;
+            }
+        }
+
+        var vision = settings.Vision ?? new VisionSettings();
+        if (_visionSource is not null)
+        {
+            _visionSource.Select(vision.Source switch
+            {
+                VisionSources.VisionReplay => 1,
+                VisionSources.LiveBridge => 2,
+                VisionSources.LiveProcess => 3,
+                _ => 0,
+            });
+        }
+        if (_visionEvidencePath is not null)
+        {
+            _visionEvidencePath.Text = vision.EvidencePath;
+        }
+        if (_visionCsvPath is not null)
+        {
+            _visionCsvPath.Text = vision.CsvPath;
+        }
+        if (_visionProcessCommand is not null)
+        {
+            _visionProcessCommand.Text = vision.ProcessCommand;
+        }
+        if (_visionMaxAge is not null)
+        {
+            _visionMaxAge.Value = vision.MaxAgeMs;
+        }
+        UpdateVisionInputs();
+
         var values = settings.SimulationParameters ?? new Dictionary<string, double>();
         foreach (var definition in SimulationParameterCatalog.All)
         {
@@ -556,6 +643,20 @@ public partial class SettingsPanel : Control
                 MotorRpm = _vehicleRpm?.Value ?? 120,
                 MotorTorque = _vehicleTorque?.Value ?? 1.72,
                 WheelRadius = _vehicleWheelRadius?.Value ?? 0.0325,
+                SensorProfileId = SelectedSensorProfileId(),
+                SensorDisabled = _sensorChannelRows
+                    .Where(row => !row.Enabled.ButtonPressed)
+                    .Select(row => row.ChannelId)
+                    .ToList(),
+                SensorOffsets = CollectSensorOffsets(),
+            },
+            Vision = new VisionSettings
+            {
+                Source = SelectedVisionSource(),
+                EvidencePath = _visionEvidencePath?.Text.Trim() ?? "",
+                CsvPath = _visionCsvPath?.Text.Trim() ?? "",
+                ProcessCommand = _visionProcessCommand?.Text.Trim() ?? "",
+                MaxAgeMs = _visionMaxAge?.Value ?? LiveVisionBridge.DefaultMaxAgeMs,
             },
             UsController = ReadController(_usMode, _usCommand, _usTimeout),
             ThemController = ReadController(_themMode, _themCommand, _themTimeout),
@@ -569,6 +670,7 @@ public partial class SettingsPanel : Control
         _settings = draft;
         Visible = false;
         Applied?.Invoke(draft);
+        RobotModelsApplied?.Invoke(ReadRobotModelsDraft());
     }
 
     private static ControllerProfile ReadController(OptionButton? mode, LineEdit? command, SpinBox? timeout)
@@ -581,13 +683,25 @@ public partial class SettingsPanel : Control
 
     private Control BuildVehiclePage()
     {
-        var page = MakePage();
+        // 传感器/外观两区展开后远超一页: 与仿真参数页同为滚动容器。
+        var scroll = new ScrollContainer
+        {
+            Name = "VehicleSettings",
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        var page = new VBoxContainer();
+        page.AddThemeConstantOverride("separation", 10);
+        page.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.AddChild(page);
+
         AddLabel(page, "小车", 16, Primary);
         AddLabel(page,
             "比赛双方同款真车的物理规格；应用于 v2 真车几何场景，下一场或 F5 重置后生效。",
             11, Secondary);
 
-        var grid = new GridContainer { Columns = 2, CustomMinimumSize = new Vector2(0, 210) };
+        var grid = new GridContainer { Columns = 2 };
         grid.AddThemeConstantOverride("h_separation", 18);
         grid.AddThemeConstantOverride("v_separation", 10);
         page.AddChild(grid);
@@ -617,8 +731,186 @@ public partial class SettingsPanel : Control
         _vehicleNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         UpdateVehicleNote();
 
-        page.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
-        return page;
+        AddLabel(page, "传感器覆盖", 16, Primary);
+        var sensorIntro = AddLabel(page,
+            "以预设为基底克隆自定义 profile 写入双方车辆：整路禁用（读数恒为下限，FSM 门限不触发）"
+            + "或按车体系偏移挂点（实车“挪探头”标定语义，dx=前向 / dy=横向 / dz=高度 / dyaw=朝向）。下一场生效。",
+            11, Secondary);
+        sensorIntro.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+
+        var presetRow = new HBoxContainer();
+        presetRow.AddThemeConstantOverride("separation", 8);
+        page.AddChild(presetRow);
+        AddLabel(presetRow, "传感器预设", 12, Secondary, new Vector2(88, 0));
+        _sensorProfile = MakeOption(
+            ("跟随场景（不改）", ""),
+            ("真车 11 路（wheeledCombat11）", SensorProfiles.WheeledCombat11.Id),
+            ("兼容 14 路（legacy14）", SensorProfiles.Legacy14.Id));
+        presetRow.AddChild(_sensorProfile);
+        _sensorProfile.ItemSelected += _ => RebuildSensorChannelRows();
+
+        _sensorBaseNote = AddLabel(page, "", 11, Blue);
+        _sensorBaseNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+
+        _sensorChannelGrid = new GridContainer { Columns = 6 };
+        _sensorChannelGrid.AddThemeConstantOverride("h_separation", 6);
+        _sensorChannelGrid.AddThemeConstantOverride("v_separation", 4);
+        page.AddChild(_sensorChannelGrid);
+
+        AddLabel(page, "外观模型（渲染层）", 16, Primary);
+        var modelIntro = AddLabel(page,
+            "us/them 的 glb/gltf 外观绑定：只改渲染，不影响仿真；留空回退 primitive 分件。"
+            + "应用后写入 robot-models.json 并立即生效。模型约定：车头 +Z、原点在地面，"
+            + "scale / yawOffset / heightOffset 三个修正项。",
+            11, Secondary);
+        modelIntro.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        page.AddChild(BuildRobotModelSection(RoleNames.Us, "我方 / BLUE", Blue));
+        page.AddChild(BuildRobotModelSection(RoleNames.Them, "对手 / RED", Red));
+
+        page.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
+        return scroll;
+    }
+
+    /// <summary>单个 role 的外观模型输入块: glb 路径 + scale/yawOffset/heightOffset 三修正项。</summary>
+    private Control BuildRobotModelSection(string role, string title, Color accent)
+    {
+        var box = new VBoxContainer();
+        box.AddThemeConstantOverride("separation", 4);
+        AddLabel(box, title, 13, accent);
+        var path = MakePathInput($"例如：C:/models/{role}.glb 或 res://models/{role}.glb（留空 = primitive 分件）");
+        box.AddChild(path);
+        _modelPathInputs[role] = path;
+
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 8);
+        AddLabel(row, "缩放", 11, Secondary, new Vector2(40, 0));
+        var scale = MakeSpin(0.05, 10, 0.01, "x");
+        scale.CustomMinimumSize = new Vector2(120, 32);
+        row.AddChild(scale);
+        AddLabel(row, "朝向偏移", 11, Secondary, new Vector2(64, 0));
+        var yaw = MakeSpin(-2 * Math.PI, 2 * Math.PI, 0.01, "rad");
+        yaw.CustomMinimumSize = new Vector2(150, 32);
+        row.AddChild(yaw);
+        AddLabel(row, "高度偏移", 11, Secondary, new Vector2(64, 0));
+        var height = MakeSpin(-0.2, 0.5, 0.001, "m");
+        height.CustomMinimumSize = new Vector2(150, 32);
+        row.AddChild(height);
+        box.AddChild(row);
+        _modelTransformInputs[role] = new[] { scale, yaw, height };
+        return box;
+    }
+
+    /// <summary>当前预设选择对应的 profile id (null = 跟随场景)。</summary>
+    private string? SelectedSensorProfileId() => (_sensorProfile?.Selected ?? 0) switch
+    {
+        1 => SensorProfiles.WheeledCombat11.Id,
+        2 => SensorProfiles.Legacy14.Id,
+        _ => null,
+    };
+
+    /// <summary>
+    /// 按当前预设选择重建通道行 (启用勾选 + dx/dy/dz/dyaw 偏移), 值回填自 vehicle 覆盖。
+    /// “跟随场景”的基底随场景自带 profile, UI 按 legacy14 展示通道清单 (与解析端 fallback 一致)。
+    /// </summary>
+    private void RebuildSensorChannelRows()
+    {
+        if (_sensorChannelGrid is null)
+        {
+            return;
+        }
+        var presetId = SelectedSensorProfileId();
+        var baseProfile = presetId == SensorProfiles.WheeledCombat11.Id
+            ? SensorProfiles.WheeledCombat11
+            : SensorProfiles.Legacy14;
+        var vehicle = _settings.Vehicle ?? new VehicleSettings();
+        var disabled = new HashSet<string>(vehicle.SensorDisabled);
+
+        foreach (var child in _sensorChannelGrid.GetChildren())
+        {
+            child.QueueFree();
+        }
+        _sensorChannelRows.Clear();
+
+        if (_sensorBaseNote is not null)
+        {
+            _sensorBaseNote.Text = presetId is null
+                ? $"跟随场景基底（无覆盖时逐位不变）；下表按 {baseProfile.Id} 展示通道，实际基底随场景自带 profile。"
+                : $"基底预设 {baseProfile.Id}（{baseProfile.Label}）· 共 {baseProfile.Channels.Count} 路";
+        }
+
+        AddLabel(_sensorChannelGrid, "启用", 11, Secondary, new Vector2(46, 0));
+        AddLabel(_sensorChannelGrid, "通道", 11, Secondary, new Vector2(170, 0));
+        AddLabel(_sensorChannelGrid, "dx 前向", 11, Secondary, new Vector2(110, 0));
+        AddLabel(_sensorChannelGrid, "dy 横向", 11, Secondary, new Vector2(110, 0));
+        AddLabel(_sensorChannelGrid, "dz 高度", 11, Secondary, new Vector2(110, 0));
+        AddLabel(_sensorChannelGrid, "dyaw 朝向", 11, Secondary, new Vector2(110, 0));
+
+        foreach (var channel in baseProfile.Channels)
+        {
+            var enabled = new CheckButton { FocusMode = FocusModeEnum.None };
+            enabled.ButtonPressed = !disabled.Contains(channel.Id);
+            ApplyCheckButtonTheme(enabled);
+            _sensorChannelGrid.AddChild(enabled);
+
+            var name = AddLabel(_sensorChannelGrid, $"{channel.Id} · {channel.Label}", 11, Primary, new Vector2(170, 0));
+            name.TooltipText = channel.Id;
+            name.ClipText = true;
+
+            vehicle.SensorOffsets.TryGetValue(channel.Id, out var off);
+            var dx = MakeOffsetSpin(_sensorChannelGrid, off, o => o.Dx, -0.5, 0.5, 0.001, "m");
+            var dy = MakeOffsetSpin(_sensorChannelGrid, off, o => o.Dy, -0.5, 0.5, 0.001, "m");
+            var dz = MakeOffsetSpin(_sensorChannelGrid, off, o => o.Dz, -0.2, 0.2, 0.001, "m");
+            var dyaw = MakeOffsetSpin(_sensorChannelGrid, off, o => o.Yaw, -Math.PI, Math.PI, 0.01, "rad");
+            _sensorChannelRows.Add((channel.Id, enabled, dx, dy, dz, dyaw));
+        }
+    }
+
+    private static SpinBox MakeOffsetSpin(GridContainer grid, SensorOffset? offset,
+        Func<SensorOffset, double> pick, double min, double max, double step, string suffix)
+    {
+        var spin = MakeSpin(min, max, step, suffix);
+        spin.CustomMinimumSize = new Vector2(110, 30);
+        spin.Value = offset is null ? 0 : pick(offset);
+        grid.AddChild(spin);
+        return spin;
+    }
+
+    /// <summary>收集非零偏移通道 (零偏移不写入, 保持 settings 精简且语义 = 未覆盖)。</summary>
+    private Dictionary<string, SensorOffset> CollectSensorOffsets()
+    {
+        var offsets = new Dictionary<string, SensorOffset>(StringComparer.Ordinal);
+        foreach (var row in _sensorChannelRows)
+        {
+            var offset = new SensorOffset(row.Dx.Value, row.Dy.Value, row.Dz.Value, row.Yaw.Value);
+            if (Math.Abs(offset.Dx) > 1e-12 || Math.Abs(offset.Dy) > 1e-12
+                || Math.Abs(offset.Dz) > 1e-12 || Math.Abs(offset.Yaw) > 1e-12)
+            {
+                offsets[row.ChannelId] = offset;
+            }
+        }
+        return offsets;
+    }
+
+    /// <summary>外观模型 draft: 路径留空的 role 不产生条目 (= 回退 primitive)。</summary>
+    private Dictionary<string, RobotModelConfig> ReadRobotModelsDraft()
+    {
+        var models = new Dictionary<string, RobotModelConfig>(StringComparer.Ordinal);
+        foreach (var (role, input) in _modelPathInputs)
+        {
+            var path = input.Text.Trim();
+            if (path.Length == 0 || !_modelTransformInputs.TryGetValue(role, out var t))
+            {
+                continue;
+            }
+            models[role] = new RobotModelConfig
+            {
+                Path = path,
+                Scale = t[0].Value,
+                YawOffset = t[1].Value,
+                HeightOffset = t[2].Value,
+            };
+        }
+        return models;
     }
 
     private void UpdateVehicleNote()
@@ -635,6 +927,122 @@ public partial class SettingsPanel : Control
             + $"轮端极速 ≈ {maxSpeed:0.000} m/s；登台/恢复时限随极速自动缩放；"
             + "扭矩当前仅存档（仿真为速度伺服）。";
     }
+
+    private Control BuildVisionPage()
+    {
+        var page = MakePage();
+        AddLabel(page, "视觉源", 16, Primary);
+        AddLabel(page,
+            "四选一：默认识别率模型不注入外部源（行为与既有比赛逐位一致）；证据包回放与实时 CSV 桥读取本机文件；"
+            + "外部推理进程每场启动子进程消费 stdout JSONL。下一场或 F5 重置后生效。",
+            11, Secondary);
+
+        var grid = new GridContainer { Columns = 2, CustomMinimumSize = new Vector2(0, 210) };
+        grid.AddThemeConstantOverride("h_separation", 18);
+        grid.AddThemeConstantOverride("v_separation", 10);
+        page.AddChild(grid);
+
+        AddLabel(grid, "视觉来源", 12, Secondary);
+        _visionSource = MakeOption(
+            ("默认识别率（classifyRate）", VisionSources.ClassifyRate),
+            ("证据包回放（visionReplay）", VisionSources.VisionReplay),
+            ("实时 CSV 桥（liveBridge）", VisionSources.LiveBridge),
+            ("外部推理进程（liveProcess）", VisionSources.LiveProcess));
+        grid.AddChild(_visionSource);
+
+        AddLabel(grid, "证据包目录", 12, Secondary);
+        _visionEvidencePath = MakePathInput("例如：vision/evidence-mini（含 frames.jsonl + import-report.json）");
+        grid.AddChild(_visionEvidencePath);
+
+        AddLabel(grid, "真车 CSV 路径", 12, Secondary);
+        _visionCsvPath = MakePathInput("例如：vision/hunt_drive_20260817_095205.csv（MBri 73 列方言）");
+        grid.AddChild(_visionCsvPath);
+
+        AddLabel(grid, "推理进程命令行", 12, Secondary);
+        _visionProcessCommand = MakePathInput(
+            "例如：py tools/yolo-bridge/mbri_yolo_bridge.py --stub vision/stub.csv（stdout 逐帧 JSONL）");
+        grid.AddChild(_visionProcessCommand);
+
+        AddLabel(grid, "帧过期窗口", 12, Secondary);
+        _visionMaxAge = MakeSpin(1, 5000, 1, "ms");
+        grid.AddChild(_visionMaxAge);
+
+        _visionSource.ItemSelected += _ => UpdateVisionInputs();
+        if (_visionMaxAge is not null)
+        {
+            _visionMaxAge.ValueChanged += _ => UpdateVisionNote();
+        }
+        if (_visionEvidencePath is not null)
+        {
+            _visionEvidencePath.TextChanged += _ => UpdateVisionNote();
+        }
+        if (_visionCsvPath is not null)
+        {
+            _visionCsvPath.TextChanged += _ => UpdateVisionNote();
+        }
+        if (_visionProcessCommand is not null)
+        {
+            _visionProcessCommand.TextChanged += _ => UpdateVisionNote();
+        }
+
+        _visionNote = AddLabel(page, "", 12, Blue);
+        _visionNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        UpdateVisionInputs();
+
+        page.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
+        return page;
+    }
+
+    /// <summary>只让当前来源用到的输入可编辑；默认源的路径/命令框保持可见但禁用。</summary>
+    private void UpdateVisionInputs()
+    {
+        var source = SelectedVisionSource();
+        if (_visionEvidencePath is not null)
+        {
+            _visionEvidencePath.Editable = source == VisionSources.VisionReplay;
+        }
+        if (_visionCsvPath is not null)
+        {
+            _visionCsvPath.Editable = source == VisionSources.LiveBridge;
+        }
+        if (_visionProcessCommand is not null)
+        {
+            _visionProcessCommand.Editable = source == VisionSources.LiveProcess;
+        }
+        if (_visionMaxAge is not null)
+        {
+            _visionMaxAge.Editable = source != VisionSources.ClassifyRate;
+        }
+        UpdateVisionNote();
+    }
+
+    private void UpdateVisionNote()
+    {
+        if (_visionNote is null)
+        {
+            return;
+        }
+        var maxAge = _visionMaxAge?.Value ?? LiveVisionBridge.DefaultMaxAgeMs;
+        _visionNote.Text = SelectedVisionSource() switch
+        {
+            VisionSources.VisionReplay =>
+                $"证据包回放：哈希锁定读包后按 {maxAge:0} ms 窗口供帧；包缺文件或哈希不一致会在应用设置时直接报错。",
+            VisionSources.LiveBridge =>
+                $"实时 CSV 桥：按仿真时间释放真车检测流，帧龄超过 {maxAge:0} ms 记 stale（unknown）；路径不可用会在应用设置时直接报错。",
+            VisionSources.LiveProcess =>
+                $"外部推理进程：应用设置时预检启动一次并回收（坏命令行当场报错）；每场新起进程消费 stdout JSONL，"
+                + $"帧龄超过 {maxAge:0} ms 记 stale（unknown）。子进程必须逐帧 flush。",
+            _ => "默认视觉源：引擎内部识别率模型（classifyRate），不注入外部源，行为与既有比赛逐位一致。",
+        };
+    }
+
+    private string SelectedVisionSource() => (_visionSource?.Selected ?? 0) switch
+    {
+        1 => VisionSources.VisionReplay,
+        2 => VisionSources.LiveBridge,
+        3 => VisionSources.LiveProcess,
+        _ => VisionSources.ClassifyRate,
+    };
 
     private void RestoreDefaults()
     {
@@ -695,6 +1103,20 @@ public partial class SettingsPanel : Control
         };
         ApplySpinTheme(spin);
         return spin;
+    }
+
+    /// <summary>路径输入框（证据包目录 / 真车 CSV）: 只做文本编辑, 校验与读取留给应用时。</summary>
+    private static LineEdit MakePathInput(string placeholder)
+    {
+        var line = new LineEdit
+        {
+            PlaceholderText = placeholder,
+            CustomMinimumSize = new Vector2(0, 34),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            TooltipText = "本机绝对或相对路径；留空时该来源不可用（应用时直接报错）",
+        };
+        ApplyLineEditTheme(line);
+        return line;
     }
 
     private static OptionButton MakeOption(params (string Label, string Id)[] items)

@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "检查时依据：改 MJCF 后的回放重录纪律、旧基线回归口径（replays/seed-42.json）、模型调校教训是否按本任务结论更新"}
+{"file": ".trellis/spec/sim/restart-contract.md", "reason": "检查时依据：翻覆/重启事件语义与罚分不变量，用于核对扫描指标与断言重标定的因果说明"}

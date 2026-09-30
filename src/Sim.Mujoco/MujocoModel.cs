@@ -11,21 +11,60 @@ namespace Sim.Mujoco;
 internal static class MujocoModel
 {
     internal const string Version = PhysicsSpec.MujocoModelV1;
-    internal const double SubstepSeconds = 0.005;
-    internal const int SubstepsPerTick = 10;
+
+    // ---- 物理时基(单一真值) ----
+    // 2026-09-30 时基回归修复: 09-29 的 QACC 数值稳定修复只把 MJCF 的 option
+    // timestep 字面量改成 0.002, C# 侧仍是 SubstepsPerTick(10)×SubstepSeconds
+    // (0.005) —— 每裁判 tick 只 mj_step 10 次、只积分 0.02 s, 物理时间流速变成
+    // 比赛钟的 0.4×(慢动作), FSM 时限/轮速/翻覆行为全被拉长, contactTime 网格
+    // 也与真实推进量脱节。现在只有 MjcTimestep 一个真值: MJCF timestep、子步
+    // 时长、每 tick 步数全部由它推导, 任何一处改动都必须先改它。
+    /// <summary>MuJoCo 物理子步长(s): 唯一真值(MJCF <c>option timestep</c> 同源)。</summary>
+    internal const double MjcTimestep = 0.002;
+    /// <summary>子步时长 = <see cref="MjcTimestep"/>(语义别名, 供接触时刻上报使用)。</summary>
+    internal const double SubstepSeconds = MjcTimestep;
+    /// <summary>后端强制的裁判 tick 时长(s): <see cref="MujocoPhysicsBackend.Step"/>
+    /// 只接受恰好该值的 dt, 场景 tickSeconds 也必须等于它。</summary>
+    internal const double TickSeconds = 0.05;
+    /// <summary>每裁判 tick 的子步数 = <see cref="TickSeconds"/> / <see cref="MjcTimestep"/>
+    /// (= 25)。不变量 <c>SubstepsPerTick × MjcTimestep == TickSeconds</c> 在 IEEE 下
+    /// 精确成立(0.05/0.002 的商与 25×0.002 都恰为该 double), 由 MujocoTimebaseTests 钉住。</summary>
+    internal const int SubstepsPerTick = (int)(TickSeconds / MjcTimestep);
+
     internal const double WheelRadius = 0.065;
-    // 2026-09-25 登台修复: 0.3 N/轮(总 1.2 N ≈ 车重 11.2 N 的 10.7%)无法把车抬上
-    // 6 cm 台沿——步爬所需接触力 ≈ m·g·√(2rh−h²)/r ≈ 6–8 N(按 1.14 kg、r=0.065、
-    // h=0.06,四轮驱动分摊), 且绕台沿角 pivot 的失速时刻最费力(实测 2.0 N/轮仍
-    // 在 +1.5 cm 处滑回)。3.0 N/轮(总 12 N ≈ 1.09 g, 格斗机器人合理量级)高于
-    // 需求且仍受打滑极限(μ≈1.3 × 车重 ≈ 14 N)约束。未标定工程值, 非真机拟合结果。
-    internal const double WheelForceLimit = 3.0;
-    internal const double WheelAngularSpeedLimit = 80.0;
-    // 2026-09-25 登台修复配套: 速度伺服增益。kv=1.0 时任何 >0.2 m/s 的速度误差都会
-    // 瞬间打满 2.0 N 力上限, 指令阶跃变成扭矩阶跃, 整车抬头-砸地弹跳(实测 qy ±43°)。
-    // kv=0.25 使满力只出现在接近堵转的误差处(0.25×(0.585/0.065)≈2.3→截到 2.0),
-    // 巡航与常规加速时力随误差线性平滑; 堵转(倒车登台顶住台沿)仍可达满爬升扭矩。
-    internal const double WheelServoKv = 0.25;
+
+    // ---- 2342 减速电机真值(博创尚和; 12V 额定、空载 8100 rpm、减速后 120 rpm、
+    // 输出扭矩 1.72 N·m) ----
+    // 这是"真值→仿真量"的推导, 不是工程限幅拟合: 输出轴空载角速度
+    // ω_noload = 120/60 × 2π = 4π rad/s, 输出轴堵转扭矩 τ_stall = 1.72 N·m。
+    // **数学等价推导**: MuJoCo <velocity> 执行器的广义力 = kv×(ctrl − qvel) 且被
+    // forcerange 双侧截断。取 ctrl = 该轮目标角速度、kv = τ_stall/ω_noload、
+    // forcerange = ±τ_stall, 则目标 = ω_noload 时
+    //   τ(ω) = τ_stall/ω_noload × (ω_noload − ω) = τ_stall × (1 − ω/ω_noload)
+    // 恰为直流电机线性转速-扭矩曲线: ω=0(堵转)时扭矩 = τ_stall, ω=ω_noload(空载)
+    // 时扭矩 = 0, 中间线性; 曲线外的 |τ|>τ_stall 由 forcerange 截断(与堵转保护一致)。
+    // 再配合 SetControls 的 duty 口径(ctrl = ±duty×ω_noload, duty = clamp(轮面线
+    // 速度/MaxSpeed, −1, 1)), 等价于按占空比缩放电池电压: 起步扭矩 = duty×τ_stall、
+    // 空载转速 = duty×ω_noload —— 2342 真车正是开环 PWM 调速, 无量程静差。
+    // 旧工程值(kv=0.25/±3.0 N·m/±80 rad/s, 80 rad/s ≈ 2.6 m/s 远超真车 0.408 m/s)
+    // 已删除, 避免出现第二份"电机真值"。
+    /// <summary>2342 输出轴堵转扭矩 τ_stall(N·m): MJCF <c>forcerange</c> 取 ±此值。</summary>
+    internal const double MjcStallTorque = 1.72;
+    /// <summary>2342 输出轴空载角速度 ω_noload(rad/s) = 120 rpm = 4π: <c>ctrlrange</c> 取 ±此值。</summary>
+    internal const double MjcNoLoadSpeed = 12.566370614359172;
+    /// <summary>速度伺服增益 kv = τ_stall/ω_noload ≈ 0.136873(N·m·s/rad), 由真值推导;
+    /// 该取值使执行器扭矩-转速曲线精确等价直流电机线性曲线(见上方推导)。</summary>
+    internal const double MjcServoKv = MjcStallTorque / MjcNoLoadSpeed;
+
+    // 速度档与时限语义核对(2026-09-30 批 2, 只读结论 —— FSM/场景取值不动):
+    // - v2 真车场景(maxSpeed=0.408): 执行器真极速 = ω_noload×r =
+    //   12.566370614359172×0.0325 = 0.408407 m/s ≈ 场景声明极速 ⇒
+    //   Fsm.TimeScale(1.5/MaxSpeed) 的时限缩放与实际行驶速度同源, 仍自洽;
+    //   FSM 的 0.9/1.0/1.25 m/s 档(≥ MaxSpeed)在 duty 口径下截到 duty=1,
+    //   等价真车开环全速 —— 这是去掉旧 80 rad/s 余量假象后的预期语义。
+    // - v1 历史场景(maxSpeed=1.5, 轮径 0.065): 真极速被 ω_noload 压到 0.817 m/s,
+    //   而 TimeScale 仍按 1.5 算(缩放恒 1.0)⇒ 登台/恢复时限相对偏紧; 披露不改
+    //   (v1 mujoco 场景此后定位"工程验证", 见 spec 教训)。
     // 2026-09-25 登台修复: 原车体 spawn 高度使底盘下缘恰在 ground+0.06 = 台面高度,
     // 后轮爬上台沿后平底腹部立刻搁在台沿上(几何卡死)。实现方式: 轮轴在体坐标系内
     // 下移 0.02(-0.04 → -0.06)、车体 spawn 同步抬高 0.02 —— 轮子仍精确接地, 底盘
@@ -45,8 +84,9 @@ internal static class MujocoModel
     /// <summary>
     /// 车底重物质量(kg, 电池/电机/主控): mesh 默认惯性把质心放在几何中部(偏高),
     /// 真车重物贴底盘。2026-09-29: 整车质量此前沿用 1kg 旧默认(漏算电池/电机/
-    /// 主控 → 车过轻被顶飞); v2 场景整车 2.5kg, 其中 0.9kg 作为底部配重从
-    /// chassis mesh 质量中扣除(总质量不变), 质心拉到轮轴上方 ~9mm。
+    /// 主控 → 车过轻被顶飞); 真车整车 3.5kg(v2 场景 `vehicles.*.mass`, 09-29
+    /// 电机参数轮生效), 其中 0.9kg 作为底部配重从 chassis mesh 质量中扣除
+    /// (总质量不变), 质心拉到轮轴上方 ~9mm。
     /// </summary>
     internal const double ChassisBallastV2 = 0.9;
     /// <summary>v1 的轮/铲质量(历史字面量, 与 v2 数值相同但语义独立, 不得随之改动)。</summary>
@@ -150,8 +190,13 @@ internal static class MujocoModel
 
     private static void Header(StringBuilder sb, bool isV2)
     {
+        // timestep 必须与 C# 子步循环同源(MjcTimestep): 09-29 只改这里的字面量
+        // 曾造成 XML 0.002 / C# 0.005×10 的二次失配(每 tick 只积分 0.02 s)。
+        // N(0.002) 的序列化字节未变; 2026-09-30 批2 执行器真值标定后 v1/v2 模型
+        // 哈希已随之变更(守卫 V1ModelSha256 同步), 不再与 2dd61d9 时代相同。
         sb.Append("<mujoco model=\"").Append(isV2 ? PhysicsSpec.MujocoModelV2 : PhysicsSpec.MujocoModelV1)
-            .Append("\"><compiler angle=\"radian\"/><option timestep=\"0.002\" gravity=\"0 0 -9.81\" integrator=\"implicitfast\"/>")
+            .Append("\"><compiler angle=\"radian\"/><option timestep=\"").Append(N(MjcTimestep))
+            .Append("\" gravity=\"0 0 -9.81\" integrator=\"implicitfast\"/>")
             .Append("<size njmax=\"2000\" nconmax=\"500\"/><default><geom friction=\"0.85 0.01 0.002\" solref=\"0.008 1\" solimp=\"0.95 0.99 0.001\"/></default>");
     }
 
@@ -213,10 +258,10 @@ internal static class MujocoModel
             {
                 sb.Append("<velocity name=\"motor_").Append(role).Append('_').Append(axle).Append('_').Append(side)
                     .Append("\" joint=\"wheel_").Append(role).Append('_').Append(axle).Append('_').Append(side)
-                    .Append("\" kv=\"").Append(N(WheelServoKv))
-                    .Append("\" ctrllimited=\"true\" ctrlrange=\"-").Append(N(WheelAngularSpeedLimit))
-                    .Append(' ').Append(N(WheelAngularSpeedLimit)).Append("\" forcelimited=\"true\" forcerange=\"-")
-                    .Append(N(WheelForceLimit)).Append(' ').Append(N(WheelForceLimit)).Append("\"/>");
+                    .Append("\" kv=\"").Append(N(MjcServoKv))
+                    .Append("\" ctrllimited=\"true\" ctrlrange=\"-").Append(N(MjcNoLoadSpeed))
+                    .Append(' ').Append(N(MjcNoLoadSpeed)).Append("\" forcelimited=\"true\" forcerange=\"-")
+                    .Append(N(MjcStallTorque)).Append(' ').Append(N(MjcStallTorque)).Append("\"/>");
             }
         }
         sb.Append("</actuator>");

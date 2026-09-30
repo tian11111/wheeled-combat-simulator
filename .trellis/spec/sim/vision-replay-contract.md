@@ -2,8 +2,9 @@
 
 > 来源：任务 08-28-real-vision-replay-evaluation。真实视觉证据链与
 > telemetry-v1 / sensor-calibration-v1 **分线**：新 schema（`vision-replay-v1`）、
-> 新命令（`vision import|evaluate`）、新纯库（`src/Sim.VisionReplay`，仅引用
-> Sim.Protocol），互不扩用。Phase A 只验证数据链与策略消费；
+> 新命令（`vision import|evaluate|live`）、纯库 `src/Sim.VisionReplay`（引用
+> Sim.Protocol 与 Sim.Core——live 桥共享 `IVisionStreamSource`/`VisionStreamFrame`
+> 契约，见任务 09-29-vision-live-bridge 决策①；仍不引 Sim.Calibration），互不扩用。Phase A 只验证数据链与策略消费；
 > `fidelity.json` 视觉项保持 `random_stub`。改动适配器、注入点、回放头
 > 视觉字段或 `vision` 命令前必读本文件。
 
@@ -30,6 +31,17 @@
   （先全量预检再原子写）。
 - 回放头：加性可空 `VisionEvidenceId` / `VisionEvidenceSha256`（记录尾部
   追加、成对 64-hex 校验；null ⇒ 旧 JSON 逐位兼容）。
+- Live 桥（任务 09-29-vision-live-bridge）：`IVisionStreamSource`（`PumpUntil` +
+  `Released`）与 `VisionStreamFrame`（JSONL snake_case 对齐 CSV 列）在 Sim.Core；
+  `LiveVisionBridge : IVisionAdapter`（`ModeName="liveBridge"`，消费台账复用
+  `VisionReplayConsumeRecord`）；选帧/时间窗/原因码抽成共享纯函数
+  `VisionFrameSelector`（`VisionReplayAdapter` 行为逐位不变）；`CsvStreamSource`
+  在 Sim.VisionReplay（复用 73 列方言解析，按 SimT 缩放释放）；
+  `ExternalProcessStreamSource` 在 Sim.Core（进程 IO 单独成文件，只在
+  `PumpUntil` 被调用方驱动，不引入自己的时钟源）。CLI
+  `vision live --source|--process [--realtime 1x]` 跑整场并自动写 sidecar
+  证据包（vision-replay-v1 兼容，事后确定性重放）；`VisionMode=liveBridge`
+  的场次被 `EnsureRecordable` 门禁拒绝普通 replay 录制（指路 sidecar）。
 
 ## 3. Contracts（不变量）
 
@@ -48,6 +60,12 @@
   计 `stale` 并在报告 limitations 说明（不得隐藏）。
 - FSM classify→buff 分支对非 BlockRuntime 目标的防护是委托 `ScoreTick`
   既有兜底（定序取台上 buff 块，无 rng），不是在渲染/FSM 层复刻规则。
+- Live 桥同守 rng/真值纪律（绝不 `context.Random`、绝不 `context.Target`）；
+  仿真内核路径（引擎/适配器/选帧）零 IO/时钟/进程，唯一例外是
+  `ExternalProcessStreamSource` 单文件且不引入自己的时钟源。模拟流按 SimT
+  缩放释放 ⇒ 与 `VisionReplayAdapter` 同帧同参逐位等价
+  （`VisionStreamEquivalenceTests` 常驻验收门）；外部进程源帧到达由子进程
+  驱动 ⇒ `vision live --process` 必须配 `--realtime 1x`。
 
 ## 4. Validation & Error Matrix（导入/评估）
 
@@ -81,8 +99,11 @@
 
 ### Wrong
 
-- 让 Sim.VisionReplay 引用 Sim.Calibration/Sim.Core 复用工具或管道。
-- 在 Sim.Core 读文件/时钟；适配器画 `context.Random`；从世界真值生成检测。
+- 让 Sim.VisionReplay 引用 Sim.Calibration（引 Sim.Core 是 live 桥的已披露决策：
+  共享 `IVisionStreamSource`/`VisionStreamFrame`，见 09-29-vision-live-bridge）。
+- 在 Sim.Core 仿真内核路径读文件/时钟（例外：`ExternalProcessStreamSource`
+  单文件的进程 IO，只在 `PumpUntil` 被驱动）；适配器画 `context.Random`；
+  从世界真值生成检测。
 - 把 evidence_only 结果写入 fidelity.json 或宣称识别准确率。
 
 ### Correct

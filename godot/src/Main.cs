@@ -42,11 +42,16 @@ public partial class Main : Node
     private SettingsStore _settingsStore = null!;
     private SettingsPanel _settingsPanel = null!;
     private DesktopSettings _settings = DesktopSettings.Default;
+    // 视觉源工厂: 与 _settings.Vision 同步重建; null = 默认 classifyRate 桩(不注入
+    // adapter, 行为逐位不变)。每场(ReplaceSession/ResetLiveSession/驱动)都调一次
+    // 工厂新建适配器 —— 台账与 SimT 0 基准不跨场复用。
+    private Func<IVisionAdapter?>? _visionFactory;
     private Scenario _scenarioTemplate = null!;
     private DesktopLiveDriver? _liveDriver;
     private Snapshot? _driverSnapshot;
     private bool _pendingMatchSettings;
     private Dictionary<string, RobotModelConfig>? _robotModels;
+    private string? _robotModelsPath;
     private double _replayAlphaAccumulator;
     // 暂停/收尾时插值 alpha 的收敛速率 (由旧实现 0.02/帧 @60fps 折算, 与帧率解耦)。
     private const double ReplayAlphaSettlePerSecond = 1.2;
@@ -84,13 +89,13 @@ public partial class Main : Node
         var spIndex = Array.IndexOf(userArgs, "--scenario-path");
         if (spIndex >= 0 && spIndex + 1 < userArgs.Length)
         {
-            ScenarioPath = Path.GetFullPath(userArgs[spIndex + 1]);
+            ScenarioPath = ResolveUserPath(userArgs[spIndex + 1]);
         }
 
         ApplyVisualQaOverrides(userArgs);
         ConfigureVisualFrameStats(userArgs);
 
-        var scenario = BuildScenario();
+        var scenario = BuildScenarioWithFallback();
         ReplaceSession(scenario);
         ApplyScenarioToShell(scenario);
 
@@ -114,6 +119,7 @@ public partial class Main : Node
         GetNode<CanvasLayer>("Hud").AddChild(_settingsPanel);
         _settingsPanel.SetUiScale(_settings.UiScale);
         _settingsPanel.Applied += ApplyDesktopSettings;
+        _settingsPanel.RobotModelsApplied += SaveRobotModels;
         _settingsPanel.PreflightCompleted += (role, ok, message)
             => _hud.ShowPreflightNotice(role, ok, message);
         _hud.ConfigureSettings(OpenSettings);
@@ -153,7 +159,7 @@ public partial class Main : Node
         var captureIndex = Array.IndexOf(userArgs, "--capture");
         if (captureIndex >= 0 && captureIndex + 1 < userArgs.Length)
         {
-            _capturePath = Path.GetFullPath(userArgs[captureIndex + 1]);
+            _capturePath = ResolveUserPath(userArgs[captureIndex + 1]);
             if (settingsSmoke)
             {
                 // The settings smoke has no asynchronous assertion routine;
@@ -220,6 +226,12 @@ public partial class Main : Node
         if (settingsSmoke)
         {
             OpenSettings();
+            var tabIndex = Array.IndexOf(userArgs, "--settings-tab");
+            if (tabIndex >= 0 && tabIndex + 1 < userArgs.Length
+                && int.TryParse(userArgs[tabIndex + 1], out var tab))
+            {
+                _settingsPanel.SelectTab(tab);
+            }
             if (_capturePath.Length == 0)
             {
                 // Without --capture this remains a short UI construction smoke
@@ -1006,6 +1018,7 @@ public partial class Main : Node
         var path = ProjectSettings.GlobalizePath($"user://{SettingsStore.DefaultFileName}");
         _settingsStore = new SettingsStore(path, GD.PrintErr);
         _settings = _settingsStore.Load();
+        RebuildVisionFactory();
         ApplyDisplaySettings(_settings);
         GD.Print($"[settings] 已加载 {path}: {DisplaySettingsLine(_settings)}");
     }
@@ -1024,14 +1037,39 @@ public partial class Main : Node
         }
 
         ApplyDisplaySettings(settings);
+        RebuildVisionFactory();
         if (matchChanged)
         {
             _pendingMatchSettings = true;
-            GD.Print("[settings] 仿真参数/控制器已保存，将在下一场或 F5 重置后生效");
+            GD.Print("[settings] 仿真参数/控制器/视觉设置已保存，将在下一场或 F5 重置后生效");
         }
         else
         {
             GD.Print("[settings] 显示设置已应用");
+        }
+    }
+
+    /// <summary>
+    /// 按当前设置装配视觉源工厂: 默认 classifyRate 不注入(逐位不变)。证据包/CSV 预检
+    /// 失败时高声报错(控制台 + HUD)并回退默认源 —— 桌面必须始终能开赛, 但绝不静默换源。
+    /// </summary>
+    private void RebuildVisionFactory()
+    {
+        try
+        {
+            _visionFactory = _settings.CreateVisionFactory();
+            var source = _settings.Vision?.Source ?? VisionSources.ClassifyRate;
+            GD.Print(source == VisionSources.ClassifyRate
+                ? "[vision] 视觉源: 默认 classifyRate 桩 (不注入 adapter)"
+                : $"[vision] 视觉源: {source}");
+        }
+        catch (Exception error)
+        {
+            // 视觉源是外部文件/进程边界: 坏路径、哈希不一致、方言不符都在此收敛为
+            // "本场用默认源 + 显式告警", 与 DesktopLiveDriver 的 fault 处理同一取向。
+            _visionFactory = null;
+            GD.PrintErr($"[vision] 视觉源装配失败，本场回退默认 classifyRate: {error.Message}");
+            _hud?.ShowNotice($"视觉源装配失败，已回退默认源 · {error.Message}", ok: false);
         }
     }
 
@@ -1057,7 +1095,7 @@ public partial class Main : Node
         {
             return;
         }
-        _settingsPanel.Open(_settings, _pendingMatchSettings);
+        _settingsPanel.Open(_settings, _pendingMatchSettings, _robotModels);
     }
 
     private Scenario BuildScenario()
@@ -1066,6 +1104,43 @@ public partial class Main : Node
             ? new Scenario { Seed = Seed, Blocks = OfficialLayout.Blocks }
             : ProtocolJson.Deserialize<Scenario>(System.IO.File.ReadAllText(ScenarioPath));
         return _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(_scenarioTemplate));
+    }
+
+    // 响亮回退(同视觉源预检先例): 场景文件读不到时给指路报错并回退官方布局,
+    // 不留一个没建起场景的空窗口。
+    private Scenario BuildScenarioWithFallback()
+    {
+        try
+        {
+            return BuildScenario();
+        }
+        catch (Exception e)
+        {
+            GD.PushError($"[scenario] 场景加载失败 ({(ScenarioPath.Length == 0 ? "官方布局" : ScenarioPath)}): {e.Message} —— 回退官方布局");
+            ScenarioPath = "";
+            return BuildScenario();
+        }
+    }
+
+    // 命令行相对路径解析: `--path godot` 会把进程 CWD 带进 godot/ 子目录, 用户在
+    // 仓库根敲的 `--scenario-path scenarios/x.json` 曾被解析成 godot/scenarios/...
+    // 而启动失败(2026-09-30 目检发现)。输入路径按 "CWD → res:// 父目录(仓库根)"
+    // 顺序做存在性锚定; 两处都不存在(输出类或新建文件)时保持 CWD 解析的现状
+    // 语义, 由后续 IO 用完整路径报错。
+    private static string ResolveUserPath(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw) || Path.IsPathRooted(raw))
+        {
+            return raw;
+        }
+        var cwdCandidate = Path.GetFullPath(raw);
+        if (File.Exists(cwdCandidate))
+        {
+            return cwdCandidate;
+        }
+        var repoRoot = Path.GetFullPath(Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
+        var repoCandidate = Path.GetFullPath(Path.Combine(repoRoot, raw));
+        return File.Exists(repoCandidate) ? repoCandidate : cwdCandidate;
     }
 
     private Scenario BuildLiveScenarioFromTemplate()
@@ -1082,7 +1157,7 @@ public partial class Main : Node
     private void ReplaceSession(Scenario scenario)
     {
         var previous = _session;
-        _session = new MatchSession(scenario);
+        _session = new MatchSession(scenario, _visionFactory);
         previous?.Dispose();
     }
 
@@ -1106,7 +1181,8 @@ public partial class Main : Node
         }
         StopLiveDriver();
         _driverSnapshot = null;
-        _liveDriver = new DesktopLiveDriver(scenario, _settings.UsController, _settings.ThemController);
+        _liveDriver = new DesktopLiveDriver(
+            scenario, _settings.UsController, _settings.ThemController, _visionFactory);
         _liveDriver.Start();
         GD.Print("[controller] 已启动桌面后台 driver；实况渲染线程不等待外部策略");
     }
@@ -1146,7 +1222,14 @@ public partial class Main : Node
     private static bool MatchSettingsEqual(DesktopSettings left, DesktopSettings right)
         => DictionaryEqual(left.SimulationParameters, right.SimulationParameters)
             && ControllerEqual(left.UsController, right.UsController)
-            && ControllerEqual(left.ThemController, right.ThemController);
+            && ControllerEqual(left.ThemController, right.ThemController)
+            && VisionEqual(left.Vision, right.Vision);
+
+    private static bool VisionEqual(VisionSettings? left, VisionSettings? right)
+        => left?.Source == right?.Source
+            && left?.EvidencePath == right?.EvidencePath
+            && left?.CsvPath == right?.CsvPath
+            && left?.MaxAgeMs == right?.MaxAgeMs;
 
     private static bool DictionaryEqual(IReadOnlyDictionary<string, double>? left,
         IReadOnlyDictionary<string, double>? right)
@@ -1220,6 +1303,38 @@ public partial class Main : Node
         }
     }
 
+    /// <summary>
+    /// 设置面板外观区的落盘 + 立即重挂: 写回读入时解析的同一文件 (未显式指定时默认
+    /// res://robot-models.json), 原子替换; 之后 ApplyRobotModels 让新绑定即时可见。
+    /// 路径留空的 role 不产生条目 —— 重挂时自动回退 primitive 分件。
+    /// </summary>
+    private void SaveRobotModels(IReadOnlyDictionary<string, RobotModelConfig> models)
+    {
+        _robotModelsPath ??= "res://robot-models.json";
+        _robotModels = new Dictionary<string, RobotModelConfig>(models, StringComparer.Ordinal);
+        try
+        {
+            var global = _robotModelsPath.StartsWith("res://", StringComparison.Ordinal)
+                ? ProjectSettings.GlobalizePath(_robotModelsPath)
+                : _robotModelsPath;
+            var directory = System.IO.Path.GetDirectoryName(global);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                System.IO.Directory.CreateDirectory(directory);
+            }
+            var temporaryPath = global + ".tmp";
+            System.IO.File.WriteAllText(temporaryPath, ProtocolJson.Serialize(_robotModels));
+            System.IO.File.Move(temporaryPath, global, overwrite: true);
+            ApplyRobotModels();
+            GD.Print($"[models] 外观偏好已保存: {_robotModelsPath}");
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr($"[models] 外观偏好保存失败 {_robotModelsPath}: {e.Message}");
+            _hud?.ShowNotice($"外观模型保存失败: {e.Message}", ok: false);
+        }
+    }
+
     /// <summary>本地外观偏好 (渲染层, 永不进入 Scenario/回放): --robot-models 参数或 res://robot-models.json。</summary>
     private void LoadRobotModelPreferences(string[] userArgs)
     {
@@ -1233,6 +1348,7 @@ public partial class Main : Node
         {
             return;
         }
+        _robotModelsPath = path;
         try
         {
             var text = path.StartsWith("res://", StringComparison.Ordinal)
@@ -1791,7 +1907,7 @@ public partial class Main : Node
         {
             return false;
         }
-        var path = Path.GetFullPath(args[index + 1]);
+        var path = ResolveUserPath(args[index + 1]);
         try
         {
             var file = ProtocolJson.Deserialize<ReplayFile>(System.IO.File.ReadAllText(path));

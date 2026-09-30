@@ -40,7 +40,7 @@ public sealed class MatchEngine : IDisposable
     // FSM 行为变更同样改变 MuJoCo 轨迹, 因此一并纳入版本标识。
     // 2026-09-29: 1.0.4 — 传感器 3D 化(探点重标装配.glb 光电节点 + WheeledCombat11
     // 显式启用 + MuJoCo mj_ray 真实几何探测), 感知语义与通道清单都变, MuJoCo 轨迹必变。
-    public const string CoreVersion = "sim-core-1.0.4";
+    public const string CoreVersion = "sim-core-1.0.5";
 
     private readonly Scenario _scenario;
     private readonly FieldModel _field;
@@ -212,7 +212,7 @@ public sealed class MatchEngine : IDisposable
             };
             if (spec.X is null || spec.Y is null)
             {
-                RespawnBlock(block, us, them);
+                RespawnBlock(block, us, them, blocks);
             }
             else
             {
@@ -225,12 +225,24 @@ public sealed class MatchEngine : IDisposable
         return blocks;
     }
 
-    private void RespawnBlock(BlockRuntime block, RobotRuntime us, RobotRuntime them)
+    private void RespawnBlock(BlockRuntime block, RobotRuntime us, RobotRuntime them,
+        IReadOnlyList<BlockRuntime>? placed = null)
     {
         // Deterministic placement happens in field-local coordinates so the
         // seeded draw order never depends on the field pose.
         var (ux, uy) = _field.Transform.WorldToLocalPoint(us.X, us.Y);
         var (tx, ty) = _field.Transform.WorldToLocalPoint(them.X, them.Y);
+        // 已放置的块保持 0.5 m 间距: 三块各自独立抽点时不能叠在一起
+        // (比较在 field-local; placed 内的坐标此刻均为 world)。
+        List<(double X, double Y)>? placedLocal = null;
+        if (placed is not null)
+        {
+            placedLocal = new List<(double, double)>(placed.Count);
+            foreach (var other in placed)
+            {
+                placedLocal.Add(_field.Transform.WorldToLocalPoint(other.X, other.Y));
+            }
+        }
         var el = _field.El;
         var span = 2 * _field.Half - 0.7;
         for (var i = 0; i < 20; i++)
@@ -239,7 +251,8 @@ public sealed class MatchEngine : IDisposable
             var y = el + 0.35 + _rng.Next() * span;
             var distUs = Js.Hypot(ux - x, uy - y);
             var distThem = Js.Hypot(tx - x, ty - y);
-            if (Math.Min(distUs, distThem) > 0.8 && !(x > 1.6 && x < 2.2 && y > 1.6 && y < 2.2))
+            if (Math.Min(distUs, distThem) > 0.8 && !(x > 1.6 && x < 2.2 && y > 1.6 && y < 2.2)
+                && (placedLocal is null || placedLocal.All(p => Js.Hypot(p.X - x, p.Y - y) > 0.5)))
             {
                 (block.X, block.Y) = _field.Transform.LocalToWorldPoint(x, y);
                 break;
@@ -897,8 +910,9 @@ public sealed class MatchEngine : IDisposable
 
     /// <summary>
     /// Vision metadata: the default classifyRate stub keeps its legacy
-    /// "default" shape (bit-compatibility); the injected replay adapter
-    /// reports the visionReplay mode plus its consumption registry.
+    /// "default" shape (bit-compatibility); the injected replay adapter reports
+    /// the visionReplay mode plus its consumption registry; the live bridge reports
+    /// its own mode (it never uses the classifyRate stub parameters).
     /// </summary>
     private VisionInfo BuildVisionInfo()
     {
@@ -909,6 +923,10 @@ public sealed class MatchEngine : IDisposable
                 Mode = VisionReplayAdapter.ModeName,
                 External = replay.BuildExternalSnapshot(),
             };
+        }
+        if (_vision is LiveVisionBridge)
+        {
+            return new VisionInfo { Mode = LiveVisionBridge.ModeName };
         }
         return new VisionInfo
         {
@@ -1071,7 +1089,14 @@ public sealed class MatchEngine : IDisposable
         RulesetId = _scenario.Id,
         Seed = _scenario.Seed,
         CoreVersion = CoreVersion,
-        VisionMode = _vision is VisionReplayAdapter ? VisionReplayAdapter.ModeName : "default",
+        VisionMode = _vision switch
+        {
+            VisionReplayAdapter => VisionReplayAdapter.ModeName,
+            // live 桥场次: 帧到达依赖外部时序, 普通 replay 录制/复现对其无效
+            // (由 MatchEngineHost.EnsureRecordable 拒绝并指路 sidecar 证据包)。
+            LiveVisionBridge => LiveVisionBridge.ModeName,
+            _ => "default",
+        },
         VisionEvidenceId = _vision is VisionReplayAdapter evidence ? evidence.EvidenceId : null,
         VisionEvidenceSha256 = _vision is VisionReplayAdapter sha ? sha.EvidenceSha256 : null,
         PhysicsBackend = _physics.BackendId == PhysicsSpec.Mujoco ? _physics.BackendId : null,

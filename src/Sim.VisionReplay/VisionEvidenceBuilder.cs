@@ -89,7 +89,13 @@ public static class VisionEvidenceBuilder
 
     // ---------- per-session parsing ----------
 
-    private static (IReadOnlyList<VisionFrameRecord> Frames, VisionImportFileStat Stat) ParseSession(
+    /// <summary>
+    /// Parses ONE CSV session into normalized evidence frames + its import
+    /// statistics. Shared with the live CSV stream source
+    /// (<see cref="CsvStreamSource"/>) so a streamed session and an imported
+    /// evidence package are the same frames by construction.
+    /// </summary>
+    internal static (IReadOnlyList<VisionFrameRecord> Frames, VisionImportFileStat Stat) ParseSession(
         string name, MbriCsvTable table, VisionReplayManifest manifest)
     {
         var col = new Dictionary<string, int>(StringComparer.Ordinal);

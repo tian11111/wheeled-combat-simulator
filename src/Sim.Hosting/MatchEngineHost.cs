@@ -7,6 +7,29 @@ namespace Sim.Hosting;
 /// <summary>One backend selection and replay identity boundary for both hosts.</summary>
 public static class MatchEngineHost
 {
+    /// <summary>
+    /// Refusal for live-bridge sessions: their frame arrival depends on external
+    /// timing, so an action-stream replay cannot reproduce them. The message must
+    /// point at the way out (the sidecar evidence package), never just say "no".
+    /// </summary>
+    public const string LiveBridgeReplayRefusal =
+        "vision mode 'liveBridge' 不能作为普通 replay 录制/复现: live 桥的帧到达依赖外部时序, 动作流回放无法复现; "
+        + "请改用 live 场次写出的 sidecar 证据包做确定性复现 (vision evaluate --evidence <sidecar 目录>)。";
+
+    /// <summary>
+    /// Recording/reproduction gate shared by the recording paths and
+    /// <see cref="CreateForReplay"/>: a live-bridge header is refused before any
+    /// file is written or replayed.
+    /// </summary>
+    public static void EnsureRecordable(ReplayHeader header)
+    {
+        ArgumentNullException.ThrowIfNull(header);
+        if (header.VisionMode == LiveVisionBridge.ModeName)
+        {
+            throw new InvalidOperationException(LiveBridgeReplayRefusal);
+        }
+    }
+
     public static MatchEngine Create(Scenario scenario, IVisionAdapter? visionAdapter = null)
     {
         ArgumentNullException.ThrowIfNull(scenario);
@@ -34,6 +57,8 @@ public static class MatchEngineHost
         {
             throw new InvalidOperationException($"invalid replay header: {string.Join(" ", errors)}");
         }
+        // 决策⑥ 门禁: live 桥场次不可按动作流复现(物理身份比较之前先明确拒绝并指路 sidecar)。
+        EnsureRecordable(file.Header);
         var engine = Create(file.Scenario);
         try
         {

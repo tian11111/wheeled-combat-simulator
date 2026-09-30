@@ -97,7 +97,9 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
      （表面力 = 力矩/轮半径）——估算爬台阶需求时用 hub 扭矩口径。
   2. 力上限提高后，kv=1.0 速度伺服会把任何指令阶跃在第一帧变成满扭矩阶跃，
      整车抬头-砸地弹跳——执行器边界必须对 v 做一阶斜坡（镜像 legacy AccelK，
-     只滤 v、w 瞬时），伺服增益调低（kv=0.25，满力只出现在近堵转误差处）。
+     只滤 v、w 瞬时），伺服增益不可随手调高（09-25 时 kv=0.25 满力只出现在
+     近堵转误差处；09-30 已按 2342 真值标定 kv=τ_stall/ω_noload≈0.1369，
+     见本文件电机建模节第 7 条）。
   3. 刚体圆柱轮**咬不住直角台阶**：低速绕角 pivot 打滑、高速被驱动力矩掀成
      轮抬抛体，与扭矩无关（0.3/2/3/6 N·m 行为一致，接触对 dump 实证爬升瞬间
      与台面零接触）——台沿需要 20° 倒角斜坡（`AppendChamfers`）。
@@ -105,6 +107,37 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
      必须同步移动，**不要**用 geom pos 偏移车体（实测冻结整车，原因未深究）。
   5. 传感器在物理步进**前**采样（读上一提交帧）——任何用"当前帧位姿"验证
      传感器读数的测试，在车辆快速越过台沿/边界时都会假性失败。
+  6. **物理子步常量必须与 MJCF `option timestep` 同源**（09-30 时基回归教训）：
+     `MujocoModel.MjcTimestep` 是唯一真值，`SubstepSeconds`、`SubstepsPerTick`
+     （= `TickSeconds` / `MjcTimestep`，= 25）与 XML 的 `option timestep` 只能由它
+     推导；不变量 `SubstepsPerTick × MjcTimestep == tickSeconds(0.05)`
+     由 `src/Sim.Tests/MujocoTimebaseTests.cs` 钉住（含"每 tick 实际位移"的
+     行为判别：duty=1 满档（v1 指令 1.5 ⇒ ctrl=ω_noload=12.566 rad/s，轮端无载
+     上界 0.817 m/s）实测 ≈0.0356 m/tick，旧慢动作时基下同一车速只有 ≈0.0142）。
+     09-29 只把 XML 字面量改成 0.002 而 C# 侧仍是 10×0.005，每裁判 tick 只积分
+     0.02 s —— 物理时间流速变成比赛钟的 0.4×（慢动作），而 FSM 时限/传感器/接触
+     时刻全按 0.05 s 记账，翻覆/得分/索敌基线整体失真且数字看似"更真实"。
+     改时基先改 `MjcTimestep`；当时（批 1）MJCF 字节不变，v1/v2 模型哈希与
+     legacy 回放身份不受影响——批 2 执行器真值标定后哈希已随之变更
+     （守卫 `V1ModelSha256` 同步），legacy 回放身份仍不受影响。
+  7. **轮驱动只认真车电机真值（2342）+ 按轮 duty 口径**（09-30 批 2）：真值单一
+     来源是 `MujocoModel.MjcStallTorque`(1.72 N·m) / `MjcNoLoadSpeed`(120 rpm = 4π
+     rad/s) / `MjcServoKv`(τ_stall/ω_noload ≈ 0.136873，推导而非标定)；旧工程值
+     kv=0.25/±3.0 N·m/±80 rad/s 已删除。MJCF `<velocity>` 执行器
+     τ=kv×(ctrl−qvel) 截断到 ±τ_stall 后**数学等价直流电机线性转速-扭矩曲线**；
+     `SetControls` 按 duty=clamp(轮面线速度/MaxSpeed, −1, 1)（分母=车辆 MaxSpeed，
+     **必须按轮计算** —— 单标量 |cmdV|/MaxSpeed 会把原地转向压成 duty=0，SEARCH
+     闭环失效）折算 ctrl=duty×ω_noload = 可调压开环 PWM：起步扭矩=duty×τ_stall、
+     空载转速=duty×ω_noload。断言钉在 `MujocoMotorModelTests`（kv/range/起步扭矩/
+     原地转向 duty/电池接口惰性）。电池内阻压降只留 `MotorDriveOptions` 内部钩子，
+     **默认禁用**：无实测电压-电流曲线不得填数、不进场景协议。
+  8. **v1 mujoco 场景此后定位"工程验证"**（09-30）：v1 场景 maxSpeed=1.5、轮径
+     0.065 需要 23.08 rad/s，而执行器真极速 12.566 rad/s ⇒ 实际极速 0.817 m/s，
+     `Fsm.TimeScale`(1.5/maxSpeed) 仍按 1.5 算（时限相对偏紧，披露不改）；v2 真车
+     场景 maxSpeed=0.408 与 ω_noload×r=0.408407 同源，TimeScale 与真极速自洽
+     （口径差披露：实测稳态车速 0.355 m/s——hinge damping 平衡点比空载低 13%，
+     时限相对稳态车速仍偏紧）。
+     改 MJCF 后模型哈希必变（见上行重录纪律），行为基线一律以 v2 真车场景为准。
 
 ## 行为对齐参考
 

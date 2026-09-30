@@ -1,4 +1,4 @@
-# robot-simulator — 2026 RoboCup 武术擂台轮式对抗模拟器
+# robot-simulator — RoboCup 武术擂台轮式对抗模拟器
 
 可维护、可复现、可替换控制器的桌面仿真：**.NET 8 确定性内核** + **Godot 4 .NET 3D 桌面壳** +
 **Python 策略桥**，共享同一套比赛状态协议与规则。

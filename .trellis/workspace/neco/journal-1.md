@@ -1177,3 +1177,97 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - 桌面目检“小车”页与真车参数行为; 后续方向: Fsm 爬坡姿态控制/坡道几何 (残余 wheelie 翻覆); 力矩级建模可消费扭矩字段
+
+
+## Session 35: 实时 YOLO 桥接：活源桥架构与真推理接入
+
+**Date**: 2026-09-30
+**Task**: 实时 YOLO 桥接：活源桥架构与真推理接入
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+动态工作流(deepseek-v4.1-flash)六批落地实时 YOLO 桥: LiveVisionBridge/CsvStreamSource/等价门(模拟流≡VisionReplayAdapter 逐位)、CLI vision live(基线对比+sidecar 录证)、桌面三源视觉装配、ExternalProcessStreamSource(stdout JSONL)+mbri_yolo_bridge stub、录制门禁(VisionMode=liveBridge 拒绝普通 replay)。全量 496+1 Skip 零回归、replay-check seed-42 逐位 PASS、Godot 构建零错、py 自测过; 两轮独立评审 5 个 high/medium 缺陷已修复复测(最重: null detections 帧致 NRE 炸场、重复接收组错并、CSV 128MB 上限缺失)。spec vision-replay-contract 收窄旧纪律。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3e4cfe6` | (see git log) |
+| `57cff99` | (see git log) |
+| `d29efaf` | (see git log) |
+| `888a60a` | (see git log) |
+| `3c86ae9` | (see git log) |
+| `230b177` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test -m:1 全量 496 通过+1 Skip; replay-check replays/seed-42.json 逐位 PASS; dotnet build godot/GodotSim.csproj 0 警 0 错; py -3.12 tools/yolo-bridge/selftest.py ALL PASSED; CLI --process stub 冒烟等价成立且 sidecar 两次复跑逐位一致
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 真推理端到端待用户环境(权重在手不在仓库); 桌面三源人工目检; 18 条 low 级评审发现按 report.md 披露待拍板; 本地领先 origin 27 提交待用户说推再推
+
+
+## Session 36: 时基回归修复 + 2342 电机扭矩级标定
+
+**Date**: 2026-09-30
+**Task**: 时基回归修复 + 2342 电机扭矩级标定
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+保真度评估坐实头号 bug: 2dd61d9 只改 MJCF timestep 未同步 C# 子步常量, 每 tick 只积分 0.02s(0.4× 慢动作), 既往行为基线全部失真。工作流(deepseek)两批修复: 时基单一真值化(25 子步=0.05s/tick)+不变量钉住; 轮驱动标定 2342 真值(kv=τ/ω_noload 速度伺服等价直流电机线性扭矩曲线, 按轮 duty=PWM 口径, 轮端极速收敛 0.408 m/s)。行为重扫两轮: 时基后翻覆10/QACC0/满场11; 电机后翻覆1(-90%)/重启0/满场10——登台 wheelie 翻覆被真实电机扭矩上限自然抑制。legacy 逐位不变(replay-check PASS), 全量 510+1Skip。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6e79688` | (see git log) |
+| `db101b8` | (see git log) |
+
+### Testing
+
+- [OK] dotnet test -m:1 全量 510 过+1 跳; replay-check seed-42 逐位 PASS; 电机特性单测(kv/range/起步扭矩/duty); 两轮 11-seed 扫描确定性复核(逐字节一致)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 6 条 low 评审发现已由主会话修复(注释/spec 口径); 剩余保真度缺口: 坡道几何(待台沿决策)/FSM 特权收敛/RL 特权治理/电池压降(接口已留待实测); 训练吞吐待重训口径复测; 本地领先 origin 30 提交待用户说推再推
+
+
+## Session 37: v2 能量块 seed 随机布局 + 桌面相对路径修复
+
+**Date**: 2026-09-30
+**Task**: v2 能量块 seed 随机布局 + 桌面相对路径修复
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+①桌面目检发现 --path godot 把 CWD 带进 godot/ 子目录, 相对路径 --scenario-path 解析成 godot/scenarios/... 崩空窗口; 修 ResolveUserPath(CWD→res://父目录 存在性锚定, 覆盖 scenario-path/parity-check/capture)+场景加载失败响亮回退官方布局。②能量块随机分布: v2 场景 JSON 省略坐标→走 BlockSpec 既有裁判确定性放置语义, RespawnBlock 补块间 0.5m 间距, legacy/v1/显式坐标冻结不变; CoreVersion 1.0.5; RL v2 训练自动获得布局随机化。11-seed 新基线: 翻覆3/QACC0/跑满10/11。另答用户: 渲染一直在 GPU(Vulkan), 物理在 CPU, MJX 上 GPU 属重训管线架构改造。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `51717b7` | (see git log) |
+| `6304f49` | (see git log) |
+
+### Testing
+
+- [OK] 全量 515 过+1 跳; BlockLayoutTests 5 例(同 seed 同布局/确定性轨迹/随机性/禁区约束/冻结位); 相对路径 parity-check PASS; 相对路径桌面启动零错误
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 本地领先 origin 7 提交待用户说推再推; 保真度缺口余项: 坡道几何(待台沿决策)/FSM 特权收敛/RL 特权治理/电池压降(待实测)

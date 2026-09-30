@@ -12,6 +12,9 @@
     <ProjectReference Include="../src/Sim.Protocol/Sim.Protocol.csproj" />
     <ProjectReference Include="../src/Sim.Controller/Sim.Controller.csproj" />
     <ProjectReference Include="../src/Sim.Hosting/Sim.Hosting.csproj" />
+    <!-- 视觉源三选一: visionReplay 读证据包 / liveBridge 读真车 CSV, 复用 Sim.VisionReplay
+         的哈希锁定读取与方言解析(与 `vision` CLI 同一实现), 不在壳内复制解析逻辑。 -->
+    <ProjectReference Include="../src/Sim.VisionReplay/Sim.VisionReplay.csproj" />
   </ItemGroup>
 
 </Project>

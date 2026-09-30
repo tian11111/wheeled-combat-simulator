@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "Sim 层铁律与物理后端契约：改 Sim.Mujoco/MJCF 后必须重录新模式回放并跑 MujocoIntegrationTests/MujocoProtocolTests（92-94 行）；模型调校教训（95-107 行）含 kv/forcerange 单位与伺服增益经验，本任务批 2 要改写其中 kv=0.25 条目并追加时基单一真值教训"}
+{"file": ".trellis/spec/sim/restart-contract.md", "reason": "翻覆→INCAPACITATED→Restart 事件的签名与语义（本任务 11-seed 扫描要统计 Incapacitated/Restart 行，断言重标定要避免误读事件口径）"}

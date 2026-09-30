@@ -14,16 +14,25 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     private readonly Dictionary<int, string> _staticTags = [];
 
     // 09-25 SEARCH 索敌闭环: 原地转向补偿系数。四轮横向滑动摩擦使原地偏航速率
-    // 仅为指令的 ~3%(kv=0.25 为登台柔性所必需, 不能提高); 对 |CmdV|≤0.02 的
+    // 远低于指令(kv=0.25 工程值时代实测仅 ~3%, 该增益当时为登台柔性所设, 09-30 已
+    // 按 2342 真值重标, 见 MujocoModel); 对 |CmdV|≤0.02 的
     // 原地转向命令放大差速轮目标速度, 使 kv×Δω 重新触及力上限。纵向行驶、
     // 倒车登台与推块均带纵向命令, 不受影响。实例字段: 候选对照测试
     // 经 MujocoPhysicsBackendFactory 注入自己的值, 不再改进程级状态。
     // 选定 4(候选 2/4/6, dt=0.005: 2 的 90° 对准需 9.45 s 超预算, 6 过冲,
-    // 4 → <3 s 且误差 0.032 rad)。2026-09-29 dt=0.002 (QACC 修复) 后旧门在
-    // 候选 2/4 上均无法满足(4 → 6.6 s/误差 0.543, 2 → 13.45 s/0.578), 候选
-    // 空间待重扫; 重扫前维持 4(两候选中更快且误差相当)。
+    // 4 → <3 s 且误差 0.032 rad)。2026-09-29 QACC 修复(子步 0.005→0.002)后旧门在
+    // 候选 2/4 上均无法满足(4 → 6.6 s/误差 0.543, 2 → 13.45 s/0.578) —— 但该轮
+    // 还叠加了时基回归(每 tick 只积分 0.02 s 的慢动作), 上述数字不可用。
+    // 2026-09-30 时基修正后(MjcTimestep 单一真值, 25 子步 = 0.05 s/tick)批 1 实测:
+    // comp=4 → 发现→classify 2.65 s / 误差 0.427; comp=1(基线) → 14.10 s / 0.579。
+    // 2026-09-30 批 2 电机真值标定(kv=0.136873/±1.72 N·m/±12.566 rad/s + duty 口径)后
+    // 用同一 RunTurn 逻辑重扫(tmp/timescan turn): comp=1 → 31.75 s/0.591,
+    // 2 → 17.00/0.583, 4 → 7.55/0.541, 6 → 3.40/0.516, 8 → 2.05/0.434 —— 补偿单调
+    // 有效但整体变慢: 真车电机扭矩上限 −43%、极速 12.566 rad/s, 原地转向可达偏航率
+    // 下降。选定值变更(或旧硬门重立)属 FSM 重校范围, 本批维持 4, 数据已留档。
     internal const double DefaultInPlaceTurnCompensation = 4.0;
     private readonly double _inPlaceTurnCompensation;
+    private readonly MotorDriveOptions _motorOptions;
     // 倾覆判定的阈值: 车体 up 轴与世界 Z 的点积。0.5 = 倾角 60°; 实测正常行驶
     // |roll|<20°、撞坡瞬态 |pitch|<=37°, 而翻覆态点积约 -1, 两侧余量都很大。
     internal const double FlippedUprightThreshold = 0.5;
@@ -38,10 +47,12 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     public string? ModelSha256 { get; }
 
     internal MujocoPhysicsBackend(PhysicsBackendContext context,
-        double inPlaceTurnCompensation = DefaultInPlaceTurnCompensation)
+        double inPlaceTurnCompensation = DefaultInPlaceTurnCompensation,
+        MotorDriveOptions motorOptions = default)
     {
         _context = context;
         _inPlaceTurnCompensation = inPlaceTurnCompensation;
+        _motorOptions = motorOptions;
         Validate(context);
         var (xml, assets, hash) = MujocoModel.Generate(context);
         ModelSha256 = hash;
@@ -70,10 +81,12 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     /// Dispose 只释放 mjData)。每集独立 mjData, 模型由训练 factory 统一释放。</summary>
     internal MujocoPhysicsBackend(PhysicsBackendContext context, IntPtr externalModel,
         string modelSha256,
-        double inPlaceTurnCompensation = DefaultInPlaceTurnCompensation)
+        double inPlaceTurnCompensation = DefaultInPlaceTurnCompensation,
+        MotorDriveOptions motorOptions = default)
     {
         _context = context;
         _inPlaceTurnCompensation = inPlaceTurnCompensation;
+        _motorOptions = motorOptions;
         Validate(context);
         ModelSha256 = modelSha256;
         _ownsModel = false;
@@ -99,9 +112,10 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
 
     private static void Validate(PhysicsBackendContext context)
     {
-        if (Math.Abs(context.Scenario.Field.TickSeconds - 0.05) > 1e-12)
+        if (Math.Abs(context.Scenario.Field.TickSeconds - MujocoModel.TickSeconds) > 1e-12)
         {
-            throw new ArgumentException("MuJoCo model requires field.tickSeconds=0.05.", nameof(context));
+            throw new ArgumentException(
+                $"MuJoCo model requires field.tickSeconds={MujocoModel.TickSeconds}.", nameof(context));
         }
         if (context.Blocks.Count != 3)
         {
@@ -112,19 +126,26 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     public bool Step(double dt)
     {
         ThrowIfDisposed();
-        if (!double.IsFinite(dt) || Math.Abs(dt - 0.05) > 1e-12)
+        if (!double.IsFinite(dt) || Math.Abs(dt - MujocoModel.TickSeconds) > 1e-12)
         {
-            throw new ArgumentException("MuJoCo model advances exactly one 0.05 s referee tick.", nameof(dt));
+            throw new ArgumentException(
+                $"MuJoCo model advances exactly one {MujocoModel.TickSeconds} s referee tick.", nameof(dt));
         }
         var controls = new double[8];
         SetControls(_context.Us, 0, controls);
         SetControls(_context.Them, 4, controls);
         MujocoNative.WriteCtrl(_model, _data, controls);
         var robotsTouched = false;
+        // 子步数 × 子步长 = 一个裁判 tick(MujocoModel.SubstepsPerTick=25, 0.002 s/步,
+        // MujocoTimebaseTests 钉住 25×0.002 == 0.05)。09-29 曾出现 SubstepsPerTick
+        // 未随 MjcTimestep 同步、每 tick 只积分 0.02 s 的慢动作回归。
         for (var i = 0; i < MujocoModel.SubstepsPerTick; i++)
         {
             MujocoNative.Step(_model, _data);
-            var contactTime = (i + 1) * MujocoModel.SubstepSeconds;
+            // 接触时刻 = 该子步结束时的**累计物理时间**(0.002 … 0.05), 与真实推进
+            // 量一致; 只比较同一 tick 内 max 接触时刻是否相等(Physics.FinalizeBlockContacts),
+            // 因此 10 点(旧 0.005 网格) → 25 点(0.002 网格) 不改变归属语义。
+            var contactTime = (i + 1) * MujocoModel.MjcTimestep;
             MujocoContacts.Visit(_data, (a, b) =>
             {
                 if ((_usGeoms.Contains(a) && _themGeoms.Contains(b))
@@ -166,12 +187,23 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
             cmdW *= _inPlaceTurnCompensation;
         }
         var halfTrack = robot.Vehicle.TrackWidth / 2;
-        var radius = MujocoModel.RadiusFor(_context);
-        // A +Y wheel angular velocity rolls its centre toward local +X.
-        var left = (cmdV - cmdW * halfTrack) / radius;
-        var right = (cmdV + cmdW * halfTrack) / radius;
-        controls[offset] = Math.Clamp(left, -MujocoModel.WheelAngularSpeedLimit, MujocoModel.WheelAngularSpeedLimit);
-        controls[offset + 1] = Math.Clamp(right, -MujocoModel.WheelAngularSpeedLimit, MujocoModel.WheelAngularSpeedLimit);
+        // 差速合成(符号沿用旧口径): A +Y wheel angular velocity rolls its centre
+        // toward local +X —— 左轮 = cmdV − cmdW×halfTrack, 右轮 = cmdV + cmdW×halfTrack。
+        // duty 口径(2026-09-30 电机真值标定, design 决策④): 差速项 cmdW×halfTrack
+        // 先折成轮面线速度, 再与 cmdV 同分母(MaxSpeed)、同截断(|duty|≤1)合成 ——
+        // duty 是"每轮各自的开环占空比"。**必须按轮计算**: 若写成单标量
+        // |cmdV|/MaxSpeed, 纯原地转向(cmdV=0)的 duty 会归零, SEARCH 原地转向点
+        // (DriveToward(r,pos,0,2.0)/RotateTo)与 DefaultInPlaceTurnCompensation
+        // 整体失效。MaxSpeed 已由 VehicleNormalizer 归一到 0.05..3, 非零。
+        // duty→ctrl: ctrl = duty×ω_noload 等价可调压直流电机 —— 空载转速 =
+        // duty×ω_noload、ω=0 起步扭矩 = duty×τ_stall(kv=τ_stall/ω_noload 的数学等价,
+        // 见 MujocoModel 电机常量推导)。负 duty 即反向驱动。
+        var maxSpeed = robot.Vehicle.MaxSpeed;
+        var dutyLeft = Math.Clamp((cmdV - cmdW * halfTrack) / maxSpeed, -1.0, 1.0);
+        var dutyRight = Math.Clamp((cmdV + cmdW * halfTrack) / maxSpeed, -1.0, 1.0);
+        // 电池压降默认禁用(VoltageScale 恒 1, 逐位无影响); 启用需实测标定, 见 MotorDriveOptions。
+        controls[offset] = dutyLeft * MujocoModel.MjcNoLoadSpeed * _motorOptions.VoltageScale(dutyLeft);
+        controls[offset + 1] = dutyRight * MujocoModel.MjcNoLoadSpeed * _motorOptions.VoltageScale(dutyRight);
         controls[offset + 2] = controls[offset];
         controls[offset + 3] = controls[offset + 1];
     }
@@ -317,7 +349,7 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     {
         // 已知边界(记录备查): 传感器采样在 Tick 内 Step 之前执行, _data 自上个
         // tick 末子步 integrate 后未再 mj_forward, geom_xpos 滞后一个子步
-        // (v×5ms, 1.5m/s 车速下 ≈7.5mm), 命中距离存在同量级系统偏移 —— 与
+        // (v×2ms(子步 0.002s), 1.5m/s 车速下 ≈3mm), 命中距离存在同量级系统偏移 —— 与
         // irNoise 0.02~0.05 的噪声幅值同量级, 且按 spec"传感器在物理步进前采样
         // (读上一提交帧)"的既有口径一致, 不为 ray 路径单独 mj_forward(吞吐)。
         var beam = BeamDirection(query);

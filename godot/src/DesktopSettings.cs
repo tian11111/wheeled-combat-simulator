@@ -4,6 +4,7 @@
 
 using Sim.Core;
 using Sim.Protocol;
+using Sim.VisionReplay;
 
 namespace Sim.GodotShell;
 
@@ -17,6 +18,21 @@ public static class DisplayModes
 {
     public const string Windowed = "windowed";
     public const string Fullscreen = "fullscreen";
+}
+
+public static class VisionSources
+{
+    /// <summary>默认: 不注入 adapter, 引擎内部 ClassifyRateVision 随机桩 ⇒ 行为逐位不变。</summary>
+    public const string ClassifyRate = "classifyRate";
+
+    /// <summary>既有证据包回放: 哈希锁定读包 → VisionReplayAdapter(与 `vision evaluate` 同一实现)。</summary>
+    public const string VisionReplay = "visionReplay";
+
+    /// <summary>真车 CSV 检测流的实时桥: CsvStreamSource + LiveVisionBridge。</summary>
+    public const string LiveBridge = "liveBridge";
+
+    /// <summary>外部 YOLO 推理进程的实时桥: stdout JSONL → ExternalProcessStreamSource + LiveVisionBridge。</summary>
+    public const string LiveProcess = "liveProcess";
 }
 
 public sealed record WindowSettings
@@ -61,6 +77,45 @@ public sealed record VehicleSettings
     /// <summary>轮端极速 = rpm/60 × 2π × r (m/s)。派生值, 不随设置文件持久化。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public double MaxSpeed => MotorRpm / 60.0 * 2 * Math.PI * WheelRadius;
+
+    /// <summary>
+    /// 传感器预设覆盖 (null = 跟随场景自带 profile, 行为不变)。显式指定时以该
+    /// 预设为基底, 叠加通道开关与挂点偏移生成自定义 profile 写入双方车辆。
+    /// </summary>
+    public string? SensorProfileId { get; init; }
+
+    /// <summary>禁用的通道 id 清单 (读数恒为下限, 逻辑别名经容错降级)。</summary>
+    public List<string> SensorDisabled { get; init; } = new();
+
+    /// <summary>每通道挂点/朝向偏移 (车体系, 实车标定"挪探头"语义)。</summary>
+    public Dictionary<string, SensorOffset> SensorOffsets { get; init; } = new();
+}
+
+/// <summary>单通道传感器偏移 (m / rad): 车体系 dx=前向, dy=横向, dz=高度, dyaw=朝向。</summary>
+public sealed record SensorOffset(double Dx, double Dy, double Dz, double Yaw);
+
+/// <summary>
+/// 桌面视觉源四选一。默认 classifyRate = 不注入 adapter(引擎内部随机桩, 行为逐位
+/// 不变); visionReplay 读显式证据包目录; liveBridge 读显式真车 CSV 并按固定
+/// maxAgeMs 窗口供帧; liveProcess 启动外部 YOLO 推理进程(stdout JSONL 逐帧 flush),
+/// 由 LiveVisionBridge 消费 —— 外部流按墙钟到达, 桌面实时模式天然 1x。
+/// </summary>
+public sealed record VisionSettings
+{
+    /// <summary>classifyRate | visionReplay | liveBridge | liveProcess。</summary>
+    public string Source { get; init; } = VisionSources.ClassifyRate;
+
+    /// <summary>visionReplay 的证据包目录(frames.jsonl + import-report.json)。</summary>
+    public string EvidencePath { get; init; } = "";
+
+    /// <summary>liveBridge 的真车 MBri hunt 方言 CSV 路径。</summary>
+    public string CsvPath { get; init; } = "";
+
+    /// <summary>liveProcess 的外部 YOLO 推理命令行 (stdout 逐帧 JSONL, 子进程必须逐帧 flush)。</summary>
+    public string ProcessCommand { get; init; } = "";
+
+    /// <summary>帧过期窗口(ms): 旧于窗口的帧返回 unknown("stale")。默认与 CLI 同值。</summary>
+    public double MaxAgeMs { get; init; } = LiveVisionBridge.DefaultMaxAgeMs;
 }
 
 public sealed record DesktopSettings
@@ -76,6 +131,8 @@ public sealed record DesktopSettings
     public Dictionary<string, double> SimulationParameters { get; init; } = new();
 
     public VehicleSettings Vehicle { get; init; } = new();
+
+    public VisionSettings Vision { get; init; } = new();
 
     public ControllerProfile UsController { get; init; } = new();
 
@@ -141,6 +198,52 @@ public sealed record DesktopSettings
             if (!double.IsFinite(Vehicle.WheelRadius) || Vehicle.WheelRadius is < 0.005 or > 0.1)
             {
                 yield return "settings: vehicle.wheelRadius must be between 0.005 and 0.1 m.";
+            }
+            if (Vehicle.SensorProfileId is not null
+                && Vehicle.SensorProfileId != SensorProfiles.WheeledCombat11.Id
+                && Vehicle.SensorProfileId != SensorProfiles.Legacy14.Id)
+            {
+                yield return $"settings: vehicle.sensorProfileId must be null (follow scenario), '{SensorProfiles.WheeledCombat11.Id}' or '{SensorProfiles.Legacy14.Id}'.";
+            }
+            foreach (var offset in Vehicle.SensorOffsets.Values)
+            {
+                if (!double.IsFinite(offset.Dx) || !double.IsFinite(offset.Dy)
+                    || !double.IsFinite(offset.Dz) || !double.IsFinite(offset.Yaw)
+                    || Math.Abs(offset.Dx) > 0.5 || Math.Abs(offset.Dy) > 0.5
+                    || Math.Abs(offset.Dz) > 0.2 || Math.Abs(offset.Yaw) > Math.PI)
+                {
+                    yield return "settings: vehicle.sensorOffsets must be finite with |dx|,|dy| <= 0.5 m, |dz| <= 0.2 m, |yaw| <= π.";
+                    break;
+                }
+            }
+        }
+
+        if (Vision is null)
+        {
+            yield return "settings: vision must be present.";
+        }
+        else
+        {
+            if (Vision.Source is not (VisionSources.ClassifyRate or VisionSources.VisionReplay
+                or VisionSources.LiveBridge or VisionSources.LiveProcess))
+            {
+                yield return $"settings: unsupported vision.source '{Vision.Source}'.";
+            }
+            if (Vision.Source == VisionSources.VisionReplay && string.IsNullOrWhiteSpace(Vision.EvidencePath))
+            {
+                yield return "settings: vision.evidencePath is required for the visionReplay source.";
+            }
+            if (Vision.Source == VisionSources.LiveBridge && string.IsNullOrWhiteSpace(Vision.CsvPath))
+            {
+                yield return "settings: vision.csvPath is required for the liveBridge source.";
+            }
+            if (Vision.Source == VisionSources.LiveProcess && string.IsNullOrWhiteSpace(Vision.ProcessCommand))
+            {
+                yield return "settings: vision.processCommand is required for the liveProcess source.";
+            }
+            if (!double.IsFinite(Vision.MaxAgeMs) || Vision.MaxAgeMs is < 1 or > 5000)
+            {
+                yield return "settings: vision.maxAgeMs must be between 1 and 5000.";
             }
         }
 
@@ -214,10 +317,85 @@ public sealed record DesktopSettings
         {
             if (vehicles.TryGetValue(role, out var profile))
             {
-                vehicles[role] = profile with { Mass = Vehicle.Mass, MaxSpeed = Vehicle.MaxSpeed };
+                vehicles[role] = profile with
+                {
+                    Mass = Vehicle.Mass,
+                    MaxSpeed = Vehicle.MaxSpeed,
+                    Sensors = ResolveSensorProfile(profile),
+                };
             }
         }
         return scenario with { Vehicles = vehicles };
+    }
+
+    /// <summary>
+    /// 传感器覆盖解析: 显式预设(或场景自带 profile)为基底, 叠加通道开关与挂点
+    /// 偏移生成自定义 profile 写入车辆; 无任何覆盖时原样返回场景自带 profile
+    /// (返回 null 会把它清空成 fallback, 违反"无覆盖位不变")。
+    /// </summary>
+    private SensorProfile? ResolveSensorProfile(VehicleProfile profile)
+    {
+        var vehicle = Vehicle;
+        if (vehicle.SensorProfileId is null && vehicle.SensorDisabled.Count == 0 && vehicle.SensorOffsets.Count == 0)
+        {
+            return profile.Sensors;
+        }
+        var baseProfile = vehicle.SensorProfileId switch
+        {
+            null => profile.Sensors ?? SensorProfiles.Legacy14,
+            var id when id == SensorProfiles.WheeledCombat11.Id => SensorProfiles.WheeledCombat11,
+            var id when id == SensorProfiles.Legacy14.Id => SensorProfiles.Legacy14,
+            var other => throw new InvalidOperationException($"settings: unknown sensor profile '{other}'."),
+        };
+        return SensorProfileCustomizer.Apply(
+            baseProfile,
+            $"custom:{baseProfile.Id}",
+            vehicle.SensorDisabled,
+            vehicle.SensorOffsets.ToDictionary(
+                kv => kv.Key,
+                kv => new SensorProfileCustomizer.ChannelOffset(kv.Value.Dx, kv.Value.Dy, kv.Value.Dz, kv.Value.Yaw)));
+    }
+
+    /// <summary>
+    /// 按视觉设置构造"每场一次"的视觉源工厂: 默认 classifyRate 返回 null —— 不注入
+    /// adapter, 引擎内部照旧构造 ClassifyRateVision(默认链路逐位不变)。只有显式选择
+    /// visionReplay/liveBridge 时才读取证据包/CSV, 且构造工厂时先整体预检一次
+    /// (路径/哈希/方言/行级校验), 失败立即抛出 —— 壳层据此在"应用设置"时高声报错并
+    /// 停下, 绝不静默换源。适配器带每场消费台账与 SimT 0 基准, 故工厂每次调用都新建
+    /// 实例, 绝不跨场复用(与 VehicleSettings.ApplyVehicleOverrides 同样的"仅显式
+    /// 非默认设置才生效"范围语义)。
+    /// </summary>
+    public Func<IVisionAdapter?>? CreateVisionFactory()
+    {
+        var vision = Vision ?? new VisionSettings();
+        switch (vision.Source)
+        {
+            case VisionSources.ClassifyRate:
+                return null;
+            case VisionSources.VisionReplay:
+            {
+                var package = VisionEvidencePackage.Load(vision.EvidencePath);
+                var session = package.SelectSession(null);
+                return () => package.CreateAdapter(session, vision.MaxAgeMs);
+            }
+            case VisionSources.LiveBridge:
+            {
+                // 预检一次让坏路径/非方言 CSV 在"应用设置"时暴露; 源带释放游标, 每场
+                // 必须从磁盘重读(第二次走 OS 缓存, 只剩解析成本), 不复用游标。
+                _ = CsvStreamSource.Load(vision.CsvPath);
+                return () => new LiveVisionBridge(CsvStreamSource.Load(vision.CsvPath), vision.MaxAgeMs);
+            }
+            case VisionSources.LiveProcess:
+            {
+                // 预检: 启动一次进程源再立即释放 —— 坏命令行/进程起不来在"应用设置"时
+                // 响亮暴露(同 CSV 预检先例); 每场新起进程, 旧场适配器由 MatchSession 释放。
+                using var probe = ExternalProcessStreamSource.Start(vision.ProcessCommand);
+                return () => new LiveVisionBridge(ExternalProcessStreamSource.Start(vision.ProcessCommand), vision.MaxAgeMs);
+            }
+            default:
+                throw new InvalidOperationException(
+                    $"settings: unsupported vision.source '{vision.Source}' (Validate 应先拦截)。");
+        }
     }
 }
 

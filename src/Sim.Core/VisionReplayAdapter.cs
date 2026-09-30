@@ -78,6 +78,12 @@ public sealed record VisionReplayConsumeRecord
 /// same determinism while mirroring the real cache, which re-serves the current
 /// frame until a fresher one arrives.) Repeated classifies of the same frame
 /// are legitimate: the recorded evidence shows the same behavior.
+///
+/// The selection/staleness/reason-code rule itself lives in
+/// <see cref="VisionFrameSelector"/> and is shared with <see cref="LiveVisionBridge"/>,
+/// so a replayed package and a live stream consume the same frame set bit-identically
+/// (extraction is behavior-preserving: this class' frames, time base and ledger are
+/// unchanged).
 /// </summary>
 public sealed class VisionReplayAdapter : IVisionAdapter
 {
@@ -157,21 +163,8 @@ public sealed class VisionReplayAdapter : IVisionAdapter
         var tMs = _sessionStartMs + context.T * 1000.0;
 
         // Newest frame at or before SimT (binary search; T is monotonic per role).
-        var index = FindLastAtOrBefore(tMs);
-        VisionReplayConsumeRecord record;
-        VisionDetection? detection = null;
-        if (index < 0)
-        {
-            record = Unknown(context, "no_frame");
-        }
-        else
-        {
-            var frame = _frames[index];
-            var ageMs = tMs - frame.TimestampMs;
-            record = ageMs > _maxAgeMs
-                ? Unknown(context, "stale", frame, ageMs)
-                : Consume(context, frame, ageMs, ref detection);
-        }
+        var (record, detection) = VisionFrameSelector.Select(
+            _frames, tMs, _maxAgeMs, context.Role, context.T, ModeName);
         _lastByRole[context.Role] = record;
         _consumes.Add(record);
         return detection ?? new VisionDetection
@@ -216,93 +209,5 @@ public sealed class VisionReplayAdapter : IVisionAdapter
             },
         });
         return JsonDocument.Parse(json).RootElement.Clone();
-    }
-
-    private VisionReplayConsumeRecord Consume(
-        VisionContext context, VisionReplayFrame frame, double ageMs, ref VisionDetection? detection)
-    {
-        string? reason = frame.Status switch
-        {
-            "target" => null,
-            "error" => "error",
-            "no_data_or_stale" => "stale",
-            "no_target" => "no_target",
-            _ => "error",
-        };
-        VisionReplayFrameDetection? selected = null;
-        if (reason is null)
-        {
-            if (frame.SelectedTargetIndex is { } index && index >= 0 && index < frame.Detections.Count)
-            {
-                selected = frame.Detections[index];
-            }
-            else
-            {
-                reason = "no_selection";
-            }
-        }
-        if (selected is not null)
-        {
-            detection = new VisionDetection
-            {
-                Label = selected.Label,
-                Confidence = selected.Confidence,
-                Source = ModeName,
-                OffsetX = selected.OffsetX,
-            };
-        }
-        return new VisionReplayConsumeRecord
-        {
-            Role = context.Role,
-            SimT = context.T,
-            FrameSequence = frame.Sequence,
-            AgeMs = ageMs,
-            Reason = reason,
-            Label = selected?.Label ?? "unknown",
-            Confidence = selected?.Confidence ?? 0,
-        };
-    }
-
-    private VisionReplayConsumeRecord Unknown(VisionContext context, string reason)
-        => new()
-        {
-            Role = context.Role,
-            SimT = context.T,
-            FrameSequence = null,
-            AgeMs = null,
-            Reason = reason,
-            Label = "unknown",
-        };
-
-    private VisionReplayConsumeRecord Unknown(VisionContext context, string reason, VisionReplayFrame frame, double ageMs)
-        => new()
-        {
-            Role = context.Role,
-            SimT = context.T,
-            FrameSequence = frame.Sequence,
-            AgeMs = ageMs,
-            Reason = reason,
-            Label = "unknown",
-        };
-
-    private int FindLastAtOrBefore(double tMs)
-    {
-        var low = 0;
-        var high = _frames.Length - 1;
-        var result = -1;
-        while (low <= high)
-        {
-            var mid = low + (high - low) / 2;
-            if (_frames[mid].TimestampMs <= tMs)
-            {
-                result = mid;
-                low = mid + 1;
-            }
-            else
-            {
-                high = mid - 1;
-            }
-        }
-        return result;
     }
 }

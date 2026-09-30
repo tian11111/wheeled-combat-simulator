@@ -211,6 +211,73 @@ dotnet run --project src/Sim.Cli -- vision evaluate \
   报告内含 Phase B 补采/补标清单。
 - 退出码：0 报告已写（evidence_only）；1 校验/IO 错误（零输出）；2 用法。
 
+## vision live — 活源桥场次（真车检测流注入引擎，vision-live-bridge-report-v1）
+
+`vision live` 是第三条视觉入口：检测流按**时间轴**释放给 `LiveVisionBridge`，
+桥在 FSM 的 classify 阶段取"时间窗内最新帧"（与 `VisionReplayAdapter` 共用同一选帧器），
+跑完整场比赛后产出报告并**自动写出 sidecar 证据包**。与 `import`/`evaluate` 的分工：
+`import`/`evaluate` 回放的是**整包**证据（离线哈希锁定），`live` 模拟的是**流在时间里
+逐帧到达**的现场（源时长以外按 stale 计），两者共用同一套归一化与选帧语义。
+源二选一：`--source <csv>`（SimT 缩放）或 `--process "<命令行>"`（外部进程，墙钟到达）。
+
+```bash
+# 1) CSV 模拟流（SimT 缩放: 到达 =（vision_timestamp_ms − 首帧）/1000 s）
+dotnet run --project src/Sim.Cli -- vision live \
+  --source src/Sim.Tests/fixtures/mbri-vision-mini/hunt_drive_20260817_095205.csv \
+  --scenario scenarios/wushu-ring-2026.json \
+  --max-age-ms 500 --out calibration/vision-live.json [--json] [--force]
+
+# 2) 外部进程源（真 YOLO 桥/stub 逐行输出 JSONL；帧按墙钟到达 ⇒ 必须 1x 对齐）
+dotnet run --project src/Sim.Cli -- vision live \
+  --process "python -u tools/yolo-bridge/mbri_yolo_bridge.py --stub src/Sim.Tests/fixtures/mbri-vision-mini/hunt_drive_20260817_095205.csv" \
+  --realtime 1x --scenario scenarios/wushu-ring-2026.json \
+  --max-age-ms 500 --out calibration/vision-live-process.json [--json] [--force]
+```
+
+要点：
+- **SimT 缩放语义**（`--source`）：源会话首帧 = SimT 0；帧到达时刻 =（`vision_timestamp_ms` − 首帧）/1000 s；
+  `PumpUntil(simT)` 释放所有到达时刻 ≤ simT 的帧。因此源时长（fixture 18.2 s）短于比赛时长
+  （120 s）时，其后的 classify 调用按**过期（stale）**计入 unknown，报告如实给出 stale 率，
+  **不静默造帧、不循环**。帧龄由 SimT 自算，服务自报的 `received_age_ms` 只作审计。
+- **外部进程源**（`--process`）：启动子进程并逐行读 stdout 的 JSONL 帧（字段与真车 CSV 列名
+  对齐，见 `Sim.Core.VisionStreamFrame` 与 `tools/yolo-bridge/README.md`）。子进程必须
+  **逐帧 flush**（`python -u` / `flush=True`），stdout 只放帧、诊断走 stderr。
+  `PumpUntil` 非阻塞（只排空已缓冲的完整行，Windows 管道语义见 `ExternalProcessStreamSource`
+  文档注释）：**子进程卡住/退出一律不会阻塞或炸掉引擎**；坏行记为流故障（报告的 `process`
+  分区：状态/退出码/故障数/最近故障），已缓冲行继续交付，之后的 classify 按 `stale`/`no_frame`
+  记账。进程源没有源文件 ⇒ `source.sha256=""`、`source.bytes=0`，会话标签为
+  `yolo-bridge-process`（完整命令行进 `source.path`）。
+- **`--realtime 1x`**：把引擎步进按墙钟 1x 对齐（绝对目标时刻，sleep 粒度不累积漂移）。
+  外部流按真实时间到达，**未加时引擎快跑 ⇒ 窗内无新帧 ⇒ 全 stale，那是假阴性而不是实时结果**
+  （CLI 会高声告警但继续跑，报告如实呈现）。只接受显式 `1x`，其它取值明确报错退出 1。
+  `--source` 也可用 `--realtime 1x`（按墙钟播放 SimT 缩放流），不加时按既有快跑语义。
+- **等价确认的成立条件**（进程源）：帧的到达时刻必须不晚于其时间戳对应的 SimT
+  （stub 用 `--lead-ms` 补偿进程启动/管道延迟；真推理源按墙钟推帧）。满足时与 CSV 源一样
+  逐位一致；迟到的边界帧会如实分叉（报告 `equivalence.firstDivergence` 指名第一条，
+  绝不静默放过）。
+- 桥**不抽共享随机流、不读模拟世界真值**，因此与 `VisionReplayAdapter` 对同一帧集逐位一致：
+  报告 `equivalence` 分区用 **sidecar 重读 + 同场景重放**验证消费台账逐条一致、事件指纹与比分相同
+  （不成立时仍写出报告供诊断，并在 stderr 高声告警）。
+- **sidecar**：默认目录 `<--out 同目录>/<--out 去扩展名>-sidecar/`，含 `frames.jsonl` +
+  `import-report.json`（vision-replay-v1），包内是本场次源**实际交付**的帧流且**必含会话首帧**
+  作为 SimT 0 基准锚点。报告写绝对路径与 `evidenceId`/`evidenceSha256`；可用既有命令直接复跑：
+  `vision evaluate --evidence <sidecar 目录> --scenario <json> --out <report.json>`。
+  live 桥场次**不可**作为普通 `replay-record`/`replay-check` 复现（帧到达依赖时序），门禁会指路 sidecar。
+  进程源若一帧未交付（不 flush/命令起不来/权重缺失）⇒ 没有 SimT 0 基准，**显式失败零产出**。
+- **基线对比（摘要级）**：报告 `live` / `baseline` / `diff` 分区给出 live 场次与**同 seed、同场景、
+  默认 `classifyRate=100` 桩场次**（不注入 adapter）的比分/ticks/结束原因/关键事件计数差。
+  唯一受控变量是视觉源；两场 **RNG 消费天然不同**（只有 classifyRate 桩抽 `VisionContext.Random`），
+  故 `diff` **只做摘要级、不做位对位**（`note` 字段明写）。
+- 报告分区：`source`（种类 csv/process、路径或命令行/SHA-256/会话/帧数/类别映射/时基）/`process`（仅进程源：
+  命令/状态 running·exited·faulted/退出码/故障数/坏行数/最近故障/realtime 倍率）/`link`（帧龄 p50/p95/max、
+  stale 率、消费统计与 unknown 原因分布、FSM 检测分布、自报 fps/推理延迟）/`equivalence`/`sidecar`/`live`/
+  `baseline`/`diff`；恒 `groundTruth=false`、`grade=evidence_only`（证明策略在真视觉质量下的行为，
+  不证明识别准确率、不触碰 `fidelity.json`）。同输入重跑内容指纹逐位一致（`generatedAt` 不入哈希）。
+- 真 YOLO 桥（外部进程）脚本与真权重接入点：`tools/yolo-bridge/README.md`；
+  stub 自测 `py -3.12 tools/yolo-bridge/selftest.py`。
+- 退出码：0 报告已写（等价确认不成立时照写报告并在 stderr 高声告警）；1 校验/IO/进程启动错误或非法
+  `--realtime` 取值（零输出）；2 用法（缺参/`--source` 与 `--process` 同给或都没给）。
+
 ## 退出码
 
 - `0` 成功 / 回放一致
