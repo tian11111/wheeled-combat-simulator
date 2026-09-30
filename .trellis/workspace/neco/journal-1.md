@@ -1296,3 +1296,32 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Status
 
 [OK] **Completed**
+
+
+## Session 39: 真权重视觉端到端 + live 桥 18 条 low 发现处置
+
+**Date**: 2026-09-30
+**Task**: 实时 YOLO 桥接（残留①真推理端到端 + 18 条 low 评审发现处置）
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+①真权重端到端跑通: sim_bridge.py(仓库根排除目录, ncnn+letterbox+classwise NMS) 单跑 sanity 3 帧合规 → `vision live --process` 真权重+--loop 8fps+--realtime 1x 跑满官方 120s 场景, 0 故障 0 坏行; sidecar(vr-a39a4077) 两次 evaluate 复放逐位一致(contentSha256 c83565dd); 事件指纹/比分等价 true(343b1bb5, 与 hunt stub 无检测场一致——测试视频域外 0 检出)。消费序列等价 false: live 选帧 #24(240.7ms)/重放选 #25(112.7ms), 进程源"到达=读到行"vs 重放"时间戳推导", 服务帧龄 p50≈250ms 对 125ms 帧位 ⇒ 边界帧翻转, 属预声明分叉(stub 全靠 --lead-ms 余量); uniform lead 救不了(判据是到达间距≤时间戳间距)。②工作流回执 18 条 low 逐条处置并提交: 修码 6(realtime=1x 等号形式/--process 空串 exit 2/分叉下标 #extra/重复帧内容冲突计数 ConflictingDuplicates+报告字段+告警/进程队列 10 万行上限+故障背压/等价断言字段级定位); 测试 3(冒烟 lead 400→1000/全链用例改 --realtime=1x/新增上限回归钉); 文档边界披露 4(sidecar 原子性注释如实化+UtcNow 例外标注/IVisionStreamSource 边界/stub README 四条口径差异/CLI.md session 标签口径)。③陷阱存档: MBri 顶层同名 sim_bridge.py 是 09-25 旧控制桥, 真权重 runner 在仓库根排除目录; dotnet 已迁 robot-simulator-dotnet 固定路径。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `eadb586` | fix(vision): 处置实时桥 18 条 low 评审发现(修码 6 + 测试 3 + 文档边界披露) |
+
+### Testing
+
+- [OK] 全量 dotnet test -m:1: 525 过+1 跳 0 失败(新增队列上限钉); replay-check replays/seed-42.json 逐位 PASS; 真权重端到端 sidecar 两次复放 contentSha256 一致
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 视觉线余项: 语义验收需真相机/真车录像(用户环境, runner --input 相机序号已就绪); 本地领先 origin 2 提交待用户说推再推
