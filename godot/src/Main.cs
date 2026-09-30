@@ -88,13 +88,13 @@ public partial class Main : Node
         var spIndex = Array.IndexOf(userArgs, "--scenario-path");
         if (spIndex >= 0 && spIndex + 1 < userArgs.Length)
         {
-            ScenarioPath = Path.GetFullPath(userArgs[spIndex + 1]);
+            ScenarioPath = ResolveUserPath(userArgs[spIndex + 1]);
         }
 
         ApplyVisualQaOverrides(userArgs);
         ConfigureVisualFrameStats(userArgs);
 
-        var scenario = BuildScenario();
+        var scenario = BuildScenarioWithFallback();
         ReplaceSession(scenario);
         ApplyScenarioToShell(scenario);
 
@@ -157,7 +157,7 @@ public partial class Main : Node
         var captureIndex = Array.IndexOf(userArgs, "--capture");
         if (captureIndex >= 0 && captureIndex + 1 < userArgs.Length)
         {
-            _capturePath = Path.GetFullPath(userArgs[captureIndex + 1]);
+            _capturePath = ResolveUserPath(userArgs[captureIndex + 1]);
             if (settingsSmoke)
             {
                 // The settings smoke has no asynchronous assertion routine;
@@ -1098,6 +1098,43 @@ public partial class Main : Node
         return _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(_scenarioTemplate));
     }
 
+    // 响亮回退(同视觉源预检先例): 场景文件读不到时给指路报错并回退官方布局,
+    // 不留一个没建起场景的空窗口。
+    private Scenario BuildScenarioWithFallback()
+    {
+        try
+        {
+            return BuildScenario();
+        }
+        catch (Exception e)
+        {
+            GD.PushError($"[scenario] 场景加载失败 ({(ScenarioPath.Length == 0 ? "官方布局" : ScenarioPath)}): {e.Message} —— 回退官方布局");
+            ScenarioPath = "";
+            return BuildScenario();
+        }
+    }
+
+    // 命令行相对路径解析: `--path godot` 会把进程 CWD 带进 godot/ 子目录, 用户在
+    // 仓库根敲的 `--scenario-path scenarios/x.json` 曾被解析成 godot/scenarios/...
+    // 而启动失败(2026-09-30 目检发现)。输入路径按 "CWD → res:// 父目录(仓库根)"
+    // 顺序做存在性锚定; 两处都不存在(输出类或新建文件)时保持 CWD 解析的现状
+    // 语义, 由后续 IO 用完整路径报错。
+    private static string ResolveUserPath(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw) || Path.IsPathRooted(raw))
+        {
+            return raw;
+        }
+        var cwdCandidate = Path.GetFullPath(raw);
+        if (File.Exists(cwdCandidate))
+        {
+            return cwdCandidate;
+        }
+        var repoRoot = Path.GetFullPath(Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
+        var repoCandidate = Path.GetFullPath(Path.Combine(repoRoot, raw));
+        return File.Exists(repoCandidate) ? repoCandidate : cwdCandidate;
+    }
+
     private Scenario BuildLiveScenarioFromTemplate()
     {
         var template = _scenarioTemplate ?? _session.Engine.Scenario;
@@ -1829,7 +1866,7 @@ public partial class Main : Node
         {
             return false;
         }
-        var path = Path.GetFullPath(args[index + 1]);
+        var path = ResolveUserPath(args[index + 1]);
         try
         {
             var file = ProtocolJson.Deserialize<ReplayFile>(System.IO.File.ReadAllText(path));
