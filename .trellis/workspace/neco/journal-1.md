@@ -1241,3 +1241,33 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - 6 条 low 评审发现已由主会话修复(注释/spec 口径); 剩余保真度缺口: 坡道几何(待台沿决策)/FSM 特权收敛/RL 特权治理/电池压降(接口已留待实测); 训练吞吐待重训口径复测; 本地领先 origin 30 提交待用户说推再推
+
+
+## Session 37: v2 能量块 seed 随机布局 + 桌面相对路径修复
+
+**Date**: 2026-09-30
+**Task**: v2 能量块 seed 随机布局 + 桌面相对路径修复
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+①桌面目检发现 --path godot 把 CWD 带进 godot/ 子目录, 相对路径 --scenario-path 解析成 godot/scenarios/... 崩空窗口; 修 ResolveUserPath(CWD→res://父目录 存在性锚定, 覆盖 scenario-path/parity-check/capture)+场景加载失败响亮回退官方布局。②能量块随机分布: v2 场景 JSON 省略坐标→走 BlockSpec 既有裁判确定性放置语义, RespawnBlock 补块间 0.5m 间距, legacy/v1/显式坐标冻结不变; CoreVersion 1.0.5; RL v2 训练自动获得布局随机化。11-seed 新基线: 翻覆3/QACC0/跑满10/11。另答用户: 渲染一直在 GPU(Vulkan), 物理在 CPU, MJX 上 GPU 属重训管线架构改造。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `51717b7` | (see git log) |
+| `6304f49` | (see git log) |
+
+### Testing
+
+- [OK] 全量 515 过+1 跳; BlockLayoutTests 5 例(同 seed 同布局/确定性轨迹/随机性/禁区约束/冻结位); 相对路径 parity-check PASS; 相对路径桌面启动零错误
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 本地领先 origin 7 提交待用户说推再推; 保真度缺口余项: 坡道几何(待台沿决策)/FSM 特权收敛/RL 特权治理/电池压降(待实测)
