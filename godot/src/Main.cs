@@ -226,6 +226,12 @@ public partial class Main : Node
         if (settingsSmoke)
         {
             OpenSettings();
+            var tabIndex = Array.IndexOf(userArgs, "--settings-tab");
+            if (tabIndex >= 0 && tabIndex + 1 < userArgs.Length
+                && int.TryParse(userArgs[tabIndex + 1], out var tab))
+            {
+                _settingsPanel.SelectTab(tab);
+            }
             if (_capturePath.Length == 0)
             {
                 // Without --capture this remains a short UI construction smoke

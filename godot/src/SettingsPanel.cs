@@ -24,6 +24,7 @@ public partial class SettingsPanel : Control
     private readonly Dictionary<string, CheckButton> _automaticInputs = new(StringComparer.Ordinal);
 
     private PanelContainer? _dialog;
+    private TabContainer? _tabs;
     private Label? _error;
     private Label? _pendingNote;
     private Button? _apply;
@@ -75,6 +76,15 @@ public partial class SettingsPanel : Control
     public event Action<string, bool, string>? PreflightCompleted;
 
     public bool IsOpen => Visible;
+
+    /// <summary>QA/冒烟用: 无交互切换到指定页 (0=显示 1=仿真 2=控制器 3=小车 4=视觉)。</summary>
+    public void SelectTab(int index)
+    {
+        if (_tabs is not null)
+        {
+            _tabs.CurrentTab = Mathf.Clamp(index, 0, _tabs.GetTabCount() - 1);
+        }
+    }
 
     /// <summary>True while a preflight probe is in flight; Arm must wait for it.</summary>
     public bool PreflightInProgress => Volatile.Read(ref _preflightBusy) != 0;
@@ -191,6 +201,7 @@ public partial class SettingsPanel : Control
             TabsVisible = true,
         };
         root.AddChild(tabs);
+        _tabs = tabs;
         tabs.AddChild(BuildDisplayPage());
         tabs.SetTabTitle(0, "显示与窗口");
         tabs.AddChild(BuildSimulationPage());
