@@ -87,6 +87,14 @@ public sealed record VisionLiveProcess
     /// <summary>Rejected JSONL lines (contract violations — never turned into frames).</summary>
     public int RejectedLines { get; init; }
 
+    /// <summary>
+    /// Re-received (timestampMs, sequence) frames whose content differed from the
+    /// first delivery. The bridge keeps the first delivery (never kills the
+    /// engine); the import path hard-rejects the same input, so non-zero here is
+    /// a real source-side protocol violation.
+    /// </summary>
+    public int ConflictingDuplicates { get; init; }
+
     /// <summary>Most recent fault description; null when the stream stayed clean.</summary>
     public string? LastFault { get; init; }
 

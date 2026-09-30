@@ -58,8 +58,12 @@ public sealed record VisionSidecarRequest
 public static class VisionSidecar
 {
     /// <summary>
-    /// Validates, then atomically writes the package (both artifacts) and returns
-    /// the archived import report. Any validation failure produces NO output.
+    /// Validates, then writes the package: each artifact (frames.jsonl,
+    /// import-report.json) is written atomically ON ITS OWN — a crash between the
+    /// two writes can leave a frames-only package, which the read side refuses
+    /// (both files are required), so a half-written package can never be silently
+    /// consumed. Returns the archived import report. Any validation failure
+    /// produces NO output.
     /// </summary>
     public static VisionImportReport Write(string directory, VisionSidecarRequest request)
     {
@@ -166,6 +170,9 @@ public static class VisionSidecar
                 .. request.Limitations,
             ],
         };
+        // 唯一的墙钟默认值(有意例外, 如实标注): generatedAt 是挥发审计字段, Fingerprint
+        // 已把它排除在 contentSha256 之外 —— 同输入的内容指纹仍然确定(只有该时间戳逐次
+        // 不同)。"库内不做时钟"纪律针对仿真内核路径与语义计算, 不含审计时间戳的兜底。
         report = VisionReplayIO.Fingerprint(
             report, request.GeneratedAt ?? DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
 

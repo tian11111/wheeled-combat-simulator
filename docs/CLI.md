@@ -247,6 +247,12 @@ dotnet run --project src/Sim.Cli -- vision live \
   分区：状态/退出码/故障数/最近故障），已缓冲行继续交付，之后的 classify 按 `stale`/`no_frame`
   记账。进程源没有源文件 ⇒ `source.sha256=""`、`source.bytes=0`，会话标签为
   `yolo-bridge-process`（完整命令行进 `source.path`）。
+  已知口径：报告 `source.session`/`process.session` 恒为 `yolo-bridge-process`（帧流
+  契约不含会话名），而 Python 桥在 stderr 播报的 session 是 CSV 的 `label` 列 —— 同一
+  场次两个名字需人工对齐，可追溯身份以 `source.path` 的完整命令行为准。
+  另：同 `(timestampMs, sequence)` 但内容不同的重复帧由桥保留首次交付并计入
+  `process.conflictingDuplicates`（import 路径对同一输入硬拒绝；流路径降级为计数 +
+  stderr 高声告警，不炸场次）。
 - **`--realtime 1x`**：把引擎步进按墙钟 1x 对齐（绝对目标时刻，sleep 粒度不累积漂移）。
   外部流按真实时间到达，**未加时引擎快跑 ⇒ 窗内无新帧 ⇒ 全 stale，那是假阴性而不是实时结果**
   （CLI 会高声告警但继续跑，报告如实呈现）。只接受显式 `1x`，其它取值明确报错退出 1。

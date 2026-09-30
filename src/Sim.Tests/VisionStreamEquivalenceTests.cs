@@ -118,7 +118,13 @@ public class VisionStreamEquivalenceTests(ITestOutputHelper output) : IDisposabl
         return new MatchRun(fingerprints, engine.TickIndex, engine.Scores, engine.Us.Fsm.DoneReason);
     }
 
-    /// <summary>Every ledger field of one classify call, as a comparable line.</summary>
+    /// <summary>
+    /// Every ledger field of one classify call, as a comparable line. Known
+    /// boundary: <see cref="VisionReplayConsumeRecord"/> has no OffsetX — the FSM
+    /// never consumes it (it branches on Label only), and per-detection offset
+    /// equality is covered by the frame-level <see cref="Dump(VisionReplayFrame)"/>
+    /// comparisons, so the ledger dimension intentionally stops here.
+    /// </summary>
     private static string Dump(VisionReplayConsumeRecord record)
         => $"{record.Role}|{record.SimT:R}|{record.FrameSequence?.ToString() ?? "-"}"
             + $"|{record.AgeMs?.ToString("R") ?? "-"}|{record.Reason ?? "-"}|{record.Label}|{record.Confidence:R}";
@@ -137,6 +143,10 @@ public class VisionStreamEquivalenceTests(ITestOutputHelper output) : IDisposabl
             + "|" + string.Join(",", frame.Detections.Select(d =>
                 $"{d.ClassId}:{d.RawType}:{d.Label}:{d.Confidence:R}:{d.OffsetX:R}:{d.OffsetY:R}:{string.Join("/", d.Bbox)}"));
 
+    /// <summary>Field names of <see cref="Dump(VisionReplayConsumeRecord)"/>, for divergence messages.</summary>
+    private static readonly string[] LedgerFieldNames =
+        ["Role", "SimT", "FrameSequence", "AgeMs", "Reason", "Label", "Confidence"];
+
     private static void AssertConsumesEqual(
         IReadOnlyList<VisionReplayConsumeRecord> expected, IReadOnlyList<VisionReplayConsumeRecord> actual, ITestOutputHelper output)
     {
@@ -146,7 +156,24 @@ public class VisionStreamEquivalenceTests(ITestOutputHelper output) : IDisposabl
             var left = Dump(expected[i]);
             var right = Dump(actual[i]);
             output.WriteLine($"#{i} replay={left} live={right}");
-            Assert.True(left == right, $"第 {i} 条消费记录分叉: replay={left} live={right}");
+            if (left == right)
+            {
+                continue;
+            }
+            // 字段级定位(PRD 验收①): 台账行以 '|' 分隔, 指名第一个分叉的字段,
+            // 不再让人工去比两条整行字符串。
+            var leftFields = left.Split('|');
+            var rightFields = right.Split('|');
+            var fieldName = $"字段数({leftFields.Length} vs {rightFields.Length})";
+            for (var f = 0; f < Math.Min(leftFields.Length, rightFields.Length); f++)
+            {
+                if (leftFields[f] != rightFields[f])
+                {
+                    fieldName = f < LedgerFieldNames.Length ? LedgerFieldNames[f] : $"第{f}列";
+                    break;
+                }
+            }
+            Assert.Fail($"第 {i} 条消费记录分叉于字段 {fieldName}: replay={left} live={right}");
         }
     }
 

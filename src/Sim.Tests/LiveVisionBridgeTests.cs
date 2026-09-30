@@ -331,7 +331,8 @@ public class LiveVisionBridgeTests(ITestOutputHelper output)
     public void ReleasedFrames_RepeatedReceivesKeepTheFirstDelivery()
     {
         // 同一 (时间戳, 帧号) 的重复接收保留首次交付（与导入 collapse 规则一致），
-        // 不改写 FSM 已经吃过的帧内容。
+        // 不改写 FSM 已经吃过的帧内容; 内容不同的重复额外记入 ConflictingDuplicates
+        // （import 路径对同一输入是硬拒绝, 流路径降级为计数 —— 坏源可见但不炸场次）。
         var source = new StreamSource(
         [
             (0.0, Frame(1, 1000, "target", [Det("buff")], selected: 0)),
@@ -341,8 +342,20 @@ public class LiveVisionBridgeTests(ITestOutputHelper output)
 
         Assert.Equal("buff", bridge.Classify(Context(RoleNames.Us, 0.0)).Label);
         Assert.Equal(1, bridge.DuplicateFrames);
+        Assert.Equal(1, bridge.ConflictingDuplicates);
         var frame = Assert.Single(bridge.ReleasedFrames);
         Assert.Equal("buff", frame.Detections[0].Label);
+
+        // 内容一致的重复接收: 只计 DuplicateFrames, 不算冲突。
+        var sameSource = new StreamSource(
+        [
+            (0.0, Frame(1, 1000, "target", [Det("buff")], selected: 0)),
+            (0.0, Frame(1, 1000, "target", [Det("buff")], selected: 0)),
+        ]);
+        var sameBridge = new LiveVisionBridge(sameSource, 500);
+        Assert.Equal("buff", sameBridge.Classify(Context(RoleNames.Us, 0.0)).Label);
+        Assert.Equal(1, sameBridge.DuplicateFrames);
+        Assert.Equal(0, sameBridge.ConflictingDuplicates);
     }
 
     // ---------- equivalence with the reference adapter ----------

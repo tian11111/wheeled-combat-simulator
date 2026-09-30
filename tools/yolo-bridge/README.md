@@ -43,10 +43,19 @@ mbri_yolo_bridge.py (stdout JSONL) → ExternalProcessStreamSource (Sim.Core)
 
 读真车 MBri hunt 方言 CSV，按**墙钟真实节奏**推帧（帧到达间隔 = 时间戳差）。默认
 提前 `--lead-ms 200` 发出：补偿本进程启动/JIT/管道延迟，保证"时间戳 ≤ 锚点+SimT×1000
-的帧在对应 classify 之前已经到达"——这是进程源等价确认成立的前提。CSV 归一化口径与
-`vision import` 同语义：预热行丢弃、重收帧保留首次接收、每检测一行按 `detection_index`
-聚合、`selected_target=1` 的那一行是选中检测；`class_id`/`target_type`/置信度/offset
-违约在源头即失败（零 stdout 输出）。
+的帧在对应 classify 之前已经到达"——这是进程源等价确认成立的前提（余量按需加大：
+CLI 等价门是竞态判据，真权重源实测无 lead 时到达可落后时间戳网格 1-2 个帧位）。
+CSV 归一化口径**尽力对齐** `vision import`（不是逐字节复刻）：预热行丢弃、重收帧
+保留首次接收、每检测一行按 `detection_index` 聚合、`selected_target=1` 的那一行是
+选中检测；`class_id`/`target_type`/置信度/offset 违约在源头即失败（零 stdout 输出）。
+
+已知口径差异（stub 是测试夹具，从宽；C# import 路径是权威语义，从严）：
+
+- `is_selected`/`selected_target` 接受 `1`/`true`/`yes`，import 只接受 `0`/`1`/空且其余报错；
+- 数值列用 `int(float(v))` 宽松取整，import 用 `long.TryParse` 严格拒绝非整数；
+- bbox 只校验有限性与 `x1<x2`/`y1<y2`，import 还校验框在帧尺寸内；
+- 重收接收组只保留首次接收并计数，**不**逐字段校验内容一致性（import 对内容不一致
+  的重收帧硬拒绝）；重收组错并（后续检测行并入错误组）已修复并有回归用例。
 
 ```bash
 python -u tools/yolo-bridge/mbri_yolo_bridge.py \

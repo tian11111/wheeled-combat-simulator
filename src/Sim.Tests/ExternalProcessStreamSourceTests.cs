@@ -159,6 +159,33 @@ public class ExternalProcessStreamSourceTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void RunawayOutput_TripsTheQueueCap_FaultsAndKeepsBufferedLinesDeliverable()
+    {
+        // 上限纪律: 子进程输出远快于引擎消费时, 读取线程在上限处停止并把流定性为故障
+        // (管道写满后子进程自然被背压阻塞), 队列内存有界; 已入队的完整行仍可交付,
+        // 绝不静默丢帧。单读者线程 + 每次读一行前查上限 ⇒ 恰好入队 maxQueuedLines 行,
+        // 泵空时如数交付(无竞态)。
+        using var source = ExternalProcessStreamSource.Start(
+            StubCommand("--count", "60", "--step-ms", "1", "--interval-ms", "1"),
+            maxQueuedLines: 10);
+        var deadline = Environment.TickCount64 + 15000;
+        while (source.State == VisionProcessState.Running && Environment.TickCount64 < deadline)
+        {
+            Thread.Sleep(5);
+        }
+        Assert.NotEqual(VisionProcessState.Running, source.State);
+        Assert.Equal(VisionProcessState.Faulted, source.State);
+        Assert.Contains("上限", source.LastFault, StringComparison.Ordinal);
+        Assert.Equal(1, source.Faults);
+
+        // 已缓冲行仍可交付: 恰好上限那么多, 一行不丢。
+        Assert.Equal(10, source.PumpUntil(0));
+        Assert.Equal(0, source.PumpUntil(0)); // 读取已停, 不会再来
+        Assert.Equal(new long[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 },
+            source.DeliveredFrames.Select(f => f.Sequence).ToArray());
+    }
+
+    [Fact]
     public void MalformedLines_AreStreamFaults_NotFrames_AndNonZeroExitIsFaulted()
     {
         using var source = ExternalProcessStreamSource.Start(
