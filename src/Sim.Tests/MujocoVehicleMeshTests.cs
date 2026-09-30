@@ -17,8 +17,13 @@ public class MujocoVehicleMeshTests
     /// score-block v3 轮次里记录的 physicsModelSha256(.sim_runs/…/replay-seed-42-mujoco-v3.json)。
     /// 2026-09-29: MuJoCo timestep 0.005→0.002 (QACC 数值稳定修复, 10 seeds 验证爆炸归零),
     /// v1 模型哈希有意更新; 既有 MuJoCo replay 身份按门禁自然失效。
+    /// 2026-09-30 批 2 电机真值标定: 执行器 kv 0.25→0.13687325105903(τ_stall/ω_noload)、
+    /// ctrlrange ±80→±12.566370614359172(120 rpm)、forcerange ±3.0→±1.72(τ_stall) ——
+    /// MJCF 字节变 ⇒ 哈希必变。新值来源: 本日重录的
+    /// <c>tmp/mujoco-seed42-recorded-0930.json</c> 头部(seed 42, 我方 1:2 对手,
+    /// done=比赛时间结束, 67 事件)。
     /// </summary>
-    private const string V1ModelSha256 = "7160897ccd3fe978ce000686904b7d4ce0004edebfbaa79e7aaf5b313c67a6e5";
+    private const string V1ModelSha256 = "3fc9685fc120d354427e8cbf3d527d6c21551f69143aa86b1bb1d74884448919";
 
     // 实测常量(装配.glb, 见 tools/mesh/README.md): 轮径/半宽与四轮轮心。
     private const double WheelRadius = 0.0325;

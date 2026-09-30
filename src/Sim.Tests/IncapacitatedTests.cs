@@ -10,11 +10,21 @@ namespace Sim.Tests;
 // legacy 没有 roll/pitch 自由度, 该状态必须永不出现(行为逐位不变)。
 public class IncapacitatedTests
 {
-    // 2026-09-29: timestep 0.002 物理重校后 seed 42 不再翻覆; seed 19 在 724 tick
-    // 翻覆并于 5 tick 内进入 INCAPACITATED (tmp/flipscan 扫描 1..40 选定)。
+    // 2026-09-30 时基修正(每 tick 实际积分 0.02 s → 0.05 s, 物理时间流速 0.4× → 1×)
+    // 后 seed 19 不再翻覆: 同一场景 1..40 扫描实测其 maxRoll 仅 11.4°, 从未越 60°
+    // 倾角门 —— 慢动作时基下每个裁判 tick 只推进 0.02 s, 接触/驱动力序列被 2.5×
+    // 拉长, 翻覆轨迹本就不可信。用同一场景与同一判据重扫 1..40 (tmp/timescan)
+    // 选定 seed 13: 269 tick 翻覆, 276 tick 宣告 INCAPACITATED(Δ7 ≤ 30), 事件 2 次。
+    // 2026-09-30 批 2 电机真值标定(工程执行器 kv=0.25/±3.0 N·m/±80 rad/s →
+    // 2342 真值 kv=0.136873/±1.72 N·m/±12.566 rad/s + duty 口径)后 seed 13 不再翻覆:
+    // v1 轮径 0.065 下驱动极速被 ω_noload 压到 12.566×0.065 = 0.817 m/s(旧 ctrlrange
+    // ±80 rad/s 下 FSM 1.5 m/s 档位可全速达成), 轮端扭矩上限同时 −43%(3.0 → 1.72 N·m)
+    // —— 冲台/撞击掀翻所需的驱动能量整体下降。同场景同判据重扫 1..170(timescan,
+    // 2400 tick)实测: 1..50 最大 roll 仅 19.7° 无翻覆; 选定 seed 155: 803 tick 翻覆
+    // (maxRoll 180°), 809 tick 宣告 INCAPACITATED(Δ6 ≤ 30), 事件 2 次。
     private static Scenario MujocoV1Scenario() => new()
     {
-        Seed = 19,
+        Seed = 155,
         Physics = new PhysicsSpec { Backend = PhysicsSpec.Mujoco, ModelVersion = PhysicsSpec.MujocoModelV1 },
         Blocks = OfficialLayout.Blocks,
     };
@@ -70,7 +80,7 @@ public class IncapacitatedTests
             }
         }
 
-        Assert.True(flippedAtTick > 0, "seed 19 in MuJoCo v1 geometry is expected to flip; trajectory changed, review needed");
+        Assert.True(flippedAtTick > 0, "seed 155 in MuJoCo v1 geometry is expected to flip; trajectory changed, review needed");
         Assert.True(declaredTick > 0, "a flipped robot must enter INCAPACITATED");
         Assert.True(declaredTick - flippedAtTick <= 30,
             $"flip at tick {flippedAtTick} -> INCAPACITATED at tick {declaredTick} should be within 30 ticks");
