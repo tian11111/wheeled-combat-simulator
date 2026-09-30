@@ -1271,3 +1271,28 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - 本地领先 origin 7 提交待用户说推再推; 保真度缺口余项: 坡道几何(待台沿决策)/FSM 特权收敛/RL 特权治理/电池压降(待实测)
+
+
+## Session 38: 桌面设置四批落地 + 真权重视觉接入 runner(进行中)
+
+**Date**: 2026-09-30
+**Task**: 桌面设置四批落地 + 真权重视觉接入 runner(进行中)
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+①桌面设置四批全落地: 传感器覆盖层(协议 Disabled 位+SensorSampler 降级+SensorProfileCustomizer 克隆器)/桌面数据+liveProcess 释放链(修 Validate 白名单漏 liveProcess、ResolveSensorProfile 空清场景 profile 两 bug)/SettingsPanel 三区 UI+Main 落盘重挂/补 5 用例+--settings-tab QA 参数; 测试 524 全绿, 桌面目检过(三区截图+liveProcess stub 端到端, 目检走 --settings-smoke/--capture 通道, 自定义参数必须在 -- 之后)。②真权重视觉接入(进行中, 未提交): rpi-yolo-pi4-int8-lto-8fps(1) 部署包 SHA256 全过, vision_service_cpp 是 armv7l Windows 跑不了, model.ncnn.* 平台无关; 探针实证 out0 blob=(6,2100) [cx,cy,w,h,score_good,score_bad]@320输入像素, DFL+anchor 烘焙, NMS 未烘焙(classwise IoU0.45 同 Pi 服务), ncnn.Mat(chw_f32) 可用; 已写 sim_bridge.py(部署包内独立 runner, 符合仓库'权重与原生扩展不进仓库'约定): letterbox320/RGB255(--bgr 可切)/契约帧逐帧 flush/error 帧不断流/--loop/--limit, 合成视频契约冒烟 8 帧全绿(镜像 VisionStreamFrame.Validate 自检零违例); 仿真渲染图域外无检出(语义验收需真相机, 留给用户)。③下一步: CLI vision live 端到端(vision live 不认 --help, usage 待捕获); dotnet SDK 迁至 C:/Users/Neco/AppData/Local/Programs/robot-simulator-dotnet/dotnet.exe(DOTNET_ROOT=同目录, sdk/ 在顶层; /tmp 旧主目录已被 temp 清理吞掉); ncnn1.0.20260526+cv2.4.13 已装(Python3.12)。④环境纪律: 工具结果间歇性搅乱(Read/Bash/todo 回显均中招), 磁盘从未真坏——交叉验证(git 哈希/AST/cmd //c/重跑已知命令)是唯一可信通道, 小块读+单命令+显式 cd。部署包目录已入 .git/info/exclude(本地排除不提交)。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `eb7d780` | (see git log) |
+| `ea83a35` | (see git log) |
+| `9191578` | (see git log) |
+| `2725a7e` | (see git log) |
+| `64271d0` | (see git log) |
+
+### Status
+
+[OK] **Completed**

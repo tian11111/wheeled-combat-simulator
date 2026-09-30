@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 37
+- **Total Sessions**: 38
 - **Last Active**: 2026-09-30
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1273 | Active |
+| `journal-1.md` | ~1298 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 38 | 2026-09-30 | 桌面设置四批落地 + 真权重视觉接入 runner(进行中) | `eb7d780`, `ea83a35`, `9191578`, `2725a7e`, `64271d0` | `test/score-block-ppo-checkpoint-round` |
 | 37 | 2026-09-30 | v2 能量块 seed 随机布局 + 桌面相对路径修复 | `51717b7`, `6304f49` | `test/score-block-ppo-checkpoint-round` |
 | 36 | 2026-09-30 | 时基回归修复 + 2342 电机扭矩级标定 | `6e79688`, `db101b8` | `test/score-block-ppo-checkpoint-round` |
 | 35 | 2026-09-30 | 实时 YOLO 桥接：活源桥架构与真推理接入 | `3e4cfe6`, `57cff99`, `d29efaf`, `888a60a`, `3c86ae9`, `230b177` | `test/score-block-ppo-checkpoint-round` |
