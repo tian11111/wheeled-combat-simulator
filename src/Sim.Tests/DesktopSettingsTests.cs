@@ -429,4 +429,163 @@ public class DesktopSettingsTests : IDisposable
             .Replace("\"sequence\":12", "\"sequence\":1200", StringComparison.Ordinal));
         Assert.Throws<VisionEvidenceException>(() => settings.CreateVisionFactory());
     }
+
+    [Fact]
+    public void Validate_AcceptsLiveProcess_AndRequiresProcessCommand()
+    {
+        var valid = DesktopSettings.Default with
+        {
+            Vision = new VisionSettings
+            {
+                Source = VisionSources.LiveProcess,
+                ProcessCommand = "py tools/yolo-bridge/mbri_yolo_bridge.py --stub vision/stub.csv",
+            },
+        };
+        Assert.Empty(valid.Validate());
+
+        var missingCommand = valid with { Vision = valid.Vision with { ProcessCommand = " " } };
+        Assert.Contains(missingCommand.Validate(), error => error.Contains("vision.processCommand"));
+
+        // liveProcess 进白名单后未知源仍被拒, 报错文案不变。
+        var unknown = valid with { Vision = valid.Vision with { Source = "telepathy" } };
+        Assert.Contains(unknown.Validate(), error => error.Contains("unsupported vision.source"));
+    }
+
+    [Fact]
+    public void VehicleSensorOverride_ValidationRejectsUnknownPresetAndOutOfRangeOffsets()
+    {
+        var unknownPreset = DesktopSettings.Default with
+        {
+            Vehicle = DesktopSettings.Default.Vehicle with { SensorProfileId = "custom:whatever" },
+        };
+        Assert.Contains(unknownPreset.Validate(), error => error.Contains("vehicle.sensorProfileId"));
+
+        var outOfRange = DesktopSettings.Default with
+        {
+            Vehicle = DesktopSettings.Default.Vehicle with
+            {
+                SensorOffsets = new Dictionary<string, SensorOffset>
+                {
+                    ["uL"] = new(0.6, 0, 0, 0),
+                    ["uR"] = new(0, 0, 0.3, 0),
+                },
+            },
+        };
+        Assert.Contains(outOfRange.Validate(), error => error.Contains("vehicle.sensorOffsets"));
+
+        // 边界内合法: |dx|,|dy| <= 0.5 m, |dz| <= 0.2 m, |yaw| <= π。
+        var inBounds = DesktopSettings.Default with
+        {
+            Vehicle = DesktopSettings.Default.Vehicle with
+            {
+                SensorProfileId = SensorProfiles.WheeledCombat11.Id,
+                SensorDisabled = ["gray_front"],
+                SensorOffsets = new Dictionary<string, SensorOffset>
+                {
+                    ["diag_left_front"] = new(0.5, -0.5, 0.2, Math.PI),
+                },
+            },
+        };
+        Assert.Empty(inBounds.Validate());
+    }
+
+    [Fact]
+    public void ApplyVehicleOverrides_SensorCloneLandsOnBothVehicles()
+    {
+        var settings = DesktopSettings.Default with
+        {
+            Vehicle = DesktopSettings.Default.Vehicle with
+            {
+                SensorProfileId = SensorProfiles.WheeledCombat11.Id,
+                SensorDisabled = ["gray_front"],
+                SensorOffsets = new Dictionary<string, SensorOffset>
+                {
+                    ["diag_left_front"] = new(0.01, -0.02, 0.003, 0.1),
+                },
+            },
+        };
+        var scenario = new Scenario
+        {
+            Seed = 42,
+            Physics = new PhysicsSpec { Backend = PhysicsSpec.Mujoco, ModelVersion = PhysicsSpec.MujocoModelV2 },
+            Vehicles = new Dictionary<string, VehicleProfile>
+            {
+                // us 显式自带 wheeledCombat11, them 不带(走 Legacy14 fallback) —— 两条基底解析路径。
+                [RoleNames.Us] = new() { Id = "glb-2026", Sensors = SensorProfiles.WheeledCombat11 },
+                [RoleNames.Them] = new() { Id = "glb-2026" },
+            },
+        };
+
+        var applied = settings.ApplyVehicleOverrides(scenario);
+        var us = applied.Vehicles[RoleNames.Us].Sensors;
+        Assert.NotNull(us);
+        Assert.Equal("custom:wheeledCombat11", us.Id);
+        Assert.True(us.Channels.First(c => c.Id == "gray_front").Disabled);
+        var diag = us.Channels.First(c => c.Id == "diag_left_front");
+        Assert.Equal(
+            SensorProfiles.WheeledCombat11.Channels.First(c => c.Id == "diag_left_front").Forward + 0.01,
+            diag.Forward, 12);
+        // 未触碰通道逐位不变。
+        Assert.False(us.Channels.First(c => c.Id == "gray_rear").Disabled);
+
+        var them = applied.Vehicles[RoleNames.Them].Sensors;
+        Assert.NotNull(them);
+        Assert.Equal("custom:wheeledCombat11", them.Id);
+        Assert.True(them.Channels.First(c => c.Id == "gray_front").Disabled);
+    }
+
+    [Fact]
+    public void ApplyVehicleOverrides_NoSensorOverridesKeepsScenarioProfile()
+    {
+        var scenario = new Scenario
+        {
+            Seed = 42,
+            Physics = new PhysicsSpec { Backend = PhysicsSpec.Mujoco, ModelVersion = PhysicsSpec.MujocoModelV2 },
+            Vehicles = new Dictionary<string, VehicleProfile>
+            {
+                [RoleNames.Us] = new() { Id = "glb-2026", Sensors = SensorProfiles.WheeledCombat11 },
+                [RoleNames.Them] = new() { Id = "glb-2026" },
+            },
+        };
+
+        // 无覆盖(默认设置)必须原样保留场景自带 profile —— 返回 null 会把它清空成 fallback。
+        var applied = DesktopSettings.Default.ApplyVehicleOverrides(scenario);
+        Assert.Same(SensorProfiles.WheeledCombat11, applied.Vehicles[RoleNames.Us].Sensors);
+        Assert.Null(applied.Vehicles[RoleNames.Them].Sensors);
+    }
+
+    [Fact]
+    public void SettingsStore_RoundTripsSensorOverridesAndProcessCommand()
+    {
+        var work = Path.Combine(Path.GetTempPath(), $"desktop-store-{Guid.NewGuid():N}");
+        _tempDirs.Add(work);
+        Directory.CreateDirectory(work);
+        var store = new SettingsStore(Path.Combine(work, "settings.json"));
+        var settings = DesktopSettings.Default with
+        {
+            Vehicle = DesktopSettings.Default.Vehicle with
+            {
+                SensorProfileId = SensorProfiles.Legacy14.Id,
+                SensorDisabled = ["gF"],
+                SensorOffsets = new Dictionary<string, SensorOffset> { ["uL"] = new(0.01, 0.02, 0.003, -0.1) },
+            },
+            Vision = new VisionSettings
+            {
+                Source = VisionSources.LiveProcess,
+                ProcessCommand = "py bridge.py --stub x.csv",
+            },
+        };
+
+        store.Save(settings);
+        var loaded = store.Load();
+
+        Assert.Equal(SensorProfiles.Legacy14.Id, loaded.Vehicle.SensorProfileId);
+        Assert.Equal(["gF"], loaded.Vehicle.SensorDisabled);
+        var offset = Assert.Single(loaded.Vehicle.SensorOffsets);
+        Assert.Equal("uL", offset.Key);
+        Assert.Equal(0.01, offset.Value.Dx, 12);
+        Assert.Equal(-0.1, offset.Value.Yaw, 12);
+        Assert.Equal(VisionSources.LiveProcess, loaded.Vision.Source);
+        Assert.Equal("py bridge.py --stub x.csv", loaded.Vision.ProcessCommand);
+    }
 }
