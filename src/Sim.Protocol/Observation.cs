@@ -70,6 +70,15 @@ public sealed record Observation : IProtocolMessage
     /// <summary>Energy blocks currently in play.</summary>
     public ObjectSet? Objects { get; init; }
 
+    /// <summary>
+    /// SCORE_BLOCK 展演路径专用的 11 维 RL 观测（与训练入口 <c>rl-env</c> 同构）:
+    /// 前 9 项顺序与语义见 <c>Sim.Hosting.ScoreBlockExhibition</c>，末尾追加我方位置
+    /// 相对平台中心的归一化 x/y。仅展演 runner/驱动填充；普通 match/rl-env 不写该字段。
+    /// 加性字段: null 时不序列化（<see cref="ProtocolJson"/> 的 WhenWritingNull），
+    /// 旧消费者与旧线格式字节不变。
+    /// </summary>
+    public double[]? RlObservation { get; init; }
+
     public IEnumerable<string> Validate()
     {
         if (string.IsNullOrWhiteSpace(Version))
@@ -99,6 +108,18 @@ public sealed record Observation : IProtocolMessage
         if (Opponent is null)
         {
             yield return "observation: opponent must be present.";
+        }
+
+        if (RlObservation is not null)
+        {
+            for (var i = 0; i < RlObservation.Length; i++)
+            {
+                if (!double.IsFinite(RlObservation[i]))
+                {
+                    yield return $"observation: rlObservation[{i}] must be finite.";
+                    break;
+                }
+            }
         }
 
         if (RawSensors is not null)

@@ -51,6 +51,24 @@ dotnet run --project src/Sim.Cli -- match --seed 42 \
 输出每种子一行（步数、比分、结束原因、fault、判罚），多种子时附胜负汇总。
 未指定 `--controller-*` 的角色使用内置 FSM。
 
+### `--start-at score_block` — SCORE_BLOCK 展演（RL 策略，非门禁）
+
+```bash
+# 先用双方内置 FSM 预推进到我方 SCORE_BLOCK, 再把「我方」交给外部策略;
+# obs 追加 11 维 rlObservation（与 rl-env 训练入口同一投影）, 对手仍走内置 FSM。
+dotnet run --project src/Sim.Cli -- match --seed 42 \
+  --scenario scenarios/wushu-ring-2026-mujoco.json --events --timeout-ms 5000 \
+  --start-at score_block \
+  --controller-us "py -3.12 -X utf8 tools/rl-bridge/rl_desktop_runner.py --checkpoint <zip>"
+```
+
+- 摘要追加 `exhibition=true gateEvidenceEligible=false handoff=... entryTick=... target=...`；
+  `--events` 另打一行 `[handoff] ...`。默认（不带该旗标）输出与行为逐字节不变；
+  `replay-record`/`batch` 不接受该旗标（整场动作流才能形成回放身份）。
+- 预推进 4800 tick 内未进入 SCORE_BLOCK ⇒ 返回 `reason=no_score_block` 摘要、**不调用策略**。
+- 交接后我方进入 Manual 语义（FSM 不再产生决策事件）；策略故障按超时/坏行统一零动作 + faults。
+- 展演不是门禁证据：不得据此晋升 `fidelity.json`、不得写入 v4 盲集索引。
+
 ## batch — AI agent 无头并行批量仿真 (JSONL)
 
 面向 AI agent / 脚本的批量入口：**不启动 Godot、不依赖任何桌面组件**，多个独立

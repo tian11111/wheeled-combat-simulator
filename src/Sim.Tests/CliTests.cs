@@ -79,6 +79,37 @@ public class CliTests : IDisposable
     }
 
     [Fact]
+    public void MatchStartAtScoreBlock_WithoutEntry_ReportsExhibitionSummaryAndSkipsThePolicy()
+    {
+        // 1 s 赛时内不可能进入 SCORE_BLOCK: 摘要必须给出 exhibition/handoff/reason,
+        // 且 die 控制器(任何 Decide 都会计 fault)证明失败路径没有调用策略。
+        var exe = Path.Combine(AppContext.BaseDirectory, "EchoController.exe");
+        using var sink = new StringWriter();
+        Console.SetOut(sink);
+        var code = Run("match", "--seed", "42", "--duration", "1",
+            "--start-at", "score_block",
+            "--controller-us", $"\"{exe}\" die");
+        Console.SetOut(_stdout);
+
+        Assert.Equal(0, code);
+        var output = sink.ToString();
+        Assert.Contains("exhibition=true gateEvidenceEligible=false", output);
+        Assert.Contains("handoff=false", output);
+        Assert.Contains("reason=no_score_block", output);
+        Assert.Contains("faults(us/them)=0/0", output);
+    }
+
+    [Fact]
+    public void MatchStartAt_RejectsUnknownStages()
+    {
+        using var sink = new StringWriter();
+        Console.SetOut(sink);
+        var code = Run("match", "--seed", "42", "--start-at", "search");
+        Console.SetOut(_stdout);
+        Assert.Equal(2, code);
+    }
+
+    [Fact]
     public void MatchSeeds_StillSequentialOneLinePerSeed_PlusSummary()
     {
         using var sink = new StringWriter();

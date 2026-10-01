@@ -22,8 +22,9 @@ public static class RlEnvCommand
     private const double StepCost = -0.0001;
     private const double EdgeShapingScale = 0.1;
     private const long MaxPolicyTicks = 2400;
-    private const int BaseObservationSize = 9;
-    private const int ObservationSize = 11;
+    // 常量与投影/预推进/目标锁定都委托 Sim.Hosting.ScoreBlockExhibition(唯一实现);
+    // 这里的名字只保留给本文件的零观测长度与响应形状。
+    private const int ObservationSize = ScoreBlockExhibition.ObservationSize;
 
     public static int Run(string[] args)
     {
@@ -239,52 +240,42 @@ public static class RlEnvCommand
         state.TargetOutcomeTick = -1;
 
         // 预推进: 双方内置 FSM, 直到我方首次 SCORE_BLOCK 或比赛结束。
-        var guard = 0;
-        var snap = engine.CommitSnapshot();
+        // 目标锁定/预推进语义的唯一实现在 Sim.Hosting.ScoreBlockExhibition。
         var prerollTimer = timing ? Stopwatch.StartNew() : null;
-        while (!engine.Done && guard < 4800)
-        {
-            if (engine.Us.Fsm.State == FsmState.ScoreBlock)
-            {
-                break;
-            }
-            snap = engine.Tick();
-            guard++;
-        }
+        var preroll = ScoreBlockExhibition.ArmAndPreroll(engine);
+        var guard = preroll.PrerollTicks;
         prerollTimer?.Stop();
 
-        if (engine.Done || engine.Us.Fsm.State != FsmState.ScoreBlock)
+        if (preroll.NoScoreBlock)
         {
             state.NoScoreBlock = true;
+            // 旧口径: 未进 SCORE_BLOCK 时 entry_tick 保持 -1; 已进入但没有可锁定增益块
+            // 时 entry_tick 记录当时的 tick, 并显式给出 reason。
+            var noValidTarget = preroll.Reason == ScoreBlockExhibition.NoValidTargetReason;
+            if (noValidTarget)
+            {
+                state.EntryTick = preroll.EntryTick;
+            }
             var info = Info(engine, state, seed, null);
             info["no_score_block"] = true;
+            if (noValidTarget)
+            {
+                info["reason"] = preroll.Reason;
+            }
             info["pre_roll_ticks"] = guard;
             AttachTrace(info, engine, state);
             AttachResetTiming(info, timing, resetMs, guard, prerollTimer, totalTimer);
             return (new double[ObservationSize], info);
         }
 
-        state.EntryTick = (int)engine.TickIndex;
-        state.TargetIndex = LockTargetIndex(engine);
-        if (state.TargetIndex < 0)
-        {
-            state.NoScoreBlock = true;
-            var noTargetInfo = Info(engine, state, seed, null);
-            noTargetInfo["no_score_block"] = true;
-            noTargetInfo["reason"] = "score_block_without_valid_buff_target";
-            noTargetInfo["pre_roll_ticks"] = guard;
-            AttachTrace(noTargetInfo, engine, state);
-            AttachResetTiming(noTargetInfo, timing, resetMs, guard, prerollTimer, totalTimer);
-            return (new double[ObservationSize], noTargetInfo);
-        }
-        if (state.TargetIndex >= 0)
-        {
-            state.EntryTargetX = engine.Blocks[state.TargetIndex].X;
-            state.EntryTargetY = engine.Blocks[state.TargetIndex].Y;
-        }
+        state.EntryTick = preroll.EntryTick;
+        state.TargetIndex = preroll.TargetIndex;
+        state.EntryTargetX = engine.Blocks[state.TargetIndex].X;
+        state.EntryTargetY = engine.Blocks[state.TargetIndex].Y;
         // Ignore Arm/mount/search events; strategy metrics start at stage entry.
         state.LastSeq = LatestEventSequence(engine);
-        var (obs, entryInfo) = BuildObservation(engine, state, seed, snap.Robots[RoleNames.Us].OnPlatform, snap.Timer);
+        var (obs, entryInfo) = BuildObservation(engine, state, seed,
+            preroll.EntrySnapshot.Robots[RoleNames.Us].OnPlatform, preroll.EntrySnapshot.Timer);
         var infoOut = Info(engine, state, seed, null);
         foreach (var kv in entryInfo) infoOut[kv.Key] = kv.Value;
         AttachTrace(infoOut, engine, state);
@@ -403,31 +394,6 @@ public static class RlEnvCommand
         timingInfo["totalMs"] = Math.Round(totalTimer.Elapsed.TotalMilliseconds, 4);
     }
 
-    private static int LockTargetIndex(MatchEngine engine)
-    {
-        var locked = engine.Us.Fsm.ScoreTarget;
-        if (locked is not null)
-        {
-            for (var i = 0; i < engine.Blocks.Count; i++)
-            {
-                if (ReferenceEquals(engine.Blocks[i], locked))
-                {
-                    return i;
-                }
-            }
-        }
-        // ScoreTarget 为空: 按现有 FSM 规则选第一个有效增益块。
-        for (var i = 0; i < engine.Blocks.Count; i++)
-        {
-            var b = engine.Blocks[i];
-            if (b.Kind == BlockKind.Buff && !b.Out && engine.Field.OnPlatform(b.X, b.Y))
-            {
-                return i;
-            }
-        }
-        return -1;
-    }
-
     private static long LatestEventSequence(MatchEngine engine) =>
         engine.Events.Events.Count == 0 ? 0 : engine.Events.Events[^1].Seq;
 
@@ -473,62 +439,20 @@ public static class RlEnvCommand
             ? engine.Field.DistToNearestEdge(engine.Blocks[index].X, engine.Blocks[index].Y)
             : double.NaN;
 
-    private static (double X, double Y) BlockPos(MatchEngine engine, int index) =>
-        index >= 0 && index < engine.Blocks.Count
-            ? (engine.Blocks[index].X, engine.Blocks[index].Y)
-            : (double.NaN, double.NaN);
-
+    /// <summary>
+    /// 11 维观测投影: 唯一实现在 <see cref="ScoreBlockExhibition.BuildObservation"/>,
+    /// 这里只补本 episode 的 info 指标。
+    /// </summary>
     private static (double[] Obs, Dictionary<string, object?> Info) BuildObservation(
         MatchEngine engine, EpisodeState state, int seed, bool usOnPlatform, double timer)
     {
         var field = state.Scenario.Field;
-        var side = field.Platform.MaxX - field.Platform.MinX;
         var targetIndex = state.TargetIndex;
-        var (bx, by) = targetIndex >= 0 ? BlockPos(engine, targetIndex) : (double.NaN, double.NaN);
-        var us = engine.Us;
-        var dx = bx - us.X;
-        var dy = by - us.Y;
-        var cos = Math.Cos(us.Th);
-        var sin = Math.Sin(us.Th);
-        var relForward = double.IsNaN(dx) ? 0.0 : (cos * dx + sin * dy) / side;
-        var relLeft = double.IsNaN(dx) ? 0.0 : (-sin * dx + cos * dy) / side;
-        var remaining = field.MatchDuration > 0 ? timer / field.MatchDuration : 0.0;
-        var clip = (double v) => clamp(v, -1.0, 1.0);
-        var baseObs = new[]
-        {
-            clip(relForward),
-            clip(relLeft),
-            clip(bx / side),
-            clip(by / side),
-            clamp(us.V / (us.Vehicle.MaxSpeed != 0 ? us.Vehicle.MaxSpeed : 1.5), -1.0, 1.0),
-            clamp(us.Omega / (us.Vehicle.MaxTurnRate != 0 ? us.Vehicle.MaxTurnRate : 4.0), -1.0, 1.0),
-            usOnPlatform ? 1.0 : 0.0,
-            targetIndex >= 0 && engine.Field.OnPlatform(engine.Blocks[targetIndex].X, engine.Blocks[targetIndex].Y) ? 1.0 : 0.0,
-            clamp(remaining, 0.0, 1.0),
-        };
-        var obs = AppendOwnPositionObservation(baseObs, us.X, us.Y, field.Platform);
+        var obs = ScoreBlockExhibition.BuildObservation(engine, targetIndex, field.Platform,
+            field.MatchDuration, usOnPlatform, timer);
         var info = Info(engine, state, seed, targetIndex);
         return (obs, info);
     }
-
-    internal static double[] AppendOwnPositionObservation(double[] observation, double ownX, double ownY, Region platform)
-    {
-        if (observation.Length != BaseObservationSize)
-        {
-            throw new ArgumentException($"expected {BaseObservationSize} base observation values", nameof(observation));
-        }
-
-        var halfSide = (platform.MaxX - platform.MinX) / 2.0;
-        var centerX = (platform.MinX + platform.MaxX) / 2.0;
-        var centerY = (platform.MinY + platform.MaxY) / 2.0;
-        var expanded = new double[ObservationSize];
-        Array.Copy(observation, expanded, BaseObservationSize);
-        expanded[BaseObservationSize] = clamp((ownX - centerX) / halfSide, -1.0, 1.0);
-        expanded[BaseObservationSize + 1] = clamp((ownY - centerY) / halfSide, -1.0, 1.0);
-        return expanded;
-    }
-
-    private static double clamp(double v, double lo, double hi) => Math.Max(lo, Math.Min(hi, v));
 
     private static Dictionary<string, object?> Info(
         MatchEngine engine, EpisodeState state, int seed, int? targetIndex)
