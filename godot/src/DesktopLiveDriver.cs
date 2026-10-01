@@ -69,6 +69,7 @@ public sealed class DesktopLiveDriver : IDisposable
     private bool _handoffPending;
     private bool _handoffDone;
     private string? _handoffReason;
+    private int _prerollTicks;
     private ScoreBlockExhibition.PrerollResult _handoff;
     private Snapshot? _handoffSnapshot;
 
@@ -305,7 +306,7 @@ public sealed class DesktopLiveDriver : IDisposable
 
         if (_handoffPending)
         {
-            CompleteHandoff();
+            TryCompleteHandoffAtEntry();
         }
 
         RobotAction? usAction = null;
@@ -329,28 +330,48 @@ public sealed class DesktopLiveDriver : IDisposable
     }
 
     /// <summary>
-    /// Arm 之后的预推进（worker 线程内同步跑完 4800 tick 上限，与 CLI/训练入口同一
-    /// 共享缝）：进入我方 SCORE_BLOCK 并锁定目标即交接；否则不交接、释放我方子进程，
-    /// 由内置 FSM 继续跑完整场，状态里给出原因（不静默假装展演成功）。
+    /// Arm 之后的可见预推进：不静默快进，而是每个引擎 tick 前探测一次入场条件
+    /// （与 CLI 的 <c>--start-at score_block</c> / <see cref="ScoreBlockExhibition.ArmAndPreroll"/>
+    /// 同一判定）。未入场时本 tick 仍由内置 FSM 驱动并照常发布快照 —— 上台阶段对用户
+    /// 可见；到达 SCORE_BLOCK 即锁定目标完成交接，之后才注入 11 维观测。4800 tick
+    /// 上限内未入场则不交接、释放我方子进程，由内置 FSM 继续跑完整场（不静默假装
+    /// 展演成功）。
     /// </summary>
-    private void CompleteHandoff()
+    private void TryCompleteHandoffAtEntry()
     {
-        _handoffPending = false;
         var engine = _engine;
-        if (engine is null)
+        if (engine is null || engine.Done)
         {
+            _handoffPending = false;
+            if (engine is not null)
+            {
+                AbortHandoff(ScoreBlockExhibition.NoScoreBlockReason);
+            }
             return;
         }
         if (_usBridge is not { IsRunning: true })
         {
             // 启动失败/进程早退：这是唯一能真正回退内置 FSM 的窗口（尚未进入 Manual）。
+            _handoffPending = false;
             AbortHandoff(_usStartupFault ?? "外部控制器进程在交接前退出");
             return;
         }
-        var preroll = ScoreBlockExhibition.ArmAndPreroll(engine);
-        if (!preroll.HasTarget)
+        if (!ScoreBlockExhibition.ScoreBlockEntryReached(engine))
         {
-            AbortHandoff(preroll.Reason ?? ScoreBlockExhibition.NoScoreBlockReason);
+            _prerollTicks++;
+            if (_prerollTicks >= ScoreBlockExhibition.PrerollMaxTicks)
+            {
+                _handoffPending = false;
+                AbortHandoff(ScoreBlockExhibition.NoScoreBlockReason);
+            }
+            return; // 本 tick 仍由内置 FSM 驱动并发布快照（可见上台阶段）
+        }
+        _handoffPending = false;
+        var entryTick = (int)engine.TickIndex;
+        var targetIndex = ScoreBlockExhibition.LockTargetIndex(engine);
+        if (targetIndex < 0)
+        {
+            AbortHandoff(ScoreBlockExhibition.NoValidTargetReason);
             return;
         }
         if (_usBridge is not { IsRunning: true })
@@ -358,8 +379,8 @@ public sealed class DesktopLiveDriver : IDisposable
             AbortHandoff("外部控制器进程在预推进期间退出");
             return;
         }
-        _handoff = preroll;
-        _handoffSnapshot = preroll.EntrySnapshot;
+        _handoff = new ScoreBlockExhibition.PrerollResult(false, null, entryTick, targetIndex, engine.CommitSnapshot(), _prerollTicks);
+        _handoffSnapshot = _handoff.EntrySnapshot;
         _handoffDone = true;
     }
 

@@ -57,6 +57,17 @@ public static class ScoreBlockExhibition
     /// <paramref name="maxTicks"/> 上限。停在 SCORE_BLOCK 后再按 FSM 规则锁定目标块。
     /// 调用方必须先 <c>engine.Arm()</c>（本方法不做发令, 也不消耗 RNG 之外的任何外部状态）。
     /// </summary>
+    /// <summary>
+    /// 逐 tick 入场探测：我方 FSM 首次进入 <see cref="FsmState.ScoreBlock"/> 即交接点。
+    /// 与 <see cref="ArmAndPreroll"/> 的循环条件同一实现 —— CLI 的静默快进与桌面的
+    /// 可见上台阶段（逐 tick 探测、逐帧渲染）共享同一入场语义。
+    /// </summary>
+    public static bool ScoreBlockEntryReached(MatchEngine engine)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        return engine.Us.Fsm.State == FsmState.ScoreBlock;
+    }
+
     public static PrerollResult ArmAndPreroll(MatchEngine engine, int maxTicks = PrerollMaxTicks)
     {
         ArgumentNullException.ThrowIfNull(engine);
@@ -66,7 +77,7 @@ public static class ScoreBlockExhibition
         var snap = engine.CommitSnapshot();
         while (!engine.Done && guard < maxTicks)
         {
-            if (engine.Us.Fsm.State == FsmState.ScoreBlock)
+            if (ScoreBlockEntryReached(engine))
             {
                 break;
             }
