@@ -356,7 +356,10 @@ public partial class SettingsPanel : Control
         row.AddThemeConstantOverride("separation", 8);
         root.AddChild(row);
         AddLabel(row, "来源", 11, Secondary, new Vector2(42, 0));
-        var mode = MakeOption(("内置 FSM", ControllerModes.BuiltIn), ("外部命令", ControllerModes.External));
+        var mode = MakeOption(
+            ("内置 FSM", ControllerModes.BuiltIn),
+            ("内置 MBri", ControllerModes.Mbri),
+            ("外部命令", ControllerModes.External));
         row.AddChild(mode);
         AddLabel(row, "超时", 11, Secondary, new Vector2(36, 0));
         var timeout = MakeSpin(1, 5000, 1, "ms");
@@ -412,13 +415,26 @@ public partial class SettingsPanel : Control
 
     private void RequestPreflight(string role, OptionButton mode, LineEdit command, SpinBox timeout)
     {
+        // 内置档 (FSM/MBri) 无子进程可预检: 直接给出说明, 不启动空命令。
+        if (mode.Selected != 2)
+        {
+            var label = role == RoleNames.Us ? _usPreflightResult : _themPreflightResult;
+            if (label is not null)
+            {
+                label.Text = mode.Selected == 1
+                    ? "内置 MBri 无需预检（场景内控制器，不启动子进程）"
+                    : "内置 FSM 无需预检";
+                label.AddThemeColorOverride("font_color", Secondary);
+            }
+            return;
+        }
         if (Interlocked.CompareExchange(ref _preflightBusy, 1, 0) != 0)
         {
             return;
         }
         var profile = new ControllerProfile
         {
-            Mode = mode.Selected == 1 ? ControllerModes.External : ControllerModes.BuiltIn,
+            Mode = ControllerModes.External,
             Command = command.Text.Trim(),
             TimeoutMs = timeout.Value,
         };
@@ -617,7 +633,13 @@ public partial class SettingsPanel : Control
         LineEdit? command, SpinBox? timeout)
     {
         profile ??= new ControllerProfile();
-        mode?.Select(profile.Mode == ControllerModes.External ? 1 : 0);
+        // 档位顺序: 0 内置 FSM / 1 内置 MBri / 2 外部命令 (BuildControllerSection 同序)。
+        mode?.Select(profile.Mode switch
+        {
+            ControllerModes.External => 2,
+            ControllerModes.Mbri => 1,
+            _ => 0,
+        });
         if (command is not null)
         {
             command.Text = profile.Command;
@@ -697,7 +719,12 @@ public partial class SettingsPanel : Control
     private static ControllerProfile ReadController(OptionButton? mode, LineEdit? command, SpinBox? timeout)
         => new()
         {
-            Mode = mode?.Selected == 1 ? ControllerModes.External : ControllerModes.BuiltIn,
+            Mode = mode?.Selected switch
+            {
+                2 => ControllerModes.External,
+                1 => ControllerModes.Mbri,
+                _ => ControllerModes.BuiltIn,
+            },
             Command = command?.Text.Trim() ?? "",
             TimeoutMs = timeout?.Value ?? 100,
         };

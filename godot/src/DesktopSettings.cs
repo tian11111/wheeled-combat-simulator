@@ -11,6 +11,10 @@ namespace Sim.GodotShell;
 public static class ControllerModes
 {
     public const string BuiltIn = "builtin";
+
+    /// <summary>MBri 移植内置控制器 (场景 vehicles[].controller = "mbri")。</summary>
+    public const string Mbri = VehicleControllers.Mbri;
+
     public const string External = "external";
 }
 
@@ -53,6 +57,9 @@ public sealed record ControllerProfile
     public double TimeoutMs { get; init; } = 100;
 
     public bool IsExternal => string.Equals(Mode, ControllerModes.External, StringComparison.Ordinal);
+
+    /// <summary>MBri 移植内置控制器档 (不需要命令/超时, 不启动子进程)。</summary>
+    public bool IsMbri => string.Equals(Mode, ControllerModes.Mbri, StringComparison.Ordinal);
 }
 
 /// <summary>
@@ -258,9 +265,9 @@ public sealed record DesktopSettings
                 yield return $"settings: {name} must be present.";
                 continue;
             }
-            if (profile.Mode is not (ControllerModes.BuiltIn or ControllerModes.External))
+            if (profile.Mode is not (ControllerModes.BuiltIn or ControllerModes.Mbri or ControllerModes.External))
             {
-                yield return $"settings: {name}.mode must be 'builtin' or 'external'.";
+                yield return $"settings: {name}.mode must be 'builtin', 'mbri' or 'external'.";
             }
             if (profile.IsExternal && string.IsNullOrWhiteSpace(profile.Command))
             {
@@ -274,6 +281,37 @@ public sealed record DesktopSettings
     }
 
     public bool IsValid => !Validate().Any();
+
+    /// <summary>
+    /// 把桌面控制器档位写进场景 <c>vehicles[].controller</c> (协议加性字段):
+    /// 仅显式选择"内置 MBri"的角色写入 "mbri"; builtin/external 保持场景原值
+    /// (external 由 driver 进程桥在运行时覆盖, 不占场景字段)。无 MBri 选择时
+    /// 原样返回同一场景 —— 既有场景序列化/回放身份逐位不变。
+    /// </summary>
+    public Scenario ApplyControllerSelection(Scenario scenario)
+    {
+        ArgumentNullException.ThrowIfNull(scenario);
+        var usMbri = (UsController ?? new ControllerProfile()).IsMbri;
+        var themMbri = (ThemController ?? new ControllerProfile()).IsMbri;
+        if (!usMbri && !themMbri)
+        {
+            return scenario;
+        }
+        if (scenario.Vehicles is null || scenario.Vehicles.Count == 0)
+        {
+            return scenario;
+        }
+        var vehicles = new Dictionary<string, VehicleProfile>(scenario.Vehicles, StringComparer.Ordinal);
+        foreach (var (role, mbri) in new[] { (RoleNames.Us, usMbri), (RoleNames.Them, themMbri) })
+        {
+            if (!mbri || !vehicles.TryGetValue(role, out var profile) || profile is null)
+            {
+                continue;
+            }
+            vehicles[role] = profile with { Controller = VehicleControllers.Mbri };
+        }
+        return scenario with { Vehicles = vehicles };
+    }
 
     /// <summary>
     /// Applies only explicit desktop overrides to a fresh scenario copy. The

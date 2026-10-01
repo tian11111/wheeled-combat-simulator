@@ -51,6 +51,18 @@ dotnet run --project src/Sim.Cli -- match --seed 42 \
 输出每种子一行（步数、比分、结束原因、fault、判罚），多种子时附胜负汇总。
 未指定 `--controller-*` 的角色使用内置 FSM。
 
+`--stats`（追加式，缺省关）：每个种子在人类摘要后追加一行机器可读在台迁移统计
+`stats seed=<S> us_falls=.. them_falls=.. us_mounts=.. them_mounts=..`（掉台 = 提交快照
+`OnPlatform` true→false，与裁判 `Drop` 判定同源；双方同帧掉台时裁判归并为中性事件而
+`--stats` 仍按物理迁移对两侧各计 1）。仅 `match` 接受该旗标。
+
+### 场景 `vehicles[].controller` — 内置控制器选择（协议加法）
+
+- 省略 / `"builtin"` = 既有内置 FSM（默认，行为逐位不变）；`"mbri"` = MBri 移植控制器
+  （`.trellis/tasks/10-01-mbri-fsm-port`）。桌面设置页同一档位会把该字段写进本场场景。
+- 外部进程控制器仍走 `--controller-us/--controller-them` 与桌面进程桥，不占用该字段；
+  显式外部动作对相应角色优先于场景选择。
+
 ### `--start-at score_block` — SCORE_BLOCK 展演（RL 策略，非门禁）
 
 ```bash

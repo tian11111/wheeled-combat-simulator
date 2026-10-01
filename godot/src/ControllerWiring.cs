@@ -66,7 +66,13 @@ public static class ControllerWiring
         them ??= new ControllerProfile();
         if (!IsRunnableExternal(us))
         {
-            return new ControllerAssignment(new ControllerProfile(), them, false, null);
+            // 非 external 档原样保留 (内置 FSM / 内置 MBri): MBri 选择必须活到
+            // 场景装配 (DesktopSettings.ApplyControllerSelection), 不能被默认档吞掉。
+            // 空命令的 external 沿用既有语义: 视为内置 FSM (DesktopSettings.Validate
+            // 已要求 external 必填命令)。
+            return us.IsMbri
+                ? new ControllerAssignment(us, them, false, null)
+                : new ControllerAssignment(new ControllerProfile(), them, false, null);
         }
 
         if (!ScenarioSupportsExhibition(scenario))
@@ -96,12 +102,12 @@ public static class ControllerWiring
     public static bool IsRunnableExternal(ControllerProfile? profile)
         => profile is { IsExternal: true } && !string.IsNullOrWhiteSpace(profile.Command);
 
-    /// <summary>HUD 来源描述：内置 FSM / 外部进程 · &lt;进程或脚本名&gt;。</summary>
+    /// <summary>HUD 来源描述：内置 FSM / 内置 MBri / 外部进程 · &lt;进程或脚本名&gt;。</summary>
     public static string DescribeSource(ControllerProfile? profile)
     {
         if (!IsRunnableExternal(profile))
         {
-            return "内置 FSM";
+            return profile?.IsMbri == true ? "内置 MBri" : "内置 FSM";
         }
         var name = CommandName(profile!.Command);
         return name.Length == 0 ? "外部进程" : $"外部进程 · {name}";

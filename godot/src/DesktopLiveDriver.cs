@@ -516,14 +516,14 @@ public sealed class DesktopLiveDriver : IDisposable
     private static DesktopControllerStatus InitialControllerStatus(ControllerProfile profile)
         => profile.IsExternal
             ? new(ControllerModes.External, true, false, 0, "启动中")
-            : new(ControllerModes.BuiltIn, false, true, 0, "");
+            : new(profile.Mode, false, true, 0, "");
 
     private static DesktopControllerStatus BuildControllerStatus(ControllerProfile profile,
         ExternalControllerBridge? bridge, string? startupFault, string? handoffReason = null)
     {
         if (!profile.IsExternal)
         {
-            return new(ControllerModes.BuiltIn, false, true, 0, "");
+            return new(profile.Mode, false, true, 0, "");
         }
         if (handoffReason is not null)
         {

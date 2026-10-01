@@ -32,6 +32,65 @@ internal static class MatchRunner
         List<string> EventFingerprints, ReplayHeader Header)
     {
         public ExhibitionSummary? Exhibition { get; init; }
+
+        /// <summary>
+        /// 每角色物理在台/离台迁移计数 (仅 `match --stats` 展示; 默认输出不变)。
+        /// 掉台 = OnPlatform true→false, 上台 = false→true, 与裁判 Drop 判定同源
+        /// (每 tick 提交快照的 OnPlatform), 与控制器选择无关。
+        /// </summary>
+        public MatchBehaviorStats? Behavior { get; init; }
+    }
+
+    /// <summary>每角色掉台/上台次数 (跨整场提交快照统计)。</summary>
+    internal sealed record MatchBehaviorStats(long UsFalls, long UsMounts, long ThemFalls, long ThemMounts);
+
+    /// <summary>在台状态迁移计数器 (逐提交快照更新; 初始快照只作基线不计数)。</summary>
+    private sealed class BehaviorTracker
+    {
+        private bool _initialized;
+        private bool _usOn;
+        private bool _themOn;
+
+        public long UsFalls { get; private set; }
+
+        public long UsMounts { get; private set; }
+
+        public long ThemFalls { get; private set; }
+
+        public long ThemMounts { get; private set; }
+
+        public void Observe(Snapshot snapshot)
+        {
+            var usOn = snapshot.Robots[RoleNames.Us].OnPlatform;
+            var themOn = snapshot.Robots[RoleNames.Them].OnPlatform;
+            if (!_initialized)
+            {
+                _usOn = usOn;
+                _themOn = themOn;
+                _initialized = true;
+                return;
+            }
+            if (_usOn && !usOn)
+            {
+                UsFalls++;
+            }
+            else if (!_usOn && usOn)
+            {
+                UsMounts++;
+            }
+            if (_themOn && !themOn)
+            {
+                ThemFalls++;
+            }
+            else if (!_themOn && themOn)
+            {
+                ThemMounts++;
+            }
+            _usOn = usOn;
+            _themOn = themOn;
+        }
+
+        public MatchBehaviorStats ToStats() => new(UsFalls, UsMounts, ThemFalls, ThemMounts);
     }
 
     internal sealed record Options
@@ -114,6 +173,8 @@ internal static class MatchRunner
 
             var fingerprints = new List<string>();
             var snapshots = new List<Snapshot>();
+            var behavior = new BehaviorTracker();
+            behavior.Observe(engine.BuildSnapshot()); // 基线: 首 tick 前的在台状态
             while (!engine.Done && snapshots.Count < MaxTicks)
             {
                 RobotAction? usAction = null;
@@ -130,6 +191,7 @@ internal static class MatchRunner
                 }
                 var snapshot = engine.Tick(usAction, themAction);
                 snapshots.Add(snapshot);
+                behavior.Observe(snapshot);
                 handoffSnapshot = snapshot;
                 if (snapshot.Events is { Count: > 0 })
                 {
@@ -159,6 +221,7 @@ internal static class MatchRunner
                     ? new ExhibitionSummary(true, null, completed.EntryTick, completed.TargetIndex,
                         engine.Blocks[completed.TargetIndex].Name)
                     : null,
+                Behavior = behavior.ToStats(),
             };
         }
         finally

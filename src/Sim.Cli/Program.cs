@@ -57,6 +57,9 @@ public static class Program
         public bool Events { get; init; }
         public string? Out { get; init; }
 
+        /// <summary>`--stats`: 每个 seed 追加一行在台迁移统计 (掉台/上台次数), 默认关。</summary>
+        public bool Stats { get; init; }
+
         /// <summary>`--start-at score_block`: SCORE_BLOCK 展演（非门禁证据），默认关。</summary>
         public string? StartAt { get; init; }
 
@@ -117,6 +120,7 @@ public static class Program
             Events = args.Contains("--events"),
             Out = Get("--out"),
             StartAt = Get("--start-at"),
+            Stats = args.Contains("--stats"),
         };
     }
 
@@ -169,6 +173,13 @@ public static class Program
             var result = MatchRunner.Run(options.BuildScenario(seed),
                 options.RunnerOptions(startAtScoreBlock: options.StartAtScoreBlock));
             PrintResult(result);
+            if (options.Stats && result.Behavior is { } behavior)
+            {
+                // 机器可读的在台迁移统计 (掉台/上台次数), 仅显式 --stats 时输出。
+                Console.WriteLine(
+                    $"stats seed={result.Seed} us_falls={behavior.UsFalls} them_falls={behavior.ThemFalls}"
+                    + $" us_mounts={behavior.UsMounts} them_mounts={behavior.ThemMounts}");
+            }
             results.Add(result);
         }
         if (results.Count > 1)
@@ -329,7 +340,7 @@ public static class Program
             用法:
               dotnet run --project src/Sim.Cli -- match [--seed 42|--seeds 1,2,3] [--scenario <path>]
                          [--duration 120] [--controller-us <cmd>] [--controller-them <cmd>]
-                         [--timeout-ms 100] [--events] [--start-at score_block]
+                         [--timeout-ms 100] [--events] [--stats] [--start-at score_block]
               dotnet run --project src/Sim.Cli -- batch [--seed 42|--seeds 1,2,3] [--scenario <path>]
                          [--duration 120] [--controller-us <cmd>] [--controller-them <cmd>]
                          [--timeout-ms 100] [--parallelism 4] [--out artifacts/batch.jsonl]
@@ -358,6 +369,8 @@ public static class Program
             说明:
               --controller-* 启动外部策略进程（JSONL stdio 协议, decide(obs) -> {"v":..,"w":..});
               缺省时对应角色使用内置 FSM。超时/坏行按零动作回退并计入 faults。
+              --stats 在每个 seed 的人类摘要后追加一行机器可读在台迁移统计
+              (us_falls/them_falls/us_mounts/them_mounts; 与裁判掉台判定同源的提交快照迁移)。
               --start-at score_block 仅 match: 双方内置 FSM 预推进到我方 SCORE_BLOCK 后才把
               我方交给外部策略(obs 追加 11 维 rlObservation), 对手不变; 未进入入口则返回
               no_score_block 摘要、不跑策略。展演为非门禁证据(gateEvidenceEligible=false)。

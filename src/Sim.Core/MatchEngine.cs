@@ -53,6 +53,14 @@ public sealed class MatchEngine : IDisposable
     private readonly IPhysicsBackend _physics;
     private readonly SensorSampler _sensors;
     private readonly FsmController _fsm;
+
+    /// <summary>
+    /// MBri 移植控制器 (批3 接线): 仅在场景 vehicles[role].controller == "mbri"
+    /// 时非 null。null 时该角色走既有 FsmController —— 省略字段的场景逐位不变。
+    /// 裁判重启 (RestartRobot) 会替换为新实例 (真车 rearm: 滤波窗口清空)。
+    /// </summary>
+    private MbriFsmController? _mbriUs;
+    private MbriFsmController? _mbriThem;
     private readonly IVisionAdapter _vision;
 
     private MatchControlPhase _phase = MatchControlPhase.Prep;
@@ -122,6 +130,10 @@ public sealed class MatchEngine : IDisposable
         _them.Fsm.Timer = matchDuration;
 
         _events = new EventBus();
+        // 场景级控制器选择 (协议加法): "mbri" 才构造移植控制器, 其余走既有
+        // FsmController 路径 —— 省略 vehicles[].controller 的场景零变化。
+        _mbriUs = UsesMbri(usVehicle) ? new MbriFsmController(_events, scenario.Field.TickSeconds) : null;
+        _mbriThem = UsesMbri(themVehicle) ? new MbriFsmController(_events, scenario.Field.TickSeconds) : null;
         var context = new PhysicsBackendContext(scenario, _field, _params, _us, _them, _blocks, _events,
             AntiStallPhase(scenario.Seed, RoleNames.Us), AntiStallPhase(scenario.Seed, RoleNames.Them));
         if (scenario.Physics?.Backend == PhysicsSpec.Mujoco)
@@ -152,6 +164,15 @@ public sealed class MatchEngine : IDisposable
         _sensors.SampleSensorsFor(_us);
         _sensors.SampleSensorsFor(_them);
     }
+
+    /// <summary>
+    /// 场景级控制器判据: vehicles[].controller == "mbri" (大小写敏感, 协议常量)。
+    /// </summary>
+    private static bool UsesMbri(VehicleProfile vehicle)
+        => string.Equals(vehicle.Controller, VehicleControllers.Mbri, StringComparison.Ordinal);
+
+    /// <summary>该角色生效的 MBri 控制器, null = 走既有内置 FSM。</summary>
+    private MbriFsmController? MbriFor(RobotRuntime r) => r.IsUs ? _mbriUs : _mbriThem;
 
     /// <summary>
     /// 反僵局铲刃微调初相 (rad): 由 (seed, role) 经既有 <c>hashString32</c> 派生到
@@ -343,6 +364,13 @@ public sealed class MatchEngine : IDisposable
         _scorePhaseT = 0;
         st.State = FsmState.MountRing;
         st.Mount = new MountState();
+        if (MbriFor(r) is { } mbri)
+        {
+            // MBri 发令 (真车 run()): 首 tick 起重放 START_REVERSE 开局上台。
+            mbri.Arm();
+            _events.Emit(EventKind.Arm, r, "[mbri] 发令! 等待开局后退上台");
+            return;
+        }
         _events.Emit(EventKind.Arm, r, "[fsm] 发令! WAIT_START → MOUNT_RING");
     }
 
@@ -494,6 +522,21 @@ public sealed class MatchEngine : IDisposable
             UprightT = 0,
         };
         _physics.ResetRobot(r);
+        // MBri 角色重启 = 真车 rearm: 换新实例清空滤波窗口/子状态机, 与
+        // FsmRuntime 一并复位 (上面 Armed=true, 首 tick 起重放开局上台)。
+        if (MbriFor(r) is not null)
+        {
+            var fresh = new MbriFsmController(_events, _scenario.Field.TickSeconds);
+            fresh.Arm();
+            if (r.IsUs)
+            {
+                _mbriUs = fresh;
+            }
+            else
+            {
+                _mbriThem = fresh;
+            }
+        }
         // resetAll tail: refresh sensors once so paused/pre-commit views show
         // real data at the new pose (pure recomputation, no rng draws).
         _sensors.SampleSensorsFor(r);
@@ -641,7 +684,17 @@ public sealed class MatchEngine : IDisposable
             }
             if (r.Fsm.Armed && r.Fsm.State != FsmState.Finished)
             {
-                _fsm.FsmTickFor(r, d);
+                if (MbriFor(r) is { } mbri)
+                {
+                    // 批3 接线: 场景选中 mbri 的角色由移植控制器逐 tick 决策
+                    // (tick = SimStepIndex, 与 START_REVERSE 时长换算同源);
+                    // 外部动作 (acts[r] != null) 优先级更高, 上面已 continue。
+                    mbri.TickFor(r, SimStepIndex);
+                }
+                else
+                {
+                    _fsm.FsmTickFor(r, d);
+                }
             }
         }
 

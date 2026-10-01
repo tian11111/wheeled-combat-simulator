@@ -216,6 +216,19 @@ public sealed class SensorProfileJsonConverter : JsonConverter<SensorProfile>
 }
 
 /// <summary>
+/// 场景级内置控制器选择 (协议加法, vehicles[].controller 字段共用的取值域):
+/// 省略/null = <c>builtin</c> 既有内置 FSM 路径逐位不变; <c>mbri</c> = MBri 移植
+/// 控制器。外部进程控制器不经场景字段 (CLI --controller-*/桌面进程桥携带命令与
+/// 超时), 因此这里不出现 external。
+/// </summary>
+public static class VehicleControllers
+{
+    public const string BuiltIn = "builtin";
+
+    public const string Mbri = "mbri";
+}
+
+/// <summary>
 /// Vehicle geometry and dynamics profile (per role). Value ranges and clamping
 /// semantics are defined by CONTRACT.md section 5.1; normalization of raw user
 /// input happens in Sim.Core, this DTO only performs basic sanity validation.
@@ -223,6 +236,13 @@ public sealed class SensorProfileJsonConverter : JsonConverter<SensorProfile>
 public sealed record VehicleProfile
 {
     public string Id { get; init; } = "default";
+
+    /// <summary>
+    /// 该车控制器 (协议加法): null/省略 = builtin 既有内置 FSM; "mbri" = MBri
+    /// 移植控制器 (<see cref="VehicleControllers.Mbri"/>)。null 序列化省略
+    /// (ProtocolJson 全局 WhenWritingNull), 既有场景/回放 wire 形状逐位不变。
+    /// </summary>
+    public string? Controller { get; init; }
 
     /// <summary>Body length (m), 0.08–0.8.</summary>
     public double Length { get; init; } = 0.26;
@@ -295,6 +315,14 @@ public sealed record VehicleProfile
         if (string.IsNullOrWhiteSpace(Id))
         {
             yield return "vehicle profile id must not be empty.";
+        }
+
+        if (Controller is not null
+            && !string.Equals(Controller, VehicleControllers.BuiltIn, StringComparison.Ordinal)
+            && !string.Equals(Controller, VehicleControllers.Mbri, StringComparison.Ordinal))
+        {
+            yield return $"vehicle profile '{Id}': controller must be "
+                + $"'{VehicleControllers.BuiltIn}' or '{VehicleControllers.Mbri}', got '{Controller}'.";
         }
 
         string[] PositiveNames =

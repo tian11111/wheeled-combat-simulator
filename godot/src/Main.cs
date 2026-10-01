@@ -1166,8 +1166,17 @@ public partial class Main : Node
         _scenarioTemplate = string.IsNullOrEmpty(ScenarioPath)
             ? new Scenario { Seed = Seed, Blocks = OfficialLayout.Blocks }
             : ProtocolJson.Deserialize<Scenario>(System.IO.File.ReadAllText(ScenarioPath));
-        return _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(_scenarioTemplate));
+        return ApplyDesktopSettings(_scenarioTemplate);
     }
+
+    /// <summary>
+    /// 显式桌面覆盖层 (参数 → 小车 → 控制器选择): 仅显式设置生效, 默认档不改
+    /// 场景/车辆字段。控制器选择最后叠加 —— MBri 档把 vehicles[].controller
+    /// 写成 "mbri", builtin/external 保持场景原值 (external 走进程桥, 不占字段)。
+    /// </summary>
+    private Scenario ApplyDesktopSettings(Scenario template)
+        => _settings.ApplyControllerSelection(
+            _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(template)));
 
     // 响亮回退(同视觉源预检先例): 场景文件读不到时给指路报错并回退官方布局,
     // 不留一个没建起场景的空窗口。
@@ -1209,7 +1218,7 @@ public partial class Main : Node
     private Scenario BuildLiveScenarioFromTemplate()
     {
         var template = _scenarioTemplate ?? _session.Engine.Scenario;
-        return _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(template));
+        return ApplyDesktopSettings(template);
     }
 
     /// <summary>
@@ -1802,7 +1811,7 @@ public partial class Main : Node
             ? null
             : new Dictionary<string, double>(_scenarioTemplate.Parameters);
         _scenarioTemplate = scenario with { Parameters = templateParameters };
-        var applied = _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(_scenarioTemplate));
+        var applied = ApplyDesktopSettings(_scenarioTemplate);
         ReplaceSession(applied);
         _pendingMatchSettings = false;
         ApplyScenarioToShell(applied);

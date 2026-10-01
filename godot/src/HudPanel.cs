@@ -269,6 +269,10 @@ public partial class HudPanel : Control
         {
             return "内置 FSM";
         }
+        if (controller.Mode == ControllerModes.Mbri)
+        {
+            return "内置 MBri";
+        }
         if (controller.Faults > 0)
         {
             return $"外部·故障 {controller.Faults}（{controller.LastFault}）";
