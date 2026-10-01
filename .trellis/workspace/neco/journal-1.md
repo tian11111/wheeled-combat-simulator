@@ -1416,3 +1416,34 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - Q4 拍板: 展演默认 checkpoint 换新 04-204800（13 分）; 过 gate 需台沿风险观测/课程新任务; 本地领先 origin 8 提交待说推再推
+
+
+## Session 43: MBri 比赛逻辑移植内置可选 FSM（动态工作流 3 代理）
+
+**Date**: 2026-10-01
+**Task**: 10-01-mbri-fsm-port
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+/workflow 落地(1h08m/91M tok, 批1/批2/批3 三代理+评审+修复轮): MbriFsmController 加法式移植——MbriUnits(k=0.000896 锚点 config 实测, TrackWidth 0.229 实测)/MbriGrayCalibration(仿真灰度→真车 ADC 逐通道仿射+FallDomain)/MbriRiskModel+MbriPatrol(gray.py/ring_patrol.py 逐行, 九态)/MbriReentry(reentry.py 逐行)/仲裁(main.py 优先链); 接线 vehicles[].controller=mbri(协议加法)+CLI --stats+桌面三档。终验 3/3 绿(651 测试+1 跳/seed-42 逐位/Godot 0 错)。**但核心缺陷(评审 high 未修)**: mbri 开场在 START_REVERSE 预热窗内被走道灰度 FallDomain 误触掉台判定 → reentry 接管 REVERSE 横穿台面跌下对侧 → SAFE_STOP 吸收态冻结全场——对照数字"掉台中位 43→1"是冻结常数不是巡台能力, R4 目标未达成。其余披露: 前向模拟红外对 f 同值桥接致对准恒 center(medium)/常量硬编码不读 SimParameters/空断言/healthy 门控缺/单位公式 2× 差异/repro 归档(已补 evidence/repro/)。修复路径明确(误触窗门控+SAFE_STOP 出边+巡台 early-fire 阈值), 待用户裁决后另轮。按批提交 37fc556/bdc7bcd/2e777d5。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `37fc556` | feat(sim): MBri 移植批1+批2 (Core 六文件+七测试文件) |
+| `bdc7bcd` | feat(sim): MbriFsm 选择接线 (协议加法+CLI+桌面) |
+| `2e777d5` | docs(task): 对照证据/验收报告; spec Mbri 条款; journal |
+
+### Testing
+
+- [OK] 终验全量 651+1Skip 0 失败; replay-check seed-42 逐位; Godot 0 警 0 错; 44 场对照台账(结果受开场冻结缺陷污染, 已披露)
+
+### Status
+
+[OK] **Completed（带 disclosed 缺陷）**
+
+### Next Steps
+
+- 修复 high 缺陷(误接管冻结)后再跑对照——R4 真验证; 巡台 early-fire 阈值待按官方场灰度重标; 本地领先 origin 13 提交
