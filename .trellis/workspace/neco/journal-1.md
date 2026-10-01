@@ -1325,3 +1325,35 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - 视觉线余项: 语义验收需真相机/真车录像(用户环境, runner --input 相机序号已就绪); 本地领先 origin 2 提交待用户说推再推
+
+
+## Session 40: RL 策略接入桌面可选控制器（动态工作流五批 + 主会话 e2e 补验）
+
+**Date**: 2026-10-01
+**Task**: 10-01-rl-desktop-controller
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+/workflow 启动动态工作流(5 子代理, deepseek-v4.1-flash, 1h54m/125M tok)落地三批: ①核心桥——Sim.Hosting.ScoreBlockExhibition 共享缝(预推进 4800/目标锁定/11 维投影, rl-env 委托逐字节不变)+Observation.RlObservation 加性字段+CLI match --start-at score_block+桥 stdin UTF-8; ②tools/rl-bridge/rl_desktop_runner.py(SB3 deterministic/维度门拒 9 维旧模型/--stub 解耦协议与真权重/selftest 全绿); ③桌面设置页控制器区+预检/释放链+HUD 告警回退+legacy 场景拒绝 RL。终验 5/6 绿(565 测试/replay-check/godot/selftest), e2e exit=1——主会话判明是工作流脚本编的 e2e 命令漏了 --start-at score_block 与 --timeout-ms(冷启动 1-2s > 默认 100ms), 修正后真权重对抗绿: **RL 3:1 FSM**, faults 0/0, handoff tick=281, 双跑逐位一致。独立评审 9 发现(1 medium 确认未修: rlObservation 注入无测试钉住, 建议 EchoController 加模式; 8 low 披露), 开放决策 Q1-Q8 待拍板(Q4 checkpoint 选型 dev-sweep 全部 gate_passed=false, 推荐 rl_model_204800_steps.zip 9分0掉台)。按批提交 e24af24/907985f/6096f5f/e155d67。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e24af24` | feat(sim): SCORE_BLOCK 展演共享缝与 match --start-at 交接 (批1) |
+| `907985f` | feat(tools): RL 桌面运行器 rl_desktop_runner (批2) |
+| `6096f5f` | feat(godot): 设置页控制器选择区与 HUD 告警回退 (批3) |
+| `e155d67` | docs(task): 任务工件与验收报告; spec 展演纪律沉淀 |
+
+### Testing
+
+- [OK] 全量 565+1Skip 0 失败; replay-check seed-42 逐位; Godot 0 警 0 错; selftest real mode+跨语言 PASS; e2e 真权重 RL 3:1 FSM 双跑逐位一致(exhibition=true gateEvidenceEligible=false)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 用户拍板 Q1-Q8(重点 Q4 checkpoint 选型/Q6 桌面超时≥500ms/Q3 旗标命名); 桌面真窗口目检控制器切换; medium 发现(注入无测试钉住)待决策; 本地领先 origin 5 提交待说推再推
