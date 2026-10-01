@@ -47,6 +47,33 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   seed 取 `scenario.Seed`、不写回放/不晋升 fidelity/不触碰 v4 盲集，runner/driver 不得引入
   RNG（桌面实时驱动按墙钟，属不可位对位复现的展演，不是训练/门禁证据）。
 
+## 内置 MBri 控制器（可选档 `vehicles[].controller`，10-01 落地）
+
+- **选择契约（协议加法）**：场景 `vehicles[us|them].controller` 取值 `builtin`（省略默认）
+  或 `mbri`（`src/Sim.Protocol/Profiles.cs:224-245`，null 不序列化、既有 wire 不加宽）；
+  桌面设置页"来源"同档位（内置 FSM / 内置 MBri / 外部命令），仅显式选择 MBri 时把字段
+  写进本场场景（`godot/src/DesktopSettings.cs:287-312`）。外部进程控制器继续走
+  `--controller-us/--controller-them` 与桌面进程桥，不占用该字段，外部动作优先于场景选择。
+  省略/显式 builtin 的场景行为逐位不变（`src/Sim.Tests/MbriSelectionTests.cs` 指纹相等 +
+  replay-check seed-42 + 官方场景 vs 缺省副本 diff）。
+- **实现边界**：`Sim.Core.MbriFsmController`（+ `MbriPatrol` / `MbriReentry`）是纯内置控制器，
+  零 IO/时钟/随机（真车 wall-clock 统一经 `MbriUnits.SecondsToTicks` 换算为 tick）；
+  `MatchEngine` 只按场景选择构造与逐 tick 派发（`src/Sim.Core/MatchEngine.cs:135-136,687-692`），
+  不触碰物理/裁判/传感器采样。新桥接/新偏差必须在 `MbriFsm.cs` 头注释逐项披露。
+- **单位与标定层（数值合同）**：轮速 `WheelToMs = unit×0.000896`（真车 400×0.6 s=21.5 cm
+  实测锚点）；差速 `w=(r−l)/(2·TrackWidth)·k` 的 TrackWidth 取**真车实测 0.229 m**
+  （`src/Sim.Core/MbriUnits.cs:14-17`；来源 `src/Sim.Mujoco/MujocoModel.cs:95-97` 轮心实测与
+  v2 场景同值；旧桥猜测 0.18 已弃用，偏差 21.4% < 30% 停线阈值）。灰度 0–1000 → 真车 ADC
+  的逐通道仿射（`SimToAdc`/`SimToAdcWhite`）是"结构忠实、数值近似"层：真车非线性/噪声
+  不建模；仿真灰度上限使 `white_hits`/`WHITE_ESCAPE` 结构性不可达（默认手绘场）；掉台判定
+  另走 fall-domain 采样（走道 g<150 → ADC 0，`src/Sim.Core/MbriGrayCalibration.cs:70-97`）。
+  改这些常量/公式会改变 mbri 轨迹，必须重跑 `--filter "FullyQualifiedName~Mbri"` 与
+  11-seed 行为对照。
+- **能力边界（不得当作可用比赛策略宣称）**：官方 legacy 11-seed 对照中 mbri 每车仅
+  开场上台一次、掉台后不再回台、得分 0（修复前修订版另叠加 SAFE_STOP 冻结吸收态）；
+  P2 hunt/probe 与真车铲子红外未移植；mbri + MuJoCo 组合未验证。完整对照与修复后复测见
+  `.trellis/tasks/10-01-mbri-fsm-port/evidence/comparison.md`。
+
 ## 物理后端契约（legacy 缺省 / mujoco 可选）
 
 - 物理后端由场景 `physics.backend` 显式选择；**未写字段 = 旧二维物理逐位不变**，

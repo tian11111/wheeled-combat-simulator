@@ -1357,3 +1357,62 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - 用户拍板 Q1-Q8(重点 Q4 checkpoint 选型/Q6 桌面超时≥500ms/Q3 旗标命名); 桌面真窗口目检控制器切换; medium 发现(注入无测试钉住)待决策; 本地领先 origin 5 提交待说推再推
+
+
+## Session 41: RL 桌面接入自验收（动态工作流）+ 两缺陷修复
+
+**Date**: 2026-10-01
+**Task**: 10-01-rl-desktop-controller 桌面验收收尾
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+/workflow 自验收(dwfrun-815795ad, 桌面验收员+缺陷修复者双代理): 走 --settings-smoke/--capture 无人值守通道备份种子设置 JSON(我方=外部进程/绝对路径/timeoutMs 5000/mujoco 场景)逐项目检。**桌面 RL 真驱动成立**: HUD『外部·在线/展演交接 tick=281 目标=增益块』全绿、多帧位姿不同、终局 3:1; 坏命令预检与 legacy 拒绝均响亮失败。9 项: 7 pass / 1 inconclusive(应用设置落盘无法无人值守注入, 载入方向已实证) / 1 修复复验; HUD 启动假红未真实出现(不记缺陷, 代码路径仍在)。证实并修复两 low 缺陷: ①设置页占位符 tools/... 与子进程 CWD=godot/ 矛盾(照抄必预检失败)→改 ../tools/...; ②桥对"能启动但当场退出"的命令空等满 TimeoutMs 且误报应答超时→100ms 排空宽限后快报 process exited, 预检识别新文案。修复后全量 567+1Skip 0 失败(主会话复核), CLI e2e 复验 3:1 一致。用户设置已还原(原文件不存在, 种子已删)。目检证据 45 件入库 godot/docs/qa-10-01/。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `26f49a3` | fix(godot): 自验收目检证实两缺陷修复 |
+| `d949c31` | docs(task): 自验收报告与目检证据; journal Session 40 |
+
+### Testing
+
+- [OK] 主会话复核全量 567+1Skip 0 失败; CLI e2e 真权重 RL 3:1 FSM(exhibition 语义); 目检 9 项逐条判定, 证据在 godot/docs/qa-10-01/
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Q1-Q8 待拍板(Q4 checkpoint 选型最关键); 中发现(rlObservation 注入无测试钉住)待决策; 本地领先 origin 7 提交待说推再推
+
+
+## Session 42: RL 探索加训三组（当前物理）+ dev 评测 + 展演对照
+
+**Date**: 2026-10-01
+**Task**: 10-01-rl-desktop-controller 后续探索
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+应用户"接着训练几组 RL"启动 3 组探索训练（20261002/03/04, 500k, 当前代码/物理——旧五组是时基修复+电机标定前的旧物理, 按契约不得复用正式评测）。结果: 20261004 组显著强——dev 集 204800 checkpoint 锁定目标得分 13（FSM 基线 1）, 153600 得 9 分/4 掉台, 总分 58:15; 但 gate 0/13 全卡在掉台>FSM 基线 2（电机标定后 FSM 掉台也从历史 53-62% 降到 2/20, 门槛实质变严）。旧口径纠正: 旧 dev-sweep 实为 7/50 gate 通过（最好 20261001@204800 = 9分0掉台）, 10-01 工作流调研"全部 false"有误。展演 seed 42: 新 04-204800 与旧 204800 同 3:1（sha256+事件流 diff 确认两模型各自驱动, 同分巧合）。轮次结论（掉台饱和/问题不在奖励）在当前物理下再次确证; 想过 gate 需观测/课程层新任务。产物 .sim_runs/score-block-v4-exploration-20261001/（不入库）, 摘要入任务目录 rl-exploration-20261001.md。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `92b6821` | docs(task): RL 探索加训结果摘要 |
+
+### Testing
+
+- [OK] dev 集评测 3 final + 10 阶梯（20 seed 各, evaluate.py development_v4）; 展演对照 2 场（sha256 验证）; 三训练 run-config status=completed
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Q4 拍板: 展演默认 checkpoint 换新 04-204800（13 分）; 过 gate 需台沿风险观测/课程新任务; 本地领先 origin 8 提交待说推再推

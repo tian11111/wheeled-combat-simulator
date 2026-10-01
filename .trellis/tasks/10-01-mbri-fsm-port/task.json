@@ -3,7 +3,7 @@
   "name": "mbri-fsm-port",
   "title": "MBri 比赛逻辑移植内置可选 FSM",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
