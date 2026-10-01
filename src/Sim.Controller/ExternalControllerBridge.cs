@@ -12,6 +12,13 @@ namespace Sim.Controller;
 /// </summary>
 public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
 {
+    /// <summary>
+    /// 进程退出后给 stdout 读取线程的排空宽限: 应答可能在进程退出前已写入管道,
+    /// 但还没被读取线程送进队列。宽限耗尽仍无应答 = 命令实际起不来, 立刻报死,
+    /// 不必等满 TimeoutMs。
+    /// </summary>
+    private static readonly TimeSpan ExitDrainGrace = TimeSpan.FromMilliseconds(100);
+
     private readonly Process _process;
     private readonly BlockingCollection<string> _lines = new();
     private readonly Thread _reader;
@@ -92,10 +99,26 @@ public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
 
         var expectedId = observation.RequestId.ToString();
         var cutoff = DateTime.UtcNow + _deadline;
+        // 命令能启动但当场退出(脚本不存在/解释器报错)时, 读取线程可能还在把退出前
+        // 写出的行送进队列: 先给 ExitDrainGrace 排空, 仍无应答就立即按"进程已退出"
+        // 报错, 不必空等满 TimeoutMs —— 结论同为拒绝, 但原因不再误写成应答超时。
+        var exitedAt = DateTime.MinValue;
         while (DateTime.UtcNow < cutoff)
         {
             if (!_lines.TryTake(out var line, millisecondsTimeout: 2))
             {
+                if (_process.HasExited)
+                {
+                    if (exitedAt == DateTime.MinValue)
+                    {
+                        exitedAt = DateTime.UtcNow;
+                    }
+                    if (DateTime.UtcNow - exitedAt >= ExitDrainGrace)
+                    {
+                        return Fault("controller process exited without a response"
+                            + " (command failed to start or crashed)");
+                    }
+                }
                 continue;
             }
             if (!ProtocolJson.TryParseActionLine(line, out var action, out var error) || action is null)

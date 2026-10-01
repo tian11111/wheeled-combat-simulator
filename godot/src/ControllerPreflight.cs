@@ -94,6 +94,7 @@ public static class ControllerPreflight
             return ControllerPreflightKinds.Timeout;
         }
         if (fault.StartsWith("controller process is not running", StringComparison.Ordinal)
+            || fault.StartsWith("controller process exited", StringComparison.Ordinal)
             || fault.StartsWith("controller stdin failed", StringComparison.Ordinal)
             || fault.StartsWith("controller stdout failed", StringComparison.Ordinal))
         {

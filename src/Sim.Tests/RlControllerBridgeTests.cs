@@ -135,6 +135,21 @@ public class RlControllerBridgeTests
         Assert.NotEqual("", bridge.LastFault);
     }
 
+    [Fact]
+    public void Bridge_ProcessExitsWithoutResponse_FaultsFastInsteadOfWaitingForTimeout()
+    {
+        using var bridge = Start("die", timeoutMs: 5000);
+
+        var started = DateTime.UtcNow;
+        var action = bridge.Decide(ObservationWithRl(RlObservationValues));
+        var elapsed = DateTime.UtcNow - started;
+
+        Assert.Equal(RobotAction.Zero.V, action.V);
+        Assert.Equal(1, bridge.Faults);
+        Assert.True(elapsed < TimeSpan.FromSeconds(3),
+            $"dead controller must not burn the full 5000 ms timeout (took {elapsed.TotalMilliseconds:0} ms)");
+    }
+
     private static ExternalControllerBridge Start(string mode, double timeoutMs)
     {
         var exe = Path.Combine(AppContext.BaseDirectory, "EchoController.exe");

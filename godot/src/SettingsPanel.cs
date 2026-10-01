@@ -314,7 +314,7 @@ public partial class SettingsPanel : Control
             11, Yellow);
         warning.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         root.AddChild(BuildControllerSection("我方 / BLUE（RL 展演）", RoleNames.Us,
-            "例如：py -3.12 -X utf8 tools/rl-bridge/rl_desktop_runner.py --checkpoint <zip>"));
+            "例如：py -3.12 -X utf8 ../tools/rl-bridge/rl_desktop_runner.py --checkpoint <zip>"));
         root.AddChild(BuildControllerSection("对手 / RED", RoleNames.Them));
         var note = AddLabel(root,
             "协议：每行输入 observation JSON，输出 {\"v\":...,\"w\":...,\"requestId\":...}；超时或坏行会安全回退为零动作并显示 fault。",
