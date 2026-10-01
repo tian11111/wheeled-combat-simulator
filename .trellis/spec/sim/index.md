@@ -30,7 +30,22 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
 
 - 无 Godot 环境的可测逻辑放纯文件（如 `godot/src/SnapshotView.cs`），
   用 `<Compile Include>` 链接进 `Sim.Tests`，不要为它新建工程。
-- 外部控制器一律走 `Sim.Cli.PythonBridge`（JSONL、request-id 匹配、超时→零动作、计 fault）。
+- 外部控制器一律走共享桥 `Sim.Controller.ExternalControllerBridge`（JSONL、UTF-8 行、
+  request-id 匹配、超时→零动作、计 fault；CLI/桌面/Sim.Tests 同一实现）；CLI 的
+  `Sim.Cli.PythonBridge` 只是兼容包装（2026-09-01 起实现下沉，见 `docs/CONTROLLER_PROTOCOL.md`）。
+- SCORE_BLOCK 展演（RL 策略试跑，非门禁）的**共享装配入口**是 `Sim.Hosting.ScoreBlockExhibition`
+  纯缝（CLI `match --start-at score_block` / `rl-env` 训练入口 / 桌面 driver 三方同一实现：
+  预推进 4800 tick / 目标锁定 / 11 维观测投影）；观测经 `Observation.rlObservation` 加性字段
+  下发（null 不序列化、旧消费者字节不变），只在交接后填充。
+  **IO 例外边界**：进程/时钟编排只在 Sim.Cli、桌面壳与 `Sim.Controller` 桥，RL 控制器进程本体是
+  `tools/rl-bridge/rl_desktop_runner.py`（Python，UTF-8、逐帧 flush）；`Sim.Hosting` 缝本身
+  零 IO/时钟/RNG，`Sim.Core` 不得新增 IO。
+- 桌面展演装配纪律（`godot/src/ControllerWiring.cs` 纯决策 + `DesktopLiveDriver` 交接门控）：
+  我方外部控制器**只在 mujoco 场景**启用（legacy 场景明确拒绝并回退内置 FSM，设置仍保存）；
+  应用设置时预检（启动→握手→释放），确定性坏命令回退、应答超时只告警；发起令后由共享缝
+  预推进到 SCORE_BLOCK 才交接，未交接不喂外部动作。展演恒 `gate_evidence_eligible=false`、
+  seed 取 `scenario.Seed`、不写回放/不晋升 fidelity/不触碰 v4 盲集，runner/driver 不得引入
+  RNG（桌面实时驱动按墙钟，属不可位对位复现的展演，不是训练/门禁证据）。
 
 ## 物理后端契约（legacy 缺省 / mujoco 可选）
 
