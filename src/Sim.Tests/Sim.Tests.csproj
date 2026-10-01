@@ -40,6 +40,8 @@
     <Compile Include="..\..\godot\src\DesktopSettings.cs" Link="godot\DesktopSettings.cs" />
     <Compile Include="..\..\godot\src\DesktopLiveDriver.cs" Link="godot\DesktopLiveDriver.cs" />
     <Compile Include="..\..\godot\src\ControllerPreflight.cs" Link="godot\ControllerPreflight.cs" />
+    <!-- 控制器来源装配决策（我方 external 展演门控/预检回退/命令解析）：纯逻辑，无 Godot。 -->
+    <Compile Include="..\..\godot\src\ControllerWiring.cs" Link="godot\ControllerWiring.cs" />
   </ItemGroup>
 
   <ItemGroup>

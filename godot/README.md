@@ -158,9 +158,45 @@ python controllers/example_controller.py
 ```
 
 外部命令必须遵循 [`docs/CONTROLLER_PROTOCOL.md`](../docs/CONTROLLER_PROTOCOL.md) 的 JSONL stdio
-协议。桌面端每场为每个外部角色独立启动进程；启动失败、超时、坏行或退出会安全回退为零动作，
+协议。桌面端每场为每个外部角色独立启动进程，**子进程工作目录是 `godot/`**（相对路径按此解析）；
+启动失败、超时、坏行或退出会安全回退为零动作，
 并在右侧控制器状态与日志显示 fault。外部命令拥有本机进程权限，请只运行可信脚本；设置页不提供
 内嵌代码编辑器或代码沙箱。回放模式不启动外部控制器。
+
+#### 我方外部控制器 = SCORE_BLOCK 展演（RL 策略，非门禁）
+
+我方选“外部命令”且场景是 **mujoco 后端**（如 `scenarios/wushu-ring-2026-mujoco.json`）时，
+driver 按 CLI `match --start-at score_block` 的同一口径交接（`Sim.Hosting.ScoreBlockExhibition`）：
+
+1. 发令后先用**双方内置 FSM 预推进**到我方首次 `SCORE_BLOCK` 并锁定目标块（上限 4800 tick）；
+   交接前我方 `Tick(null)`，绝不喂外部动作（否则角色会被切 Manual，预推进永不发生）。
+2. 交接后每个 tick 把我方观测交给外部进程，obs 追加与训练同源的 11 维 `rlObservation`
+   （唯一投影在 C#，Python 侧只消费不重算）；对手全程内置 FSM。
+3. HUD 左列“控制器”显示当前来源（`内置 FSM` / `外部进程 · <脚本名>`），交接完成显示
+   `展演交接 tick=… 目标=…`；预推进未进入 `SCORE_BLOCK`、进程早退或进程中途退出都会
+   **红色告警**（`展演未交接（回退内置 FSM）` / `外部·已退出 → 停车`），不静默假装展演成功。
+
+推荐命令（`TimeoutMs` 建议 ≥ 5000，先加载 checkpoint 再服务）。**桌面控制器子进程以
+`godot/` 为工作目录**（实测），相对脚本路径要写成 `../tools/...`：
+
+```text
+py -3.12 -X utf8 ../tools/rl-bridge/rl_desktop_runner.py --checkpoint <zip>
+```
+
+（`--checkpoint` 的相对路径由 runner 自动先按 CWD、再按仓库根解析；脚本自身路径必须能从
+`godot/` 找到，否则子进程启动即失败，应用设置时的预检会当场报错。）
+
+边界与纪律：
+
+- **legacy 场景（`physics.backend` 未写）选择外部进程会被拒绝**：RL 训练线是 mujoco，
+  legacy 轨迹不同分布；此时本场回退内置 FSM 并响亮报错，设置本身仍保存（换回 mujoco 场景
+  重应用即恢复）。该决策在 `godot/src/ControllerWiring.cs`（纯逻辑，`Sim.Tests` 无头回归）。
+- 应用设置时会自动预检一次（启动→握手→立刻释放，与视觉源 liveProcess 同模式）：
+  启动失败/坏应答 → 拒绝并回退；**应答超时**（首帧模型加载可能慢于 `TimeoutMs`）→ 保留
+  外部控制器并告警。
+- 展演是**非门禁证据**：`gate_evidence_eligible=false`，不写回放、不晋升 `fidelity.json`、
+  不触碰 v4 盲集；桌面实时驱动按墙钟推进，**不可位对位复现**。视觉源默认 classifyRate
+  （与训练一致），换 live 源只能标“不同条件探索”。
 
 ### 台面灰度显示（官方外观渐变, 与传感器语义分离）
 

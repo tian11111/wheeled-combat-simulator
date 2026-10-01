@@ -9,6 +9,9 @@
 2. 策略向 **stdout 写一行动作 JSON**：`{"v": <m/s>, "w": <rad/s>, "requestId": <回显>}`。
 3. 桥校验并回放到内核；非法/超时按**零动作**处理，绝不按部分动作处理。
 
+**编码**：桥固定按 UTF-8 写 `obs` 行（不随宿主控制台代码页变化），策略进程必须按
+UTF-8 读 stdin（如 `py -3.12 -X utf8 ...`）；动作行是 ASCII，任何编码下都等价。
+
 ## 观测 `obs`（camelCase）
 
 | 字段 | 类型 | 说明 |
@@ -143,3 +146,37 @@ dotnet exec src/Sim.Cli/bin/Debug/net8.0/Sim.Cli.dll match --seed 42 \
 
 注意: 适配器经管道读取子进程输出时按系统 ANSI 代码页（中文 Windows 为 GB18030）
 解码，UTF-8 解码会使 `[我方]/[对手]` 归属失效。
+
+## 桌面 SCORE_BLOCK 展演（我方 RL 策略，非门禁）
+
+桌面 F10 →「小车控制器」把**我方**设为“外部命令”，命令指向 RL 桥
+（`TimeoutMs` 建议 ≥ 5000），对手保持内置 FSM，即可在桌面复现 CLI
+`match --start-at score_block` 的交接语义。**桌面控制器子进程的工作目录是 `godot/`**
+（实测：`--path godot` 把进程 CWD 带进项目目录），相对脚本路径写
+`../tools/rl-bridge/rl_desktop_runner.py`；checkpoint 等数据路径由 runner 先按 CWD、
+再按仓库根解析。相对路径写错时应用设置时的预检会当场失败并回退内置 FSM：
+
+```text
+py -3.12 -X utf8 ../tools/rl-bridge/rl_desktop_runner.py --checkpoint <zip>
+```
+
+- 发令后先由双方内置 FSM 预推进到我方 `SCORE_BLOCK` 并锁定目标块（共享缝
+  `Sim.Hosting.ScoreBlockExhibition`，上限 4800 tick）；交接前我方不接收任何外部动作。
+- 交接后每 tick 的 `obs` 追加 11 维 `rlObservation`（前 9 项 + 我方位置归一化 x/y，
+  唯一投影在 C#；Python 只消费，禁止重算）；桥/超时/坏行语义与普通外部控制器完全一致。
+- 预检残帧（`Observation{RequestId=1}`，无 `rlObservation`）必须零动作快速应答——
+  桌面“预检”按钮与应用设置时的自动预检都走这条路径，预检不覆盖首帧模型加载时间。
+
+装配与拒绝矩阵（`godot/src/ControllerWiring.cs`，纯逻辑，`Sim.Tests` 无头回归）：
+
+| 情况 | 行为 |
+| --- | --- |
+| legacy 场景（`physics.backend` 未写）选我方 external | **拒绝**并回退内置 FSM（RL 训练线是 mujoco），设置仍保存 |
+| 预检启动失败/坏应答（launch/protocol） | 拒绝并回退内置 FSM，控制台 + HUD 红色报错 |
+| 预检应答超时（timeout） | 保留外部控制器，HUD 告警（可能只是首帧加载慢） |
+| 预推进未进入 `SCORE_BLOCK` | 不外发动作、释放子进程，HUD 显示 `展演未交接` 原因 |
+| 交接前进程退出 | 我方完整回退内置 FSM（尚未进入 Manual） |
+| 交接后进程退出 | HUD 红色告警；内核 Manual 语义安全停车（`Fsm.cs` Manual 分支） |
+
+纪律：展演恒为**非门禁证据**（不写回放、不晋升 `fidelity.json`、不触碰 v4 盲集），
+seed 取场景文件 `scenario.Seed`，桌面实时驱动按墙钟推进、**不可位对位复现**。

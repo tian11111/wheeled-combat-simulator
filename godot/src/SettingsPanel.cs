@@ -295,24 +295,45 @@ public partial class SettingsPanel : Control
 
     private Control BuildControllerPage()
     {
-        var page = MakePage();
+        // 展演说明加入后内容超出页高: 与仿真/小车页同为滚动容器。
+        var scroll = new ScrollContainer
+        {
+            Name = "ControllerSettings",
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        var page = new VBoxContainer();
+        page.AddThemeConstantOverride("separation", 10);
+        page.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.AddChild(page);
         var root = page;
         AddLabel(root, "外部小车控制器", 16, Primary);
         var warning = AddLabel(root,
             "使用外部命令/脚本通过既有 JSONL stdio 协议控制小车，不启动 Godot 内嵌代码编辑器。外部进程拥有本机权限，请只运行可信代码。",
             11, Yellow);
         warning.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        root.AddChild(BuildControllerSection("我方 / BLUE", RoleNames.Us));
+        root.AddChild(BuildControllerSection("我方 / BLUE（RL 展演）", RoleNames.Us,
+            "例如：py -3.12 -X utf8 tools/rl-bridge/rl_desktop_runner.py --checkpoint <zip>"));
         root.AddChild(BuildControllerSection("对手 / RED", RoleNames.Them));
         var note = AddLabel(root,
             "协议：每行输入 observation JSON，输出 {\"v\":...,\"w\":...,\"requestId\":...}；超时或坏行会安全回退为零动作并显示 fault。",
             11, Secondary);
         note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        // 我方 external 的新语义（RL 展演）与边界：与 Main 的装配决策同一口径。
+        var exhibitionNote = AddLabel(root,
+            "我方 external = SCORE_BLOCK 展演（RL 策略）：只在 physics.backend=mujoco 的场景启用；"
+            + "legacy 场景会被拒绝并回退内置 FSM（设置仍保存，换回 mujoco 场景重应用即恢复）。"
+            + "应用设置时自动预检一次（启动→握手→立刻释放）；预检不覆盖首帧模型加载时间，建议超时 ≥ 5000 ms。"
+            + "控制器子进程以 godot/ 为工作目录，相对脚本路径写 ../tools/rl-bridge/rl_desktop_runner.py。"
+            + "展演为非门禁证据（不写回放、不晋升 fidelity）。",
+            11, Yellow);
+        exhibitionNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         root.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
-        return page;
+        return scroll;
     }
 
-    private Control BuildControllerSection(string title, string role)
+    private Control BuildControllerSection(string title, string role, string? commandPlaceholder = null)
     {
         var panel = new PanelContainer
         {
@@ -344,7 +365,7 @@ public partial class SettingsPanel : Control
 
         var command = new LineEdit
         {
-            PlaceholderText = "例如：python my_controller.py",
+            PlaceholderText = commandPlaceholder ?? "例如：python my_controller.py",
             CustomMinimumSize = new Vector2(0, 34),
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             TooltipText = "外部控制器启动命令；留空时使用内置 FSM",
