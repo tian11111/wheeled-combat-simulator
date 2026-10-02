@@ -15,6 +15,7 @@ internal static unsafe class MujocoContacts
     private const int TimerStatBytes = 16;
     private const int TimerSlots = 15;
     private const int ContactBytes = 584;
+    private const int ContactPosOffset = 8;   // mjContact: dist(0) → pos[3](8)
     private const int ContactGeom0Offset = 540;
     private const int ContactGeom1Offset = 544;
     private const int ContactPointerOrdinal = 98;
@@ -78,6 +79,31 @@ internal static unsafe class MujocoContacts
         public byte FlgRnepost;
         public double Time;
         public fixed double Energy[2];
+    }
+
+    /// <summary>带接触点世界坐标的访问(标定轮诊断用): (geom0, geom1, posX, posY, posZ)。</summary>
+    internal static void VisitWithPos(IntPtr data, Action<int, int, double, double, double> callback)
+    {
+        var header = (DataHeader*)data;
+        var ncon = header->Ncon;
+        if (ncon < 0 || ncon > 500)
+        {
+            throw new InvalidOperationException($"Invalid MuJoCo contact count {ncon}; native ABI may be incompatible.");
+        }
+        if (ncon == 0) return;
+        var contactAddress = (byte*)data + sizeof(DataHeader) + (ContactPointerOrdinal - 1) * IntPtr.Size;
+        var contacts = *(byte**)contactAddress;
+        if (contacts == null)
+        {
+            throw new InvalidOperationException("MuJoCo reported contacts but its contact array is null.");
+        }
+        for (var i = 0; i < ncon; i++)
+        {
+            var c = contacts + i * ContactBytes;
+            callback(*(int*)(c + ContactGeom0Offset), *(int*)(c + ContactGeom1Offset),
+                *(double*)(c + ContactPosOffset), *(double*)(c + ContactPosOffset + 8),
+                *(double*)(c + ContactPosOffset + 16));
+        }
     }
 
     internal static void Visit(IntPtr data, Action<int, int> callback)

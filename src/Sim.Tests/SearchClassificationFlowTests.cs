@@ -21,7 +21,11 @@ public class SearchClassificationFlowTests
         blocks.Add(OfficialLayout.Blocks[2] with { X = 0.2, Y = 3.6 });
         if (!targetIsBlock)
         {
-            // 模型要求恰三块: 对手场景再补一块远置方块。
+            // 对手场景: 对手本身就是"探针内唯一目标", 按同一口径放在车前 0.8 m 台上。
+            // (10-02 域标定前对手摆在台下角落 (3.5,0.3), 旧摩擦 1.5 的出生接触冲量把
+            // 它踢转 4 rad/s、漂 0.78 m 恰好上台, 测试因此"碰巧"通过; 标定后踢跳消失、
+            // 对手留在台下, 而 FindTargetFor 契约是"只追台上的目标" —— 按契约修正场景,
+            // 对手上台零动作保持。)
             blocks.Add(OfficialLayout.Blocks[0] with { X = 3.6, Y = 0.2 });
         }
         return new Scenario
@@ -34,8 +38,10 @@ public class SearchClassificationFlowTests
                 Starts = new Dictionary<string, Pose2>
                 {
                     [RoleNames.Us] = new() { X = 1.9, Y = 1.9, Th = 0 },
-                    // 对手放在远离目标/探针的角落, 零动作保持。
-                    [RoleNames.Them] = new() { X = 3.5, Y = 0.3, Th = Math.PI },
+                    // 零动作保持(Manual, V=W=0); 台上静置即为目标。
+                    [RoleNames.Them] = targetIsBlock
+                        ? new() { X = 3.5, Y = 0.3, Th = Math.PI }
+                        : new() { X = target.X, Y = target.Y, Th = Math.PI },
                 },
             },
         };

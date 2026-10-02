@@ -22,9 +22,13 @@ public class IncapacitatedTests
     // —— 冲台/撞击掀翻所需的驱动能量整体下降。同场景同判据重扫 1..170(timescan,
     // 2400 tick)实测: 1..50 最大 roll 仅 19.7° 无翻覆; 选定 seed 155: 803 tick 翻覆
     // (maxRoll 180°), 809 tick 宣告 INCAPACITATED(Δ6 ≤ 30), 事件 2 次。
+    // 2026-10-02 域标定轮(每模型轮地摩擦 v1 f5 + 原地转向补偿 10)后 seed 155 不再
+    // 翻覆 —— 方向与历史观察一致: 摩擦越高越稳(降档试验曾使翻覆 84→129)。同场景同
+    // 判据重扫 1..170(tmp/calib/flipscan, 2400 tick)选定 seed 5: 318 tick 翻覆,
+    // 321 tick 宣告 INCAPACITATED(Δ3 ≤ 30), 事件 1 次。
     private static Scenario MujocoV1Scenario() => new()
     {
-        Seed = 155,
+        Seed = 5,
         Physics = new PhysicsSpec { Backend = PhysicsSpec.Mujoco, ModelVersion = PhysicsSpec.MujocoModelV1 },
         Blocks = OfficialLayout.Blocks,
     };

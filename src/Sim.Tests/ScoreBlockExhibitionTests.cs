@@ -39,8 +39,9 @@ public class ScoreBlockExhibitionTests
         Assert.False(result.NoScoreBlock);
         Assert.Null(result.Reason);
         Assert.True(result.HasTarget);
-        // implement.md 批 1 冒烟对照: seed 42 → entry_tick=281, 目标=增益块。
-        Assert.Equal(281, result.EntryTick);
+        // 域标定轮(10-02)重录: seed 42 → entry_tick=369, 目标=增益块(摩擦/补偿标定后
+        // SEARCH 轨迹变化, 旧值 281 失效; 记录见本任务 evidence/)。
+        Assert.Equal(369, result.EntryTick);
         Assert.Equal(result.EntryTick, result.PrerollTicks);
         Assert.Equal(engine.TickIndex, result.PrerollTicks);
         Assert.Equal("增益块", engine.Blocks[result.TargetIndex].Name);
@@ -68,8 +69,10 @@ public class ScoreBlockExhibitionTests
         // 同一实现 ⇒ 逐位一致; 这里同时覆盖 9+2 顺序与 clamp 口径。
         Assert.Equal(rlEnvObs, observation);
         Assert.All(observation, value => Assert.InRange(value, -1.0, 1.0));
-        // facts.md §2 实测样本（±1e-4）: 固定训练入口的数值口径。
-        double[] documented = [0.173, 0.0865, 0.5625, 0.5625, 0.0, -0.0003, 1.0, 1.0, 0.8829, -0.7476, -0.7151];
+        // 域标定轮(10-02)重录样本(±1e-4): 固定训练入口的数值口径。旧样本
+        // (10-01 facts.md §2, 摩擦 1.5/补偿 4 时代)随模型哈希失效; 新值来源同 entry
+        // tick 重录(tmp/calib/obsdiag, 每模型摩擦 v1 f5 + 补偿 10)。
+        double[] documented = [0.1273, 0.1641, 0.5625, 0.5625, 0.0, -0.0907, 1.0, 1.0, 0.8463, -0.7349, -0.7682];
         for (var i = 0; i < documented.Length; i++)
         {
             Assert.InRange(observation[i], documented[i] - 1e-4, documented[i] + 1e-4);

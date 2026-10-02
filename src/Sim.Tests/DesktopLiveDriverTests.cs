@@ -90,12 +90,12 @@ public class DesktopLiveDriverTests
         // 可见预推进：逐 tick 探测入场（真实时间节奏，上台阶段照常发布快照），
         // 到 SCORE_BLOCK 即交接；能到达交接本身就证明预推进期间我方没有收到任何
         // 外部动作（非 null 动作会把角色切 Manual，永远进不了 SCORE_BLOCK，同 CLI
-        // 展演口径）。同场景入场 tick 与 CLI 静默快进逐位一致（281）。
+        // 展演口径）。同场景入场 tick 与 CLI 静默快进逐位一致（10-02 域标定重录: 281 → 369）。
         await WaitUntil(() => driver.Status.Handoff is not null || driver.Status.HandoffReason is not null,
             timeoutMs: 60000, message: "driver did not hand off");
         Assert.Null(driver.Status.HandoffReason);
         Assert.NotNull(driver.Status.Handoff);
-        Assert.Contains("tick=281", driver.Status.Handoff!);
+        Assert.Contains("tick=369", driver.Status.Handoff!);
         Assert.Contains("增益块", driver.Status.Handoff!);
         Assert.True(driver.Status.UsController.Running);
         Assert.Equal(0, driver.Status.UsController.Faults);

@@ -29,8 +29,12 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
     // 用同一 RunTurn 逻辑重扫(tmp/timescan turn): comp=1 → 31.75 s/0.591,
     // 2 → 17.00/0.583, 4 → 7.55/0.541, 6 → 3.40/0.516, 8 → 2.05/0.434 —— 补偿单调
     // 有效但整体变慢: 真车电机扭矩上限 −43%、极速 12.566 rad/s, 原地转向可达偏航率
-    // 下降。选定值变更(或旧硬门重立)属 FSM 重校范围, 本批维持 4, 数据已留档。
-    internal const double DefaultInPlaceTurnCompensation = 4.0;
+    // 下降。
+    // 2026-10-02 域标定轮定值 10.0(原 4.0): 电机真值化后 comp 是转向权限的第一杠杆
+    // (满 duty 原地转 0.236→0.989 rad/s), 与每模型轮地摩擦(v1 f5/v2 f6, 见
+    // WheelContactOptions)联合定值; 10 ⇒ v1 稳态偏航 2.54 rad/s, 触及真车锚点带
+    // (MOTOR_TURN_CALIBRATION ~2.4 rad/s)。旧结论"本批维持 4"作废。
+    internal const double DefaultInPlaceTurnCompensation = 10.0;
     private readonly double _inPlaceTurnCompensation;
     private readonly MotorDriveOptions _motorOptions;
     // 倾覆判定的阈值: 车体 up 轴与世界 Z 的点积。0.5 = 倾角 60°; 实测正常行驶
@@ -48,13 +52,15 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
 
     internal MujocoPhysicsBackend(PhysicsBackendContext context,
         double inPlaceTurnCompensation = DefaultInPlaceTurnCompensation,
-        MotorDriveOptions motorOptions = default)
+        MotorDriveOptions motorOptions = default,
+        WheelContactOptions wheelContact = default)
     {
         _context = context;
         _inPlaceTurnCompensation = inPlaceTurnCompensation;
         _motorOptions = motorOptions;
         Validate(context);
-        var (xml, assets, hash) = MujocoModel.Generate(context);
+        var (xml, assets, hash) = MujocoModel.Generate(context,
+            MujocoModel.IsV2(context) ? MujocoMeshAssets.Load() : Array.Empty<MujocoMeshAsset>(), wheelContact);
         ModelSha256 = hash;
         _ownsModel = true;
         try
