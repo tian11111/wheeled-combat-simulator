@@ -1447,3 +1447,33 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - 修复 high 缺陷(误接管冻结)后再跑对照——R4 真验证; 巡台 early-fire 阈值待按官方场灰度重标; 本地领先 origin 13 提交
+
+
+## Session 44: MbriFsm 能力修复轮（灰度重标+回台+P2 视觉追击）
+
+**Date**: 2026-10-02
+**Task**: 10-01-mbri-fsm-port 能力修复与验证
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+/workflow 三代理(巡台修复者/追击移植者/验证目检者+评审, 子代理按用户要求跑 GLM-5.3-Flash——本日第三次失败后第三次重试成功, 配额曾耗尽): ①A1 灰度重标——仿真车 calibrate_gray 真场采样流程对官方场 SensorSampler 离线采样, zone 端点重锚 E≈329/C≈651(台心≈1/台沿→0/走道≈-1.03), early-fire 治理 MEDIUM_CRUISE 可达; ②A2 reentry 新增 REMOUNT 有界回台(倒车冲台+fall-domain 恢复判定+1+2 重试); ③P2 MbriHunt/MbriProbe 移植(ObjectSet 真值特权投影, 披露)+仲裁集成, 得分路径打通。对照(33 场+batch 交叉): mirror-mbri 掉台中位 2(1-7) vs builtin 43(3-56, 与修复前逐位一致=确定性证明); mbri 得分中位 2.0(8/11 场有分); 冻结消除(事件 19→262-391/场)。不利如实: head-us 同场得分 1 vs 13 全负(稳而不赢); REMOUNT 显式成功出口集成 0 触发(回台经其它分流); hunt 接洽率低(官方起始位姿 CRUISE 窗与块可见零重合)。终验 3/3 绿(695+1Skip/replay 逐位/Godot 0 错)。Godot 目检 PASS(三帧判读+设置还原)。默认切换决策包入 report-capability.md(执行待用户)。提交 595504e/0dc3dc1。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `595504e` | feat(sim): MbriFsm 能力修复轮——灰度重标+掉台回台+P2 视觉追击 |
+| `0dc3dc1` | docs(task): 对照证据/验收报告与切换决策包; spec 条款修订 |
+
+### Testing
+
+- [OK] 终验全量 695+1Skip 0 失败; replay-check seed-42 逐位; Godot 0 警 0 错; Mbri 族 128/128; 33 场对照+3 batch 交叉; MuJoCo 5 场不崩溃; 目检三帧判读
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 默认切换决策包待拍板(切=重录 legacy 基线全套); '稳而不赢'(hunt 接洽率/巡台避险占主导)与 REMOUNT 显式出口 0 触发留待迭代; 本地领先 origin 19 提交
