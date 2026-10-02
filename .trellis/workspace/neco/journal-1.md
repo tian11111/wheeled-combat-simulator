@@ -1513,3 +1513,38 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 - 推击出界余量（head BlockScore 0/11 主因：探点悬空先于块出界 ~1-2 帧）需块-探点几何 instrumentation
 - 追击振荡（特权投影 8fps 帧时钟下 BIG_TURN/ARC 摆动）留 yolo-bridge 保真轮
 - 角部落水几何（REVERSE 3s 满超时 2.4m 超 REMOUNT 预算）；REMOUNT 显式出口 0 触发同源残余
+
+## Session 46 (2026-10-02)
+
+`10-02-mujoco-domain-calibration` — MuJoCo 域校准：转向权限/推击/登台回台
+
+### What We Did
+
+1. 限制器定位：摩擦双峰扫描（f3..f16，v1 峰 f5=2.54 / v2 峰 f6=1.17 rad/s）+ 质量缩放（∝1/mass）⇒ 四轮固定朝向滑移转向是过约束系统，稳态偏航由"差速驱动力矩 vs 横向刷矩"平衡决定；真车 2.4 rad/s 靠胎纹各向异性，MuJoCo 各向同性摩擦表达不了 ⇒ v2 天花板 ~1.1-1.2 rad/s（如实披露，不硬凑）。
+2. 定值（全部 Sim.Mujoco 内部）：`WheelContactOptions.Resolved(isV2)` 每模型摩擦 v1=5.0/v2=6.0（工程初值，扫描锚定）；`DefaultInPlaceTurnCompensation` 4→10。推块实测 1.201 m ≥0.3；v1 seed42 端到端 20:0 + BlockScore t=368（基线 0 得分/88% 对顶死锁）。
+3. mbri R4：原"在台时间 ≥60%"判据系把 10-01 的回台率 60-68% 误植，执行期修正（prd 内标注）；11 种子对照 = 登台 11/11、回台率中位 0.50（legacy 0.67，残例同类：台角/围栏卡位）。
+4. 钉值重录（逐一复核非真回归）：v1 哈希 4d7b1810…（v2 6ce51b19…）、entry tick 281→369、11 维观测样本重录、翻覆种子 155→5（摩擦越高越稳，与降档 84→129 历史同向）、对手上台场景修正——旧场景靠"出生踢跳把台下对手踢上台"的伪影通过（FindTargetFor 契约=只追台上目标）。
+5. 探针转正 `MujocoDomainCalibrationTests`（v1 ≥2.0 / v2 上限带 [1.0,1.35] / 推块 ≥0.3m），临时探针删除。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| (本轮) | feat(mujoco): 域标定定值——每模型轮地摩擦 v1 f5/v2 f6 + 原地转向补偿 10 |
+| (本轮) | test(mujoco): 探针转正 + 域钉值重录 |
+| (本轮) | docs(task): 域校准证据/披露报告/PRD 判据修正 |
+
+### Testing
+
+- [OK] 全量 699 过 0 失败 1 跳过（非 Windows 守卫）; replay-check replays/seed-42.json 4:49/752 逐位 PASS
+
+### Status
+
+[OK] **Completed**（R1-v2 未达标属已披露建模缺口，非任务内未竟）
+
+### Next Steps
+
+- v2 转向权限越 2.0 需接触模型层工作（各向异性摩擦/轮胎模型）→ 保真度轮（真机遥测采集任务衔接）
+- v2 场景 seed42 无推块得分（掉台 7+3 偏多）→ v2 对局行为可作 v2 保真度轮的观测项
+- mbri REMOUNT 台角/围栏卡位残例（legacy 2/11、mujoco 4/11 种子）→ 10-01-mbri-fsm-port 残余清单
+- RL 重训（用户已拍板：模型改完重训，直接改现有 v1/v2）
