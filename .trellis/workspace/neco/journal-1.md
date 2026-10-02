@@ -1325,3 +1325,288 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - 视觉线余项: 语义验收需真相机/真车录像(用户环境, runner --input 相机序号已就绪); 本地领先 origin 2 提交待用户说推再推
+
+
+## Session 40: RL 策略接入桌面可选控制器（动态工作流五批 + 主会话 e2e 补验）
+
+**Date**: 2026-10-01
+**Task**: 10-01-rl-desktop-controller
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+/workflow 启动动态工作流(5 子代理, deepseek-v4.1-flash, 1h54m/125M tok)落地三批: ①核心桥——Sim.Hosting.ScoreBlockExhibition 共享缝(预推进 4800/目标锁定/11 维投影, rl-env 委托逐字节不变)+Observation.RlObservation 加性字段+CLI match --start-at score_block+桥 stdin UTF-8; ②tools/rl-bridge/rl_desktop_runner.py(SB3 deterministic/维度门拒 9 维旧模型/--stub 解耦协议与真权重/selftest 全绿); ③桌面设置页控制器区+预检/释放链+HUD 告警回退+legacy 场景拒绝 RL。终验 5/6 绿(565 测试/replay-check/godot/selftest), e2e exit=1——主会话判明是工作流脚本编的 e2e 命令漏了 --start-at score_block 与 --timeout-ms(冷启动 1-2s > 默认 100ms), 修正后真权重对抗绿: **RL 3:1 FSM**, faults 0/0, handoff tick=281, 双跑逐位一致。独立评审 9 发现(1 medium 确认未修: rlObservation 注入无测试钉住, 建议 EchoController 加模式; 8 low 披露), 开放决策 Q1-Q8 待拍板(Q4 checkpoint 选型 dev-sweep 全部 gate_passed=false, 推荐 rl_model_204800_steps.zip 9分0掉台)。按批提交 e24af24/907985f/6096f5f/e155d67。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e24af24` | feat(sim): SCORE_BLOCK 展演共享缝与 match --start-at 交接 (批1) |
+| `907985f` | feat(tools): RL 桌面运行器 rl_desktop_runner (批2) |
+| `6096f5f` | feat(godot): 设置页控制器选择区与 HUD 告警回退 (批3) |
+| `e155d67` | docs(task): 任务工件与验收报告; spec 展演纪律沉淀 |
+
+### Testing
+
+- [OK] 全量 565+1Skip 0 失败; replay-check seed-42 逐位; Godot 0 警 0 错; selftest real mode+跨语言 PASS; e2e 真权重 RL 3:1 FSM 双跑逐位一致(exhibition=true gateEvidenceEligible=false)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 用户拍板 Q1-Q8(重点 Q4 checkpoint 选型/Q6 桌面超时≥500ms/Q3 旗标命名); 桌面真窗口目检控制器切换; medium 发现(注入无测试钉住)待决策; 本地领先 origin 5 提交待说推再推
+
+
+## Session 41: RL 桌面接入自验收（动态工作流）+ 两缺陷修复
+
+**Date**: 2026-10-01
+**Task**: 10-01-rl-desktop-controller 桌面验收收尾
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+/workflow 自验收(dwfrun-815795ad, 桌面验收员+缺陷修复者双代理): 走 --settings-smoke/--capture 无人值守通道备份种子设置 JSON(我方=外部进程/绝对路径/timeoutMs 5000/mujoco 场景)逐项目检。**桌面 RL 真驱动成立**: HUD『外部·在线/展演交接 tick=281 目标=增益块』全绿、多帧位姿不同、终局 3:1; 坏命令预检与 legacy 拒绝均响亮失败。9 项: 7 pass / 1 inconclusive(应用设置落盘无法无人值守注入, 载入方向已实证) / 1 修复复验; HUD 启动假红未真实出现(不记缺陷, 代码路径仍在)。证实并修复两 low 缺陷: ①设置页占位符 tools/... 与子进程 CWD=godot/ 矛盾(照抄必预检失败)→改 ../tools/...; ②桥对"能启动但当场退出"的命令空等满 TimeoutMs 且误报应答超时→100ms 排空宽限后快报 process exited, 预检识别新文案。修复后全量 567+1Skip 0 失败(主会话复核), CLI e2e 复验 3:1 一致。用户设置已还原(原文件不存在, 种子已删)。目检证据 45 件入库 godot/docs/qa-10-01/。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `26f49a3` | fix(godot): 自验收目检证实两缺陷修复 |
+| `d949c31` | docs(task): 自验收报告与目检证据; journal Session 40 |
+
+### Testing
+
+- [OK] 主会话复核全量 567+1Skip 0 失败; CLI e2e 真权重 RL 3:1 FSM(exhibition 语义); 目检 9 项逐条判定, 证据在 godot/docs/qa-10-01/
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Q1-Q8 待拍板(Q4 checkpoint 选型最关键); 中发现(rlObservation 注入无测试钉住)待决策; 本地领先 origin 7 提交待说推再推
+
+
+## Session 42: RL 探索加训三组（当前物理）+ dev 评测 + 展演对照
+
+**Date**: 2026-10-01
+**Task**: 10-01-rl-desktop-controller 后续探索
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+应用户"接着训练几组 RL"启动 3 组探索训练（20261002/03/04, 500k, 当前代码/物理——旧五组是时基修复+电机标定前的旧物理, 按契约不得复用正式评测）。结果: 20261004 组显著强——dev 集 204800 checkpoint 锁定目标得分 13（FSM 基线 1）, 153600 得 9 分/4 掉台, 总分 58:15; 但 gate 0/13 全卡在掉台>FSM 基线 2（电机标定后 FSM 掉台也从历史 53-62% 降到 2/20, 门槛实质变严）。旧口径纠正: 旧 dev-sweep 实为 7/50 gate 通过（最好 20261001@204800 = 9分0掉台）, 10-01 工作流调研"全部 false"有误。展演 seed 42: 新 04-204800 与旧 204800 同 3:1（sha256+事件流 diff 确认两模型各自驱动, 同分巧合）。轮次结论（掉台饱和/问题不在奖励）在当前物理下再次确证; 想过 gate 需观测/课程层新任务。产物 .sim_runs/score-block-v4-exploration-20261001/（不入库）, 摘要入任务目录 rl-exploration-20261001.md。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `92b6821` | docs(task): RL 探索加训结果摘要 |
+
+### Testing
+
+- [OK] dev 集评测 3 final + 10 阶梯（20 seed 各, evaluate.py development_v4）; 展演对照 2 场（sha256 验证）; 三训练 run-config status=completed
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Q4 拍板: 展演默认 checkpoint 换新 04-204800（13 分）; 过 gate 需台沿风险观测/课程新任务; 本地领先 origin 8 提交待说推再推
+
+
+## Session 43: MBri 比赛逻辑移植内置可选 FSM（动态工作流 3 代理）
+
+**Date**: 2026-10-01
+**Task**: 10-01-mbri-fsm-port
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+/workflow 落地(1h08m/91M tok, 批1/批2/批3 三代理+评审+修复轮): MbriFsmController 加法式移植——MbriUnits(k=0.000896 锚点 config 实测, TrackWidth 0.229 实测)/MbriGrayCalibration(仿真灰度→真车 ADC 逐通道仿射+FallDomain)/MbriRiskModel+MbriPatrol(gray.py/ring_patrol.py 逐行, 九态)/MbriReentry(reentry.py 逐行)/仲裁(main.py 优先链); 接线 vehicles[].controller=mbri(协议加法)+CLI --stats+桌面三档。终验 3/3 绿(651 测试+1 跳/seed-42 逐位/Godot 0 错)。**但核心缺陷(评审 high 未修)**: mbri 开场在 START_REVERSE 预热窗内被走道灰度 FallDomain 误触掉台判定 → reentry 接管 REVERSE 横穿台面跌下对侧 → SAFE_STOP 吸收态冻结全场——对照数字"掉台中位 43→1"是冻结常数不是巡台能力, R4 目标未达成。其余披露: 前向模拟红外对 f 同值桥接致对准恒 center(medium)/常量硬编码不读 SimParameters/空断言/healthy 门控缺/单位公式 2× 差异/repro 归档(已补 evidence/repro/)。修复路径明确(误触窗门控+SAFE_STOP 出边+巡台 early-fire 阈值), 待用户裁决后另轮。按批提交 37fc556/bdc7bcd/2e777d5。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `37fc556` | feat(sim): MBri 移植批1+批2 (Core 六文件+七测试文件) |
+| `bdc7bcd` | feat(sim): MbriFsm 选择接线 (协议加法+CLI+桌面) |
+| `2e777d5` | docs(task): 对照证据/验收报告; spec Mbri 条款; journal |
+
+### Testing
+
+- [OK] 终验全量 651+1Skip 0 失败; replay-check seed-42 逐位; Godot 0 警 0 错; 44 场对照台账(结果受开场冻结缺陷污染, 已披露)
+
+### Status
+
+[OK] **Completed（带 disclosed 缺陷）**
+
+### Next Steps
+
+- 修复 high 缺陷(误接管冻结)后再跑对照——R4 真验证; 巡台 early-fire 阈值待按官方场灰度重标; 本地领先 origin 13 提交
+
+
+## Session 44: MbriFsm 能力修复轮（灰度重标+回台+P2 视觉追击）
+
+**Date**: 2026-10-02
+**Task**: 10-01-mbri-fsm-port 能力修复与验证
+**Branch**: `test/score-block-ppo-checkpoint-round`
+
+### Summary
+
+/workflow 三代理(巡台修复者/追击移植者/验证目检者+评审, 子代理按用户要求跑 GLM-5.3-Flash——本日第三次失败后第三次重试成功, 配额曾耗尽): ①A1 灰度重标——仿真车 calibrate_gray 真场采样流程对官方场 SensorSampler 离线采样, zone 端点重锚 E≈329/C≈651(台心≈1/台沿→0/走道≈-1.03), early-fire 治理 MEDIUM_CRUISE 可达; ②A2 reentry 新增 REMOUNT 有界回台(倒车冲台+fall-domain 恢复判定+1+2 重试); ③P2 MbriHunt/MbriProbe 移植(ObjectSet 真值特权投影, 披露)+仲裁集成, 得分路径打通。对照(33 场+batch 交叉): mirror-mbri 掉台中位 2(1-7) vs builtin 43(3-56, 与修复前逐位一致=确定性证明); mbri 得分中位 2.0(8/11 场有分); 冻结消除(事件 19→262-391/场)。不利如实: head-us 同场得分 1 vs 13 全负(稳而不赢); REMOUNT 显式成功出口集成 0 触发(回台经其它分流); hunt 接洽率低(官方起始位姿 CRUISE 窗与块可见零重合)。终验 3/3 绿(695+1Skip/replay 逐位/Godot 0 错)。Godot 目检 PASS(三帧判读+设置还原)。默认切换决策包入 report-capability.md(执行待用户)。提交 595504e/0dc3dc1。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `595504e` | feat(sim): MbriFsm 能力修复轮——灰度重标+掉台回台+P2 视觉追击 |
+| `0dc3dc1` | docs(task): 对照证据/验收报告与切换决策包; spec 条款修订 |
+
+### Testing
+
+- [OK] 终验全量 695+1Skip 0 失败; replay-check seed-42 逐位; Godot 0 警 0 错; Mbri 族 128/128; 33 场对照+3 batch 交叉; MuJoCo 5 场不崩溃; 目检三帧判读
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 默认切换决策包待拍板(切=重录 legacy 基线全套); '稳而不赢'(hunt 接洽率/巡台避险占主导)与 REMOUNT 显式出口 0 触发留待迭代; 本地领先 origin 19 提交
+
+---
+
+## Session 45 (2026-10-01)
+
+### Task
+
+`10-01-mbri-hunt-engagement` — MBri 巡台行为重校：hunt 接洽与回台链（A3–A6）
+
+### What We Did
+
+1. 根因一（巡台）：真车 early-front 线 0.76 在官方场=探点距沿 0.46m，把 0.72m 的 RECOVER 全程划进提前避边区 → EDGE_AVOID 极限循环 → CRUISE 不可达 → hunt 门禁永不打开。A3：前路线重推 0.35（与 near-edge 同线，↔0.24m）。
+2. 根因二（回台）：A2 固定倒车冲台被"f 对齐台沿→倒离"反转成走道死螺旋（seed42 九轮 REMOUNT/SAFE_STOP 到终场）；mirror 中对手在旁时 analog 桥（max(f,对角)）把对手当墙对齐（seed1 双方 108s 不回台）。A4' 原路前冲回台（REVERSE 必来自 f 对齐⇒台在正后方）+ A5 分派灰度粗定向 + A5b IR_WAIT 转 90° 扫描 + A6 analog Valid=f 亮。
+3. 11-seed×2 对照：head 1:13→2:13（seed8 22:10）；mirror GOOD_PUSH 11/11 场 84 latch（基线个位场次）；mirror 掉台持平、我方中位 2.0→1.0（对手 0→1，如实披露）。
+4. 接线冒烟块位按开局朝向重摆（A3 后巡台有序化，不再靠旧避障环偶然转向扫到块）；smoke 升级为官方场自主回台全链。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| (本轮) | feat(sim): Mbri hunt 接洽行为重校 A3–A6 |
+| (本轮) | docs(task): hunt 重校证据/报告/PRD 修订 |
+
+### Testing
+
+- [OK] 全量 696+1Skip 0 失败; replay-check seed-42 逐位 PASS; Godot 构建 0 错; Mbri 族 129/129
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 推击出界余量（head BlockScore 0/11 主因：探点悬空先于块出界 ~1-2 帧）需块-探点几何 instrumentation
+- 追击振荡（特权投影 8fps 帧时钟下 BIG_TURN/ARC 摆动）留 yolo-bridge 保真轮
+- 角部落水几何（REVERSE 3s 满超时 2.4m 超 REMOUNT 预算）；REMOUNT 显式出口 0 触发同源残余
+
+## Session 46 (2026-10-02)
+
+`10-02-mujoco-domain-calibration` — MuJoCo 域校准：转向权限/推击/登台回台
+
+### What We Did
+
+1. 限制器定位：摩擦双峰扫描（f3..f16，v1 峰 f5=2.54 / v2 峰 f6=1.17 rad/s）+ 质量缩放（∝1/mass）⇒ 四轮固定朝向滑移转向是过约束系统，稳态偏航由"差速驱动力矩 vs 横向刷矩"平衡决定；真车 2.4 rad/s 靠胎纹各向异性，MuJoCo 各向同性摩擦表达不了 ⇒ v2 天花板 ~1.1-1.2 rad/s（如实披露，不硬凑）。
+2. 定值（全部 Sim.Mujoco 内部）：`WheelContactOptions.Resolved(isV2)` 每模型摩擦 v1=5.0/v2=6.0（工程初值，扫描锚定）；`DefaultInPlaceTurnCompensation` 4→10。推块实测 1.201 m ≥0.3；v1 seed42 端到端 20:0 + BlockScore t=368（基线 0 得分/88% 对顶死锁）。
+3. mbri R4：原"在台时间 ≥60%"判据系把 10-01 的回台率 60-68% 误植，执行期修正（prd 内标注）；11 种子对照 = 登台 11/11、回台率中位 0.50（legacy 0.67，残例同类：台角/围栏卡位）。
+4. 钉值重录（逐一复核非真回归）：v1 哈希 4d7b1810…（v2 6ce51b19…）、entry tick 281→369、11 维观测样本重录、翻覆种子 155→5（摩擦越高越稳，与降档 84→129 历史同向）、对手上台场景修正——旧场景靠"出生踢跳把台下对手踢上台"的伪影通过（FindTargetFor 契约=只追台上目标）。
+5. 探针转正 `MujocoDomainCalibrationTests`（v1 ≥2.0 / v2 上限带 [1.0,1.35] / 推块 ≥0.3m），临时探针删除。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| (本轮) | feat(mujoco): 域标定定值——每模型轮地摩擦 v1 f5/v2 f6 + 原地转向补偿 10 |
+| (本轮) | test(mujoco): 探针转正 + 域钉值重录 |
+| (本轮) | docs(task): 域校准证据/披露报告/PRD 判据修正 |
+
+### Testing
+
+- [OK] 全量 699 过 0 失败 1 跳过（非 Windows 守卫）; replay-check replays/seed-42.json 4:49/752 逐位 PASS
+
+### Status
+
+[OK] **Completed**（R1-v2 未达标属已披露建模缺口，非任务内未竟）
+
+### Next Steps
+
+- v2 转向权限越 2.0 需接触模型层工作（各向异性摩擦/轮胎模型）→ 保真度轮（真机遥测采集任务衔接）
+- v2 场景 seed42 无推块得分（掉台 7+3 偏多）→ v2 对局行为可作 v2 保真度轮的观测项
+- mbri REMOUNT 台角/围栏卡位残例（legacy 2/11、mujoco 4/11 种子）→ 10-01-mbri-fsm-port 残余清单
+- RL 重训（用户已拍板：模型改完重训，直接改现有 v1/v2）
+
+## Session 47 (2026-10-02)
+
+`10-01-rl-desktop-controller` 后续 — RL 随机块重训探索轮（seed 20261005）
+
+### What We Did
+
+1. 域随机化场景落地：`wushu-ring-2026-mujoco-random.json`（三块 X/Y=null ⇒ RespawnBlock 按种子确定性放置），两端冒烟过。
+2. 对照实验先出：旧最优（20261004@204800）在校准后物理两边全失效——冻结 40:126（基线 97:138）、随机 52:48（基线 52:50），gate 0；桌面"RL 变笨"坐实。
+3. 单-env 训练卡死诊断：随机布局 preroll 失败率 32%（4800 tick 上限白跑），34 步/s；`--n-envs 4` 重启 → 470 步/s（×10），500k 约 18 分钟。
+4. 随机重训结果（dev 20 seeds，探索性）：总分碾压（最好 409600 = 138:66 vs FSM 52:50，掉台 5 vs 11）**但推块能力未学到**（BlockScore 事件 0–1 次 vs FSM 7；全部得分来自保台读秒+对手掉台），gate 全 False 如实披露；冻结迁移 72:144（劣于基线但掉台 2 vs 旧 13）。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| (本轮) | feat(scenario): 训练变体——三能量块按种子随机 |
+| (本轮) | docs(task): RL 随机块重训探索轮摘要 |
+
+### Testing
+
+- [OK] 训练 run-config status=completed；三组 dev 评测 json 落 `.sim_runs/score-block-v4-randomblocks-20261002/`（不入库）；探索性分析不作门槛证据（契约）
+
+### Status
+
+[OK] **Completed**（探索轮；推块激励属奖励设计，按 v4 冻结决策需另立任务拍板）
+
+### Next Steps
+
+- 桌面展演 checkpoint 换 409600（随机/冻结都优于旧策略现状）——待用户拍板
+- 策略"苟分不推块"若要纠正 → 奖励/课程新轮（训练前 No-Go 流程）
+
+## Session 48 (2026-10-02)
+
+`10-01-rl-desktop-controller` 后续 — aggression 奖励变体两轮（用户指令"不能苟分，让他动"，显式解除 v4 奖励冻结）
+
+### What We Did
+
+1. `RlEnvCommand --reward` 变体开关（默认 v4 逐位不变，info 变体才写 reward_variant 键；gym_env/train.py 穿透 + run-config 记录；selftest 44/44）。
+2. aggression-v1（时间成本 −0.0004 + 逼近整形 0.04×Δ）：动了但仍不推块（BlockScore 0–2/20 场）——逼近电位到接触即归零，策略贴着块苟；教训=只加活动整形不够。
+3. aggression-v2（成功 +5 + 边沿整形 0.5×Δ）：**102400 checkpoint 过 gate（项目首个）**——锁定推分 5=FSM、掉台 9<11、总分 88:47；但后期衰减（409600 起推块归 0、总分涨到 145）——"安全苟分"盆地随 value 收敛重新吸收策略，单靠权重钉不住推块。
+4. v2@102400 冻结迁移 59:131（推 3/FSM 6，掉 10）：推块部分迁移，总分输 them 主场。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| (本轮) | feat(rl): aggression-v1/v2 奖励变体（--reward 开关，默认 v4 逐位不变） |
+| (本轮) | docs(task): aggression 两轮摘要（首个 gate-passed checkpoint 与后期衰减披露） |
+
+### Testing
+
+- [OK] selftest 44 过 0 失败；三组 dev 阶梯 json 落 .sim_runs/score-block-v4-aggression-20261002/（不入库）
+
+### Status
+
+[OK] **Completed**（探索轮；checkpoint 转正/盲验待用户拍板）
+
+### Next Steps
+
+- 展演 checkpoint 候选 v2@102400（随机 gate True）；若转正按契约跑 final_holdout_v4 盲验一次
+- 钉住推块（抗后期衰减）需课程/KL 锚定等结构手段——新预注册轮

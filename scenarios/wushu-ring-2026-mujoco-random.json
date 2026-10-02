@@ -1,0 +1,49 @@
+{
+ "protocolVersion": "v1",
+ "layoutVersion": "arena-layout-v1",
+ "id": "wushu-ring-2026-random",
+ "name": "2026 武术擂台 — MuJoCo 训练变体（方块按种子随机）",
+ "seed": 42,
+ "physics": {
+  "backend": "mujoco",
+  "modelVersion": "wushu-mjcf-v1"
+ },
+ "field": {
+  "fieldSize": 3.8,
+  "aisleWidth": 0.7,
+  "fenceHeight": 0.2,
+  "platformHeight": 0.06,
+  "pose": {
+   "x": 0.0,
+   "y": 0.0,
+   "th": 0.0
+  },
+  "platform": {
+   "minX": 0.7,
+   "minY": 0.7,
+   "maxX": 3.1,
+   "maxY": 3.1
+  },
+  "blockSize": 0.15,
+  "blockRadius": 0.075,
+  "matchDuration": 120,
+  "tickSeconds": 0.05
+ },
+ "blocks": [
+  {
+   "kind": "buff",
+   "x": null,
+   "y": null
+  },
+  {
+   "kind": "buff",
+   "x": null,
+   "y": null
+  },
+  {
+   "kind": "debuff",
+   "x": null,
+   "y": null
+  }
+ ]
+}

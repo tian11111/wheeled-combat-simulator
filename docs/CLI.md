@@ -51,6 +51,36 @@ dotnet run --project src/Sim.Cli -- match --seed 42 \
 输出每种子一行（步数、比分、结束原因、fault、判罚），多种子时附胜负汇总。
 未指定 `--controller-*` 的角色使用内置 FSM。
 
+`--stats`（追加式，缺省关）：每个种子在人类摘要后追加一行机器可读在台迁移统计
+`stats seed=<S> us_falls=.. them_falls=.. us_mounts=.. them_mounts=..`（掉台 = 提交快照
+`OnPlatform` true→false，与裁判 `Drop` 判定同源；双方同帧掉台时裁判归并为中性事件而
+`--stats` 仍按物理迁移对两侧各计 1）。仅 `match` 接受该旗标。
+
+### 场景 `vehicles[].controller` — 内置控制器选择（协议加法）
+
+- 省略 / `"builtin"` = 既有内置 FSM（默认，行为逐位不变）；`"mbri"` = MBri 移植控制器
+  （`.trellis/tasks/10-01-mbri-fsm-port`）。桌面设置页同一档位会把该字段写进本场场景。
+- 外部进程控制器仍走 `--controller-us/--controller-them` 与桌面进程桥，不占用该字段；
+  显式外部动作对相应角色优先于场景选择。
+
+### `--start-at score_block` — SCORE_BLOCK 展演（RL 策略，非门禁）
+
+```bash
+# 先用双方内置 FSM 预推进到我方 SCORE_BLOCK, 再把「我方」交给外部策略;
+# obs 追加 11 维 rlObservation（与 rl-env 训练入口同一投影）, 对手仍走内置 FSM。
+dotnet run --project src/Sim.Cli -- match --seed 42 \
+  --scenario scenarios/wushu-ring-2026-mujoco.json --events --timeout-ms 5000 \
+  --start-at score_block \
+  --controller-us "py -3.12 -X utf8 tools/rl-bridge/rl_desktop_runner.py --checkpoint <zip>"
+```
+
+- 摘要追加 `exhibition=true gateEvidenceEligible=false handoff=... entryTick=... target=...`；
+  `--events` 另打一行 `[handoff] ...`。默认（不带该旗标）输出与行为逐字节不变；
+  `replay-record`/`batch` 不接受该旗标（整场动作流才能形成回放身份）。
+- 预推进 4800 tick 内未进入 SCORE_BLOCK ⇒ 返回 `reason=no_score_block` 摘要、**不调用策略**。
+- 交接后我方进入 Manual 语义（FSM 不再产生决策事件）；策略故障按超时/坏行统一零动作 + faults。
+- 展演不是门禁证据：不得据此晋升 `fidelity.json`、不得写入 v4 盲集索引。
+
 ## batch — AI agent 无头并行批量仿真 (JSONL)
 
 面向 AI agent / 脚本的批量入口：**不启动 Godot、不依赖任何桌面组件**，多个独立

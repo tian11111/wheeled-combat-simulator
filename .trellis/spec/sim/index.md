@@ -30,7 +30,64 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
 
 - 无 Godot 环境的可测逻辑放纯文件（如 `godot/src/SnapshotView.cs`），
   用 `<Compile Include>` 链接进 `Sim.Tests`，不要为它新建工程。
-- 外部控制器一律走 `Sim.Cli.PythonBridge`（JSONL、request-id 匹配、超时→零动作、计 fault）。
+- 外部控制器一律走共享桥 `Sim.Controller.ExternalControllerBridge`（JSONL、UTF-8 行、
+  request-id 匹配、超时→零动作、计 fault；CLI/桌面/Sim.Tests 同一实现）；CLI 的
+  `Sim.Cli.PythonBridge` 只是兼容包装（2026-09-01 起实现下沉，见 `docs/CONTROLLER_PROTOCOL.md`）。
+- SCORE_BLOCK 展演（RL 策略试跑，非门禁）的**共享装配入口**是 `Sim.Hosting.ScoreBlockExhibition`
+  纯缝（CLI `match --start-at score_block` / `rl-env` 训练入口 / 桌面 driver 三方同一实现：
+  预推进 4800 tick / 目标锁定 / 11 维观测投影）；观测经 `Observation.rlObservation` 加性字段
+  下发（null 不序列化、旧消费者字节不变），只在交接后填充。
+  **IO 例外边界**：进程/时钟编排只在 Sim.Cli、桌面壳与 `Sim.Controller` 桥，RL 控制器进程本体是
+  `tools/rl-bridge/rl_desktop_runner.py`（Python，UTF-8、逐帧 flush）；`Sim.Hosting` 缝本身
+  零 IO/时钟/RNG，`Sim.Core` 不得新增 IO。
+- 桌面展演装配纪律（`godot/src/ControllerWiring.cs` 纯决策 + `DesktopLiveDriver` 交接门控）：
+  我方外部控制器**只在 mujoco 场景**启用（legacy 场景明确拒绝并回退内置 FSM，设置仍保存）；
+  应用设置时预检（启动→握手→释放），确定性坏命令回退、应答超时只告警；发起令后由共享缝
+  预推进到 SCORE_BLOCK 才交接，未交接不喂外部动作。展演恒 `gate_evidence_eligible=false`、
+  seed 取 `scenario.Seed`、不写回放/不晋升 fidelity/不触碰 v4 盲集，runner/driver 不得引入
+  RNG（桌面实时驱动按墙钟，属不可位对位复现的展演，不是训练/门禁证据）。
+
+## 内置 MBri 控制器（可选档 `vehicles[].controller`，10-01 落地）
+
+- **选择契约（协议加法）**：场景 `vehicles[us|them].controller` 取值 `builtin`（省略默认）
+  或 `mbri`（`src/Sim.Protocol/Profiles.cs:224-245`，null 不序列化、既有 wire 不加宽）；
+  桌面设置页"来源"同档位（内置 FSM / 内置 MBri / 外部命令），仅显式选择 MBri 时把字段
+  写进本场场景（`godot/src/DesktopSettings.cs:287-312`）。外部进程控制器继续走
+  `--controller-us/--controller-them` 与桌面进程桥，不占用该字段，外部动作优先于场景选择。
+  省略/显式 builtin 的场景行为逐位不变（`src/Sim.Tests/MbriSelectionTests.cs` 指纹相等 +
+  replay-check seed-42 + 官方场景 vs 缺省副本 diff）。
+- **实现边界**：`Sim.Core.MbriFsmController`（+ `MbriPatrol` / `MbriReentry`）是纯内置控制器，
+  零 IO/时钟/随机（真车 wall-clock 统一经 `MbriUnits.SecondsToTicks` 换算为 tick）；
+  `MatchEngine` 只按场景选择构造与逐 tick 派发（`src/Sim.Core/MatchEngine.cs:135-136,687-692`），
+  不触碰物理/裁判/传感器采样。新桥接/新偏差必须在 `MbriFsm.cs` 头注释逐项披露。
+- **单位与标定层（数值合同）**：轮速 `WheelToMs = unit×0.000896`（真车 400×0.6 s=21.5 cm
+  实测锚点）；差速 `w=(r−l)/(2·TrackWidth)·k` 的 TrackWidth 取**真车实测 0.229 m**
+  （`src/Sim.Core/MbriUnits.cs:14-17`；来源 `src/Sim.Mujoco/MujocoModel.cs:95-97` 轮心实测与
+  v2 场景同值；旧桥猜测 0.18 已弃用，偏差 21.4% < 30% 停线阈值）。灰度 0–1000 → 真车 ADC
+  的逐通道仿射（`SimToAdc`/`SimToAdcWhite`）是"结构忠实、数值近似"层：真车非线性/噪声
+  不建模；**A1 重标（2026-10-02）**：巡台 zone 的 anchor 0/1 端点已从 g=0/1000 重锚到
+  官方场实测台沿/台心灰度（E≈329 / C≈651 逐通道，`src/Sim.Core/MbriGrayCalibration.cs:31-33,71,96`，
+  采样件 tmp/mbri-recal/ 不入库）——重标后 zone：台心红区 ≈1.0、内环最亮带 ≈1.54、
+  走道 ≈−1.03，early-front/near-edge/FAST_ZONE 阈值距台沿语义见
+  `MbriGrayCalibrationTests.OfficialField_ZoneSemantics`（纯常量断言，改锚必跑）；
+  白域仍结构性不可达（`WhiteEnter_UnreachableOnOfficialField`）。掉台判定另走 fall-domain
+  采样（走道 g<150 → ADC 0，`src/Sim.Core/MbriGrayCalibration.cs:70-97`）。
+  改这些常量/公式会改变 mbri 轨迹，必须重跑 `--filter "FullyQualifiedName~Mbri"` 与
+  11-seed 行为对照。
+- **能力边界（按 2026-10-02 能力修复轮修订；不得超出证据宣称）**：
+  巡台分级（A1 重标后）MEDIUM_CRUISE/FAST_ZONE 已可达，early-fire（批1 g/1000 锚定下
+  全程 EDGE_AVOID）已消除；回台能力成立——官方 legacy 11-seed 中 mbri 掉台后物理再上台
+  **60–68%**（builtin 95.9%），掉台中位 **2** vs builtin 43；得分能力**非零但弱**——
+  mirror 内战我方得分中位 2.0（0–12，含 hunt 推块 BlockScore+3/登台读秒），但**同场对
+  builtin 11/11 全负（得分中位 1 vs 13）**，不得宣称 mbri 整体优于 builtin；
+  **默认控制器未切换**（决策包与切换风险含 RL 对手分布漂移，见
+  `.trellis/tasks/10-01-mbri-fsm-port/report-capability.md` §4）。残余披露：A2 REMOUNT
+  显式"回台成功"出口在 33 场中 0 次触发（回台实际经 REVERSE 结束灰度恢复分流，
+  `MbriReentry.cs:347-363` / IR_WAIT `!Fall` 出口 `:428-429`）；P2 hunt/probe 已移植
+  （视觉=ObjectSet 真值投影的特权观测，`MbriFsm.cs:43-49` 头注释+事件流双披露），
+  真车铲子红外守卫仍为 no-op；mbri+MuJoCo 已验证不崩溃且确定性，但回台 seed 相关
+  （走道滞留可达 120 s）、MuJoCo 场地灰度域未按 A1 流程单独校准。完整对照见
+  `evidence/comparison-postfix.md`（本轮）与 `evidence/comparison.md`（修复前口径）。
 
 ## 物理后端契约（legacy 缺省 / mujoco 可选）
 
@@ -223,3 +280,12 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   `src/Sim.VisionReplay`（仅引用 Sim.Protocol）。rng 流纪律（回放适配器绝不
   消费 `context.Random`）、unknown 原因码、导入错误矩阵与 evidence_only 门禁
   见 [vision-replay-contract.md](./vision-replay-contract.md)。
+
+## MuJoCo 域标定契约（domain-calib-v1，10-02 落地）
+
+- 改轮-地接触参数 / 原地转向补偿 / MuJoCo 模型几何执行器 / 任何 MuJoCo 域行为钉值前，
+  先读 [mujoco-domain-calibration-contract.md](./mujoco-domain-calibration-contract.md)。
+- 速记：轮-地摩擦默认**每模型** v1=5.0 / v2=6.0、补偿 10.0（工程初值，扫描锚定）；
+  v2 转向上限带 [1.0, 1.35] rad/s 是各向同性接触的天花板（建模缺口，禁用无锚点参数硬凑）；
+  MJCF 字节变 ⇒ v1 哈希钉值重钉 + 旧 MuJoCo 回放/RL checkpoint 失效（政策：直接改现有
+  v1/v2 并重训）；`fidelity.json` 不因标定晋升；legacy 零改动（replay-check 逐位 PASS）。

@@ -134,7 +134,8 @@ internal static class MujocoModel
     /// 改一个字节则 ModelSha256 必变。非 v2 场景忽略传入资产。
     /// </summary>
     internal static (string Xml, IReadOnlyList<MujocoMeshAsset> Assets, string Sha256) Generate(
-        PhysicsBackendContext context, IReadOnlyList<MujocoMeshAsset> assets)
+        PhysicsBackendContext context, IReadOnlyList<MujocoMeshAsset> assets,
+        WheelContactOptions wheelContact = default)
     {
         var field = context.Scenario.Field;
         var isV2 = IsV2(context);
@@ -165,13 +166,13 @@ internal static class MujocoModel
         Arena(sb, field, context.Field);
         if (isV2)
         {
-            RobotV2(sb, context.Us, context.Field);
-            RobotV2(sb, context.Them, context.Field);
+            RobotV2(sb, context.Us, context.Field, wheelContact);
+            RobotV2(sb, context.Them, context.Field, wheelContact);
         }
         else
         {
-            Robot(sb, context.Us, context.Field);
-            Robot(sb, context.Them, context.Field);
+            Robot(sb, context.Us, context.Field, wheelContact);
+            Robot(sb, context.Them, context.Field, wheelContact);
         }
         Blocks(sb, context);
         sb.Append("</worldbody>");
@@ -294,7 +295,7 @@ internal static class MujocoModel
         return Convert.ToHexString(sha.Hash!).ToLowerInvariant();
     }
 
-    private static void Robot(StringBuilder sb, RobotRuntime r, FieldModel field)
+    private static void Robot(StringBuilder sb, RobotRuntime r, FieldModel field, WheelContactOptions wheelContact = default)
     {
         var v = r.Vehicle;
         var ground = field.StageHeightAt(r.X, r.Y);
@@ -314,7 +315,8 @@ internal static class MujocoModel
             .Append("\" size=\"").Append(N(v.ShovelLength / 2)).Append(' ')
             .Append(N(v.ShovelWidth / 2)).Append(" 0.006\" mass=\"0.02\"/>");
         WheelBodies(sb, r, WheelRadius, 0.03, WheelMassV1, -0.04 - ChassisClearanceLift,
-            v.WheelBase / 2, -v.WheelBase / 2, v.TrackWidth / 2, -v.TrackWidth / 2);
+            v.WheelBase / 2, -v.WheelBase / 2, v.TrackWidth / 2, -v.TrackWidth / 2,
+            isV2: false, wheelContact);
         sb.Append("</body>");
     }
 
@@ -322,7 +324,7 @@ internal static class MujocoModel
     /// v2 真车几何: 车体 = chassis + rear_shovel 两个 mesh geom(保留两者之间的凹角,
     /// 不做整车单一凸包), 四个驱动轮用实测半径/半宽/轮心位置。
     /// </summary>
-    private static void RobotV2(StringBuilder sb, RobotRuntime r, FieldModel field)
+    private static void RobotV2(StringBuilder sb, RobotRuntime r, FieldModel field, WheelContactOptions wheelContact = default)
     {
         var v = r.Vehicle;
         var ground = field.StageHeightAt(r.X, r.Y);
@@ -350,16 +352,18 @@ internal static class MujocoModel
             .Append(N(ballast)).Append("\" group=\"3\" contype=\"0\" conaffinity=\"0\"/>");
         sb.Append("<geom name=\"robot_shovel_").Append(r.Role).Append("\" type=\"mesh\" mesh=\"")
             .Append(Meshes[1].Geom).Append("\" mass=\"").Append(N(ShovelMassV2)).Append("\"/>");
-        // v2 轮摩擦与 v1 一致(1.5); 摩擦降档(1.0)单变量试验把翻覆数从 84 抬到 129
-        // (打滑→冲坡-滑落循环), 已回退。参数化保留供后续调参。
+        // 轮-地摩擦取每模型标定默认(v1 5.0 / v2 6.0, 工程初值, 见 WheelContactOptions
+        // 注释的扫描证据); 摩擦降档(1.0)单变量试验曾把翻覆数从 84 抬到 129 —— 打滑
+        // →冲坡-滑落循环, 方向相反的证据一致: 高摩擦稳爬坡。参数化保留供后续调参。
         WheelBodies(sb, r, WheelRadiusV2, WheelHalfWidthV2, WheelMassV2, WheelLocalZ,
-            WheelFrontX, WheelRearX, WheelLeftY, WheelRightY);
+            WheelFrontX, WheelRearX, WheelLeftY, WheelRightY,
+            isV2: true, wheelContact);
         sb.Append("</body>");
     }
 
     private static void WheelBodies(StringBuilder sb, RobotRuntime r, double radius, double halfWidth,
         double mass, double localZ, double frontX, double rearX, double leftY, double rightY,
-        double friction = 1.5)
+        bool isV2, WheelContactOptions? wheelContact = null)
     {
         foreach (var (axle, x) in new[] { ("front", frontX), ("rear", rearX) })
         foreach (var (side, y) in new[] { ("left", leftY), ("right", rightY) })
@@ -372,8 +376,14 @@ internal static class MujocoModel
             sb.Append("<geom name=\"wheel_geom_").Append(name)
                 .Append("\" type=\"cylinder\" euler=\"1.5707963267948966 0 0\" size=\"")
                 .Append(N(radius)).Append(' ').Append(N(halfWidth))
-                .Append("\" mass=\"").Append(N(mass))
-                .Append("\" friction=\"").Append(N(friction)).Append(" 0.02 0.002\" solref=\"0.02 1\"/>");
+                .Append("\" mass=\"").Append(N(mass));
+            var (condim, slide, spin, roll) = (wheelContact ?? default).Resolved(isV2);
+            if (condim != 3)
+            {
+                sb.Append("\" condim=\"").Append(condim);
+            }
+            sb.Append("\" friction=\"").Append(N(slide)).Append(' ').Append(N(spin))
+                .Append(' ').Append(N(roll)).Append("\" solref=\"0.02 1\"/>");
             sb.Append("</body>");
         }
     }

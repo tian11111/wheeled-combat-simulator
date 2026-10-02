@@ -57,6 +57,14 @@ public static class Program
         public bool Events { get; init; }
         public string? Out { get; init; }
 
+        /// <summary>`--stats`: 每个 seed 追加一行在台迁移统计 (掉台/上台次数), 默认关。</summary>
+        public bool Stats { get; init; }
+
+        /// <summary>`--start-at score_block`: SCORE_BLOCK 展演（非门禁证据），默认关。</summary>
+        public string? StartAt { get; init; }
+
+        public bool StartAtScoreBlock => StartAt == "score_block";
+
         public Scenario BuildScenario(long seed)
         {
             var scenario = ScenarioPath is null ? DefaultScenario() : LoadScenario(ScenarioPath);
@@ -70,13 +78,18 @@ public static class Program
             return scenario;
         }
 
-        /// <summary>Controller/timeout/event options for the shared MatchRunner.</summary>
-        public MatchRunner.Options RunnerOptions() => new()
+        /// <summary>
+        /// Controller/timeout/event options for the shared MatchRunner.
+        /// <paramref name="startAtScoreBlock"/> 只有 `match` 入口显式传入：replay-record
+        /// 录的是整场动作流，不能从半场开始，否则回放身份不成立。
+        /// </summary>
+        public MatchRunner.Options RunnerOptions(bool startAtScoreBlock = false) => new()
         {
             ControllerUs = ControllerUs,
             ControllerThem = ControllerThem,
             TimeoutMs = TimeoutMs,
             Events = Events,
+            StartAtScoreBlock = startAtScoreBlock,
         };
     }
 
@@ -106,6 +119,8 @@ public static class Program
             TimeoutMs = double.TryParse(Get("--timeout-ms"), out var timeout) ? timeout : 100,
             Events = args.Contains("--events"),
             Out = Get("--out"),
+            StartAt = Get("--start-at"),
+            Stats = args.Contains("--stats"),
         };
     }
 
@@ -135,16 +150,36 @@ public static class Program
         Console.WriteLine(
             $"seed={result.Seed} ticks={result.Ticks} score 我方 {result.Scores.Us:0.#} : {result.Scores.Them:0.#} 对手"
             + $" done={result.DoneReason} faults(us/them)={result.UsFaults}/{result.ThemFaults}"
-            + $" penalties={result.Penalties.Us:0.#}/{result.Penalties.Them:0.#}");
+            + $" penalties={result.Penalties.Us:0.#}/{result.Penalties.Them:0.#}"
+            // 展演元数据只在显式 --start-at score_block 时追加, 默认输出不变。
+            + (result.Exhibition is { } exhibition
+                ? $" exhibition=true gateEvidenceEligible={exhibition.GateEvidenceEligible.ToString().ToLowerInvariant()}"
+                  + $" handoff={exhibition.Handoff.ToString().ToLowerInvariant()} entryTick={exhibition.EntryTick}"
+                  + $" target={exhibition.TargetName ?? "-"}"
+                  + (exhibition.Reason is { } reason ? $" reason={reason}" : "")
+                : ""));
     }
 
     private static int RunMatch(Options options)
     {
+        if (options.StartAt is not null && !options.StartAtScoreBlock)
+        {
+            Console.Error.WriteLine($"--start-at only supports 'score_block', got '{options.StartAt}'");
+            return 2;
+        }
         var results = new List<MatchRunner.MatchRunResult>();
         foreach (var seed in options.Seeds)
         {
-            var result = MatchRunner.Run(options.BuildScenario(seed), options.RunnerOptions());
+            var result = MatchRunner.Run(options.BuildScenario(seed),
+                options.RunnerOptions(startAtScoreBlock: options.StartAtScoreBlock));
             PrintResult(result);
+            if (options.Stats && result.Behavior is { } behavior)
+            {
+                // 机器可读的在台迁移统计 (掉台/上台次数), 仅显式 --stats 时输出。
+                Console.WriteLine(
+                    $"stats seed={result.Seed} us_falls={behavior.UsFalls} them_falls={behavior.ThemFalls}"
+                    + $" us_mounts={behavior.UsMounts} them_mounts={behavior.ThemMounts}");
+            }
             results.Add(result);
         }
         if (results.Count > 1)
@@ -160,6 +195,12 @@ public static class Program
 
     private static int RunReplayRecord(Options options)
     {
+        if (options.StartAt is not null)
+        {
+            // 回放身份建在整场动作流上: 从半场开始的录制不可复现。
+            Console.Error.WriteLine("--start-at is only supported by 'match' (replay-record records a full match)");
+            return 2;
+        }
         if (options.Out is null)
         {
             Console.Error.WriteLine("replay-record requires --out <path>");
@@ -299,7 +340,7 @@ public static class Program
             用法:
               dotnet run --project src/Sim.Cli -- match [--seed 42|--seeds 1,2,3] [--scenario <path>]
                          [--duration 120] [--controller-us <cmd>] [--controller-them <cmd>]
-                         [--timeout-ms 100] [--events]
+                         [--timeout-ms 100] [--events] [--stats] [--start-at score_block]
               dotnet run --project src/Sim.Cli -- batch [--seed 42|--seeds 1,2,3] [--scenario <path>]
                          [--duration 120] [--controller-us <cmd>] [--controller-them <cmd>]
                          [--timeout-ms 100] [--parallelism 4] [--out artifacts/batch.jsonl]
@@ -328,6 +369,11 @@ public static class Program
             说明:
               --controller-* 启动外部策略进程（JSONL stdio 协议, decide(obs) -> {"v":..,"w":..});
               缺省时对应角色使用内置 FSM。超时/坏行按零动作回退并计入 faults。
+              --stats 在每个 seed 的人类摘要后追加一行机器可读在台迁移统计
+              (us_falls/them_falls/us_mounts/them_mounts; 与裁判掉台判定同源的提交快照迁移)。
+              --start-at score_block 仅 match: 双方内置 FSM 预推进到我方 SCORE_BLOCK 后才把
+              我方交给外部策略(obs 追加 11 维 rlObservation), 对手不变; 未进入入口则返回
+              no_score_block 摘要、不跑策略。展演为非门禁证据(gateEvidenceEligible=false)。
             """);
     }
 }

@@ -22,16 +22,36 @@ public static class RlEnvCommand
     private const double StepCost = -0.0001;
     private const double EdgeShapingScale = 0.1;
     private const long MaxPolicyTicks = 2400;
-    private const int BaseObservationSize = 9;
-    private const int ObservationSize = 11;
+    // ---- 奖励变体(默认 v4 = 逐位不变; 变体经 --reward 显式选择并由 train.py 写入 run-config) ----
+    // aggression-v1(2026-10-02, 用户指令"不能苟分, 让他动"): 随机块探索轮(seed 20261005)实测
+    // 策略收敛到"保台读秒苟分"(20 场 BlockScore 事件 0-1 次 vs FSM 7), 根因是活动无收益:
+    // 旧时间成本每 tick -0.0001 × 2400 = -0.24, 远低于行动风险(掉台 -1 / 目标被夺 -0.5),
+    // 风险厌恶最优即原地苟。两项修正(仅本变体生效):
+    // ① 时间成本抬到 -0.0004(苟满场 -0.96, **刻意仍低于掉台 -1** —— 防止学会跳台止损);
+    // ② 逼近目标块稠密整形 0.04 × Δdist(机器人→目标块心; 电位型整形, 绕圈/振荡净收益≈0)。
+    internal const string RewardV4 = "v4";
+    internal const string RewardAggressionV1 = "aggression-v1";
+    // aggression-v2(2026-10-02 同日第二轮): v1 实测"动了但仍不推块"(BlockScore 0-2 次/20 场)——
+    // 成功支付 +1 对掉台 -1 的 1:1 风险收益比不足, 且过程支付(边沿整形 0.1×Δ)太弱, 策略
+    // 靠近块后贴着苟。抬杠杆: 推块成功 +5(风险收益 5:1) + 块进沿整形 0.5×Δ(0.3m 推进≈+0.15)。
+    internal const string RewardAggressionV2 = "aggression-v2";
+    private const double AggressionStepCost = -0.0004;
+    private const double ApproachShapingScale = 0.04;
+    private const double AggressionTargetReward = 5.0;
+    private const double AggressionEdgeShapingScale = 0.5;
+    // 常量与投影/预推进/目标锁定都委托 Sim.Hosting.ScoreBlockExhibition(唯一实现);
+    // 这里的名字只保留给本文件的零观测长度与响应形状。
+    private const int ObservationSize = ScoreBlockExhibition.ObservationSize;
 
     public static int Run(string[] args)
     {
         var scenarioPath = "scenarios/wushu-ring-2026-mujoco.json";
         var duration = 120.0;
+        var rewardVariant = RewardV4;
         for (var i = 0; i < args.Length; i++)
         {
             if (args[i] == "--scenario" && i + 1 < args.Length) scenarioPath = args[i + 1];
+            if (args[i] == "--reward" && i + 1 < args.Length) rewardVariant = args[i + 1];
             if (args[i] == "--duration" && i + 1 < args.Length
                 && !TryParseDuration(args[i + 1], out duration, out var durationError))
             {
@@ -41,10 +61,15 @@ public static class RlEnvCommand
                 return 2;
             }
         }
+        if (rewardVariant is not (RewardV4 or RewardAggressionV1 or RewardAggressionV2))
+        {
+            EmitError($"unknown --reward '{rewardVariant}' (expected '{RewardV4}'/'{RewardAggressionV1}'/'{RewardAggressionV2}')");
+            return 2;
+        }
 
         var factory = new MujocoTrainingPhysicsBackendFactory();
         MatchEngine? engine = null;
-        var state = new EpisodeState();
+        var state = new EpisodeState { RewardVariant = rewardVariant };
         try
         {
             string? line;
@@ -178,6 +203,9 @@ public static class RlEnvCommand
         public Scenario Scenario = new();
         public bool NoScoreBlock;
 
+        /// <summary>奖励变体(--reward, 会话级): v4 = 逐位不变默认; aggression-v1 见常量注释。</summary>
+        public string RewardVariant = RewardV4;
+
         /// <summary>Diagnostic trace opt-in (set per episode by the <c>reset</c> request).</summary>
         public bool Trace;
 
@@ -239,52 +267,42 @@ public static class RlEnvCommand
         state.TargetOutcomeTick = -1;
 
         // 预推进: 双方内置 FSM, 直到我方首次 SCORE_BLOCK 或比赛结束。
-        var guard = 0;
-        var snap = engine.CommitSnapshot();
+        // 目标锁定/预推进语义的唯一实现在 Sim.Hosting.ScoreBlockExhibition。
         var prerollTimer = timing ? Stopwatch.StartNew() : null;
-        while (!engine.Done && guard < 4800)
-        {
-            if (engine.Us.Fsm.State == FsmState.ScoreBlock)
-            {
-                break;
-            }
-            snap = engine.Tick();
-            guard++;
-        }
+        var preroll = ScoreBlockExhibition.ArmAndPreroll(engine);
+        var guard = preroll.PrerollTicks;
         prerollTimer?.Stop();
 
-        if (engine.Done || engine.Us.Fsm.State != FsmState.ScoreBlock)
+        if (preroll.NoScoreBlock)
         {
             state.NoScoreBlock = true;
+            // 旧口径: 未进 SCORE_BLOCK 时 entry_tick 保持 -1; 已进入但没有可锁定增益块
+            // 时 entry_tick 记录当时的 tick, 并显式给出 reason。
+            var noValidTarget = preroll.Reason == ScoreBlockExhibition.NoValidTargetReason;
+            if (noValidTarget)
+            {
+                state.EntryTick = preroll.EntryTick;
+            }
             var info = Info(engine, state, seed, null);
             info["no_score_block"] = true;
+            if (noValidTarget)
+            {
+                info["reason"] = preroll.Reason;
+            }
             info["pre_roll_ticks"] = guard;
             AttachTrace(info, engine, state);
             AttachResetTiming(info, timing, resetMs, guard, prerollTimer, totalTimer);
             return (new double[ObservationSize], info);
         }
 
-        state.EntryTick = (int)engine.TickIndex;
-        state.TargetIndex = LockTargetIndex(engine);
-        if (state.TargetIndex < 0)
-        {
-            state.NoScoreBlock = true;
-            var noTargetInfo = Info(engine, state, seed, null);
-            noTargetInfo["no_score_block"] = true;
-            noTargetInfo["reason"] = "score_block_without_valid_buff_target";
-            noTargetInfo["pre_roll_ticks"] = guard;
-            AttachTrace(noTargetInfo, engine, state);
-            AttachResetTiming(noTargetInfo, timing, resetMs, guard, prerollTimer, totalTimer);
-            return (new double[ObservationSize], noTargetInfo);
-        }
-        if (state.TargetIndex >= 0)
-        {
-            state.EntryTargetX = engine.Blocks[state.TargetIndex].X;
-            state.EntryTargetY = engine.Blocks[state.TargetIndex].Y;
-        }
+        state.EntryTick = preroll.EntryTick;
+        state.TargetIndex = preroll.TargetIndex;
+        state.EntryTargetX = engine.Blocks[state.TargetIndex].X;
+        state.EntryTargetY = engine.Blocks[state.TargetIndex].Y;
         // Ignore Arm/mount/search events; strategy metrics start at stage entry.
         state.LastSeq = LatestEventSequence(engine);
-        var (obs, entryInfo) = BuildObservation(engine, state, seed, snap.Robots[RoleNames.Us].OnPlatform, snap.Timer);
+        var (obs, entryInfo) = BuildObservation(engine, state, seed,
+            preroll.EntrySnapshot.Robots[RoleNames.Us].OnPlatform, preroll.EntrySnapshot.Timer);
         var infoOut = Info(engine, state, seed, null);
         foreach (var kv in entryInfo) infoOut[kv.Key] = kv.Value;
         AttachTrace(infoOut, engine, state);
@@ -307,6 +325,9 @@ public static class RlEnvCommand
         }
 
         var edgeBefore = EdgeDistance(engine, state.TargetIndex);
+        var aggression = state.RewardVariant is RewardAggressionV1 or RewardAggressionV2;
+        var aggressionV2 = state.RewardVariant == RewardAggressionV2;
+        var blockDistBefore = aggression ? TargetBlockDistance(engine, state.TargetIndex) : double.NaN;
         var wasOut = engine.Blocks.Select(b => b.Out).ToArray();
         state.PolicyTicks++;
         var tickTimer = timing ? Stopwatch.StartNew() : null;
@@ -320,7 +341,7 @@ public static class RlEnvCommand
         state.ThemBlockScoreEvents += events.Count(e => e.Kind == EventKind.BlockScore && !e.Neutral && !e.Robot.IsUs);
         state.UnownedBlockOffs += events.Count(e => e.Kind == EventKind.BlockOff);
 
-        var reward = StepCost;
+        var reward = aggression ? AggressionStepCost : StepCost;
         var terminated = false;
         var truncated = false;
         var targetName = TargetBlockName(engine, state.TargetIndex);
@@ -335,7 +356,7 @@ public static class RlEnvCommand
         if (targetScored || targetLost) state.TargetOutcomeTick = engine.TickIndex;
         if (targetScored)
         {
-            reward += TargetReward;
+            reward += aggressionV2 ? AggressionTargetReward : TargetReward;
             state.TargetBlockScores++;
         }
         else if (targetLost)
@@ -356,7 +377,15 @@ public static class RlEnvCommand
         var edgeAfter = EdgeDistance(engine, state.TargetIndex);
         if (!double.IsNaN(edgeAfter) && !double.IsNaN(edgeBefore))
         {
-            reward += EdgeShapingScale * (edgeBefore - edgeAfter);
+            reward += (aggressionV2 ? AggressionEdgeShapingScale : EdgeShapingScale) * (edgeBefore - edgeAfter);
+        }
+        if (aggression && !double.IsNaN(blockDistBefore))
+        {
+            var blockDistAfter = TargetBlockDistance(engine, state.TargetIndex);
+            if (!double.IsNaN(blockDistAfter))
+            {
+                reward += ApproachShapingScale * (blockDistBefore - blockDistAfter);
+            }
         }
 
         if (engine.Done) terminated = true;
@@ -364,6 +393,11 @@ public static class RlEnvCommand
 
         var (obs, info) = BuildObservation(engine, state, state.Seed, snapshot.Robots[RoleNames.Us].OnPlatform, snapshot.Timer);
         info["policy_ticks"] = state.PolicyTicks;
+        if (aggression)
+        {
+            // 默认 v4 不写该键: rl-env 响应形状对默认路径逐字节不变(gym_env 契约注释)。
+            info["reward_variant"] = state.RewardVariant;
+        }
         info["target_scored"] = targetScored;
         info["target_lost_not_ours"] = targetLost;
         info["attribution_ambiguous_this_step"] = attributionAmbiguous;
@@ -401,31 +435,6 @@ public static class RlEnvCommand
         info["timing"] = timingInfo;
         totalTimer!.Stop();
         timingInfo["totalMs"] = Math.Round(totalTimer.Elapsed.TotalMilliseconds, 4);
-    }
-
-    private static int LockTargetIndex(MatchEngine engine)
-    {
-        var locked = engine.Us.Fsm.ScoreTarget;
-        if (locked is not null)
-        {
-            for (var i = 0; i < engine.Blocks.Count; i++)
-            {
-                if (ReferenceEquals(engine.Blocks[i], locked))
-                {
-                    return i;
-                }
-            }
-        }
-        // ScoreTarget 为空: 按现有 FSM 规则选第一个有效增益块。
-        for (var i = 0; i < engine.Blocks.Count; i++)
-        {
-            var b = engine.Blocks[i];
-            if (b.Kind == BlockKind.Buff && !b.Out && engine.Field.OnPlatform(b.X, b.Y))
-            {
-                return i;
-            }
-        }
-        return -1;
     }
 
     private static long LatestEventSequence(MatchEngine engine) =>
@@ -473,62 +482,26 @@ public static class RlEnvCommand
             ? engine.Field.DistToNearestEdge(engine.Blocks[index].X, engine.Blocks[index].Y)
             : double.NaN;
 
-    private static (double X, double Y) BlockPos(MatchEngine engine, int index) =>
+    /// <summary>我方车到目标块心的距离(aggression-v1 逼近整形用); 目标缺失 ⇒ NaN。</summary>
+    private static double TargetBlockDistance(MatchEngine engine, int index) =>
         index >= 0 && index < engine.Blocks.Count
-            ? (engine.Blocks[index].X, engine.Blocks[index].Y)
-            : (double.NaN, double.NaN);
+            ? Js.Hypot(engine.Blocks[index].X - engine.Us.X, engine.Blocks[index].Y - engine.Us.Y)
+            : double.NaN;
 
+    /// <summary>
+    /// 11 维观测投影: 唯一实现在 <see cref="ScoreBlockExhibition.BuildObservation"/>,
+    /// 这里只补本 episode 的 info 指标。
+    /// </summary>
     private static (double[] Obs, Dictionary<string, object?> Info) BuildObservation(
         MatchEngine engine, EpisodeState state, int seed, bool usOnPlatform, double timer)
     {
         var field = state.Scenario.Field;
-        var side = field.Platform.MaxX - field.Platform.MinX;
         var targetIndex = state.TargetIndex;
-        var (bx, by) = targetIndex >= 0 ? BlockPos(engine, targetIndex) : (double.NaN, double.NaN);
-        var us = engine.Us;
-        var dx = bx - us.X;
-        var dy = by - us.Y;
-        var cos = Math.Cos(us.Th);
-        var sin = Math.Sin(us.Th);
-        var relForward = double.IsNaN(dx) ? 0.0 : (cos * dx + sin * dy) / side;
-        var relLeft = double.IsNaN(dx) ? 0.0 : (-sin * dx + cos * dy) / side;
-        var remaining = field.MatchDuration > 0 ? timer / field.MatchDuration : 0.0;
-        var clip = (double v) => clamp(v, -1.0, 1.0);
-        var baseObs = new[]
-        {
-            clip(relForward),
-            clip(relLeft),
-            clip(bx / side),
-            clip(by / side),
-            clamp(us.V / (us.Vehicle.MaxSpeed != 0 ? us.Vehicle.MaxSpeed : 1.5), -1.0, 1.0),
-            clamp(us.Omega / (us.Vehicle.MaxTurnRate != 0 ? us.Vehicle.MaxTurnRate : 4.0), -1.0, 1.0),
-            usOnPlatform ? 1.0 : 0.0,
-            targetIndex >= 0 && engine.Field.OnPlatform(engine.Blocks[targetIndex].X, engine.Blocks[targetIndex].Y) ? 1.0 : 0.0,
-            clamp(remaining, 0.0, 1.0),
-        };
-        var obs = AppendOwnPositionObservation(baseObs, us.X, us.Y, field.Platform);
+        var obs = ScoreBlockExhibition.BuildObservation(engine, targetIndex, field.Platform,
+            field.MatchDuration, usOnPlatform, timer);
         var info = Info(engine, state, seed, targetIndex);
         return (obs, info);
     }
-
-    internal static double[] AppendOwnPositionObservation(double[] observation, double ownX, double ownY, Region platform)
-    {
-        if (observation.Length != BaseObservationSize)
-        {
-            throw new ArgumentException($"expected {BaseObservationSize} base observation values", nameof(observation));
-        }
-
-        var halfSide = (platform.MaxX - platform.MinX) / 2.0;
-        var centerX = (platform.MinX + platform.MaxX) / 2.0;
-        var centerY = (platform.MinY + platform.MaxY) / 2.0;
-        var expanded = new double[ObservationSize];
-        Array.Copy(observation, expanded, BaseObservationSize);
-        expanded[BaseObservationSize] = clamp((ownX - centerX) / halfSide, -1.0, 1.0);
-        expanded[BaseObservationSize + 1] = clamp((ownY - centerY) / halfSide, -1.0, 1.0);
-        return expanded;
-    }
-
-    private static double clamp(double v, double lo, double hi) => Math.Max(lo, Math.Min(hi, v));
 
     private static Dictionary<string, object?> Info(
         MatchEngine engine, EpisodeState state, int seed, int? targetIndex)

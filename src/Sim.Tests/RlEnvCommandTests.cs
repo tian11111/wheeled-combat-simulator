@@ -8,31 +8,8 @@ namespace Sim.Tests;
 [Collection("cli-console")]
 public class RlEnvCommandTests
 {
-    [Fact]
-    public void Observation_AppendsNormalizedOwnPositionAfterTheExistingNineValues()
-    {
-        var baseObservation = Enumerable.Range(1, 9).Select(value => value / 10.0).ToArray();
-        var platform = new Region { MinX = 1.0, MinY = 2.0, MaxX = 5.0, MaxY = 6.0 };
-
-        var observation = RlEnvCommand.AppendOwnPositionObservation(baseObservation, ownX: 5.0, ownY: 2.0, platform: platform);
-
-        Assert.Equal(11, observation.Length);
-        Assert.Equal(baseObservation, observation[..9]);
-        Assert.Equal(1.0, observation[9], 12);
-        Assert.Equal(-1.0, observation[10], 12);
-    }
-
-    [Fact]
-    public void Observation_ClampsOwnPositionToPlatformSideRange()
-    {
-        var baseObservation = new double[9];
-        var platform = new Region { MinX = 1.0, MinY = 2.0, MaxX = 5.0, MaxY = 6.0 };
-
-        var observation = RlEnvCommand.AppendOwnPositionObservation(baseObservation, ownX: 100.0, ownY: -100.0, platform: platform);
-
-        Assert.Equal(1.0, observation[9]);
-        Assert.Equal(-1.0, observation[10]);
-    }
+    // 观测追加/裁剪的契约已迁到 ScoreBlockExhibitionTests (共享缝是唯一实现);
+    // 本文件保留 reset/step 响应形状与容错口径。
 
     [Fact]
     public void TargetScore_RequiresLockedBlockExitAndSameTickOwnedScore()

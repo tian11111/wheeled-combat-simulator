@@ -15,10 +15,83 @@ internal static class MatchRunner
 {
     private const int MaxTicks = 10_000;
 
+    /// <summary>
+    /// SCORE_BLOCK 展演摘要（仅 <see cref="Options.StartAtScoreBlock"/> 为 true 时非
+    /// null；默认关时 null ⇒ 既有摘要形状不变）。展演恒为非门禁证据。
+    /// </summary>
+    internal sealed record ExhibitionSummary(
+        bool Handoff, string? Reason, long EntryTick, long TargetIndex, string? TargetName)
+    {
+        /// <summary>R6: 展演不得标为门禁证据，也不得晋升 fidelity/盲集索引。</summary>
+        public bool GateEvidenceEligible => false;
+    }
+
     internal sealed record MatchRunResult(
         long Seed, long Ticks, Scores Scores, Scores Penalties,
         string? DoneReason, long UsFaults, long ThemFaults,
-        List<string> EventFingerprints, ReplayHeader Header);
+        List<string> EventFingerprints, ReplayHeader Header)
+    {
+        public ExhibitionSummary? Exhibition { get; init; }
+
+        /// <summary>
+        /// 每角色物理在台/离台迁移计数 (仅 `match --stats` 展示; 默认输出不变)。
+        /// 掉台 = OnPlatform true→false, 上台 = false→true, 与裁判 Drop 判定同源
+        /// (每 tick 提交快照的 OnPlatform), 与控制器选择无关。
+        /// </summary>
+        public MatchBehaviorStats? Behavior { get; init; }
+    }
+
+    /// <summary>每角色掉台/上台次数 (跨整场提交快照统计)。</summary>
+    internal sealed record MatchBehaviorStats(long UsFalls, long UsMounts, long ThemFalls, long ThemMounts);
+
+    /// <summary>在台状态迁移计数器 (逐提交快照更新; 初始快照只作基线不计数)。</summary>
+    private sealed class BehaviorTracker
+    {
+        private bool _initialized;
+        private bool _usOn;
+        private bool _themOn;
+
+        public long UsFalls { get; private set; }
+
+        public long UsMounts { get; private set; }
+
+        public long ThemFalls { get; private set; }
+
+        public long ThemMounts { get; private set; }
+
+        public void Observe(Snapshot snapshot)
+        {
+            var usOn = snapshot.Robots[RoleNames.Us].OnPlatform;
+            var themOn = snapshot.Robots[RoleNames.Them].OnPlatform;
+            if (!_initialized)
+            {
+                _usOn = usOn;
+                _themOn = themOn;
+                _initialized = true;
+                return;
+            }
+            if (_usOn && !usOn)
+            {
+                UsFalls++;
+            }
+            else if (!_usOn && usOn)
+            {
+                UsMounts++;
+            }
+            if (_themOn && !themOn)
+            {
+                ThemFalls++;
+            }
+            else if (!_themOn && themOn)
+            {
+                ThemMounts++;
+            }
+            _usOn = usOn;
+            _themOn = themOn;
+        }
+
+        public MatchBehaviorStats ToStats() => new(UsFalls, UsMounts, ThemFalls, ThemMounts);
+    }
 
     internal sealed record Options
     {
@@ -29,6 +102,13 @@ internal static class MatchRunner
         public double TimeoutMs { get; init; } = 100;
 
         public bool Events { get; init; }
+
+        /// <summary>
+        /// 展演模式: Arm 后先双方内置 FSM 预推进到我方 SCORE_BLOCK（共享缝
+        /// <see cref="ScoreBlockExhibition"/>），交接后我方交给外部策略、对手不变。
+        /// 默认 false = 逐 tick 语义与既有 match/replay-record/batch 完全一致。
+        /// </summary>
+        public bool StartAtScoreBlock { get; init; }
     }
 
     /// <summary>An external controller process could not be started.</summary>
@@ -57,15 +137,53 @@ internal static class MatchRunner
             }
 
             engine.Arm();
+
+            // SCORE_BLOCK 展演: 我方先由内置 FSM 预推进到入口(对手始终内置 FSM),
+            // 交接后每 tick 把 11 维 rlObservation 注入宿主 obs 再交给外部策略。
+            var handoff = default(ScoreBlockExhibition.PrerollResult?);
+            var handoffSnapshot = default(Snapshot?);
+            if (options.StartAtScoreBlock)
+            {
+                var preroll = ScoreBlockExhibition.ArmAndPreroll(engine);
+                if (!preroll.HasTarget)
+                {
+                    // 沿用 rl-env 口径: 不静默跑整场, 也不调用策略。
+                    return new MatchRunResult(
+                        scenario.Seed,
+                        engine.TickIndex,
+                        engine.Scores,
+                        engine.RestartPenalties,
+                        ScoreBlockExhibition.NoScoreBlockReason,
+                        usBridge?.Faults ?? 0,
+                        themBridge?.Faults ?? 0,
+                        [],
+                        engine.BuildReplayHeader())
+                    {
+                        Exhibition = new ExhibitionSummary(false, preroll.Reason, preroll.EntryTick, -1, null),
+                    };
+                }
+                handoff = preroll;
+                handoffSnapshot = preroll.EntrySnapshot;
+                if (options.Events)
+                {
+                    Console.WriteLine($"[handoff] tick={preroll.EntryTick} target={engine.Blocks[preroll.TargetIndex].Name}"
+                        + $" state=SCORE_BLOCK prerollTicks={preroll.PrerollTicks}");
+                }
+            }
+
             var fingerprints = new List<string>();
             var snapshots = new List<Snapshot>();
+            var behavior = new BehaviorTracker();
+            behavior.Observe(engine.BuildSnapshot()); // 基线: 首 tick 前的在台状态
             while (!engine.Done && snapshots.Count < MaxTicks)
             {
                 RobotAction? usAction = null;
                 RobotAction? themAction = null;
                 if (usBridge is not null && !engine.Done)
                 {
-                    usAction = usBridge.Decide(engine.BuildObservation(engine.Us));
+                    usAction = handoff is { } handedOff && handoffSnapshot is { } lastSnapshot
+                        ? usBridge.Decide(BuildExhibitionObservation(engine, handedOff, lastSnapshot))
+                        : usBridge.Decide(engine.BuildObservation(engine.Us));
                 }
                 if (themBridge is not null && !engine.Done)
                 {
@@ -73,6 +191,8 @@ internal static class MatchRunner
                 }
                 var snapshot = engine.Tick(usAction, themAction);
                 snapshots.Add(snapshot);
+                behavior.Observe(snapshot);
+                handoffSnapshot = snapshot;
                 if (snapshot.Events is { Count: > 0 })
                 {
                     foreach (var evt in snapshot.Events)
@@ -95,13 +215,39 @@ internal static class MatchRunner
                 usBridge?.Faults ?? 0,
                 themBridge?.Faults ?? 0,
                 fingerprints,
-                engine.BuildReplayHeader());
+                engine.BuildReplayHeader())
+            {
+                Exhibition = handoff is { } completed
+                    ? new ExhibitionSummary(true, null, completed.EntryTick, completed.TargetIndex,
+                        engine.Blocks[completed.TargetIndex].Name)
+                    : null,
+                Behavior = behavior.ToStats(),
+            };
         }
         finally
         {
             usBridge?.Dispose();
             themBridge?.Dispose();
         }
+    }
+
+    /// <summary>
+    /// 展演交接后的我方 obs: 宿主 <see cref="MatchEngine.BuildObservation"/> + 加性
+    /// <c>rlObservation</c>（唯一投影来自 <see cref="ScoreBlockExhibition.BuildObservation"/>，
+    /// 参数口径与 rl-env 一致: 车体状态取当前引擎, 在台/剩余时间取最近提交帧快照）。
+    /// 交接前不填充该字段（预检/残帧由适配器按零动作应答）。
+    /// </summary>
+    private static Observation BuildExhibitionObservation(MatchEngine engine,
+        ScoreBlockExhibition.PrerollResult handoff, Snapshot lastSnapshot)
+    {
+        var observation = engine.BuildObservation(engine.Us);
+        var field = engine.Scenario.Field;
+        return observation with
+        {
+            RlObservation = ScoreBlockExhibition.BuildObservation(engine, handoff.TargetIndex,
+                field.Platform, field.MatchDuration,
+                lastSnapshot.Robots[RoleNames.Us].OnPlatform, lastSnapshot.Timer),
+        };
     }
 
     private static PythonBridge StartBridge(string command, double timeoutMs)

@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "验收口径：全量 dotnet test + replay-check、协议只加不改、观测维度变更须拒载旧模型、展演非门槛证据；批 1-3 的检查点逐条对照这里。"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "CLI/内核质量门槛：边界归属、退出码、加性协议兼容、xUnit 覆盖、旧回放指纹不变——核查共享缝抽取与 runner 旗标默认关闭是否满足。"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "跨层数据流核查清单：C# 观测投影 → 桥 JSONL → Python 策略 → 动作回内核的每一层边界与失败路径。"}
+{"file": ".trellis/spec/sim/rl-split-contract.md", "reason": "核查展演未触碰 v4 盲集/冻结路径与 split 注册（git diff 证据），以及产出标注 analysis/exhibition 口径的一致性。"}
+{"file": ".trellis/tasks/10-01-rl-desktop-controller/research/facts.md", "reason": "核查用证据底稿：实测样本（entry_tick=281/obs 11 维）、checkpoint 路径与可加载性、Python 解释器、盲验索引不存在、桌面外部控制器既有链路与测试位置。"}

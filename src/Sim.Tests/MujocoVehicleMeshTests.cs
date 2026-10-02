@@ -13,8 +13,7 @@ namespace Sim.Tests;
 public class MujocoVehicleMeshTests
 {
     /// <summary>
-    /// v1 身份基线: <c>scenarios/wushu-ring-2026-mujoco.json</c> 在 2026-09-26 的
-    /// score-block v3 轮次里记录的 physicsModelSha256(.sim_runs/…/replay-seed-42-mujoco-v3.json)。
+    /// v1 身份基线: <c>scenarios/wushu-ring-2026-mujoco.json</c> 的 physicsModelSha256。
     /// 2026-09-29: MuJoCo timestep 0.005→0.002 (QACC 数值稳定修复, 10 seeds 验证爆炸归零),
     /// v1 模型哈希有意更新; 既有 MuJoCo replay 身份按门禁自然失效。
     /// 2026-09-30 批 2 电机真值标定: 执行器 kv 0.25→0.13687325105903(τ_stall/ω_noload)、
@@ -22,8 +21,12 @@ public class MujocoVehicleMeshTests
     /// MJCF 字节变 ⇒ 哈希必变。新值来源: 本日重录的
     /// <c>tmp/mujoco-seed42-recorded-0930.json</c> 头部(seed 42, 我方 1:2 对手,
     /// done=比赛时间结束, 67 事件)。
+    /// 2026-10-02 域标定轮(用户拍板"直接改现有 v1/v2"): 轮-地摩擦 1.5→每模型标定默认
+    /// (v1 f5/v2 f6, 工程初值, 见 MotorDriveOptions.WheelContactOptions) ⇒ v1 哈希再次
+    /// 有意更新; 既有 MuJoCo 回放/RL checkpoint 失配为已披露代价。新值来源: 本日重跑的
+    /// seed 42 官方场景(20:0, BlockScore 1 事件, 见本任务 evidence/)。
     /// </summary>
-    private const string V1ModelSha256 = "3fc9685fc120d354427e8cbf3d527d6c21551f69143aa86b1bb1d74884448919";
+    private const string V1ModelSha256 = "4d7b181088be4afaa9858818d2a08d2ce071aaa96c3c3d4bbb2bd4a394a08d18";
 
     // 实测常量(装配.glb, 见 tools/mesh/README.md): 轮径/半宽与四轮轮心。
     private const double WheelRadius = 0.0325;

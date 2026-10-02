@@ -34,7 +34,10 @@ public partial class HudPanel : Control
     private RichTextLabel? _eventsBody;
     private PanelContainer? _help;
     private Label? _helpBody;
+    private Label? _controllerSource;
+    private bool _controllerSourceWarning;
     private Label? _controllerStatus;
+    private bool _controllerNoticeActive;
     private Button? _settingsButton;
 
     private PanelContainer? _replayBar;
@@ -144,8 +147,9 @@ public partial class HudPanel : Control
 
     private void BuildHelpCard()
     {
-        _help = MakeCard(new Vector2(306, 194), CardBorder);
-        SetAnchoredRect(_help, 1, 0, 1, 0, -322, 16, -16, 222);
+        // 高度比旧版 +54px: 控制台来源行(我方 FSM/外部进程名)与运行时/提示两行并存。
+        _help = MakeCard(new Vector2(306, 248), CardBorder);
+        SetAnchoredRect(_help, 1, 0, 1, 0, -322, 16, -16, 276);
         AddChild(_help);
 
         var vbox = new VBoxContainer();
@@ -156,9 +160,13 @@ public partial class HudPanel : Control
         _helpBody.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _helpBody.ClipText = true;
         _helpBody.SizeFlagsVertical = SizeFlags.ExpandFill;
+        // 当前装配的控制器来源（内置 FSM / 外部进程名）：无 driver 也常驻显示。
+        _controllerSource = AddLabel(vbox, "控制器  我方 内置 FSM  /  对手 内置 FSM", 10, AccentGreen);
+        _controllerSource.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _controllerSource.CustomMinimumSize = new Vector2(0, 28);
         _controllerStatus = AddLabel(vbox, "", 10, AccentGreen);
         _controllerStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _controllerStatus.CustomMinimumSize = new Vector2(0, 30);
+        _controllerStatus.CustomMinimumSize = new Vector2(0, 44);
         _controllerStatus.Visible = false;
         _settingsButton = new Button
         {
@@ -201,9 +209,30 @@ public partial class HudPanel : Control
         {
             return;
         }
+        _controllerNoticeActive = true;
         _controllerStatus.Visible = true;
         _controllerStatus.Text = message;
         _controllerStatus.AddThemeColorOverride("font_color", ok ? AccentGreen : AccentRed);
+    }
+
+    /// <summary>
+    /// 当前装配的控制器来源（我方 = 内置 FSM 或外部进程名）：与 driver 是否运行无关，
+    /// 装配变化时由 Main 刷新。warning = 该来源被拒绝/回退（红色告警）。
+    /// </summary>
+    public void UpdateControllerSources(string usSource, string themSource, bool warning)
+    {
+        if (_controllerSource is null)
+        {
+            return;
+        }
+        var text = $"控制器  我方 {usSource}  /  对手 {themSource}";
+        if (_controllerSource.Text == text && _controllerSourceWarning == warning)
+        {
+            return;
+        }
+        _controllerSourceWarning = warning;
+        _controllerSource.Text = text;
+        _controllerSource.AddThemeColorOverride("font_color", warning ? AccentRed : AccentGreen);
     }
 
     /// <summary>Shows external-controller lifecycle/fault status without touching match rules.</summary>
@@ -215,15 +244,22 @@ public partial class HudPanel : Control
         }
         if (status is null || (!status.UsController.Configured && !status.ThemController.Configured))
         {
-            _controllerStatus.Visible = false;
+            // 没有 driver 时保留最近一次壳层级提示（设置保存/预检/装配拒绝），
+            // 一旦出现 driver 状态就由下面的运行行取代。
+            _controllerStatus.Visible = _controllerNoticeActive;
             return;
         }
+        _controllerNoticeActive = false;
         _controllerStatus.Visible = true;
+        var handoff = status.HandoffReason is not null
+            ? " · 展演未交接（回退内置 FSM）"
+            : status.Handoff is not null ? $" · {status.Handoff}" : "";
         _controllerStatus.Text = $"策略  我方 {ControllerStatusLine(status.UsController)}"
-            + $"  /  对手 {ControllerStatusLine(status.ThemController)}";
-        var hasFault = status.DriverFault is not null
-            || status.UsController.Faults > 0
-            || status.ThemController.Faults > 0;
+            + $"  /  对手 {ControllerStatusLine(status.ThemController)}{handoff}";
+        // 进程退出/启动失败/未交接/预检告警都算红：HUD 必须响亮看到外部控制器已不可用。
+        var usUnavailable = status.UsController.Configured && !status.UsController.Running;
+        var hasFault = status.DriverFault is not null || status.HandoffReason is not null
+            || status.UsController.Faults > 0 || status.ThemController.Faults > 0 || usUnavailable;
         _controllerStatus.AddThemeColorOverride("font_color", hasFault ? AccentRed : AccentGreen);
     }
 
@@ -231,13 +267,22 @@ public partial class HudPanel : Control
     {
         if (controller.Mode == ControllerModes.BuiltIn)
         {
-            return "内置";
+            return "内置 FSM";
+        }
+        if (controller.Mode == ControllerModes.Mbri)
+        {
+            return "内置 MBri";
+        }
+        if (controller.Faults > 0)
+        {
+            return $"外部·故障 {controller.Faults}（{controller.LastFault}）";
         }
         if (!controller.Running)
         {
-            return string.IsNullOrEmpty(controller.LastFault) ? "外部·启动中" : "外部·故障";
+            // LastFault 非空 = 启动中/启动失败/未交接原因；空 = 进程已退出（Manual 停车）。
+            return controller.LastFault.Length > 0 ? $"外部·{controller.LastFault}" : "外部·已退出 → 停车";
         }
-        return controller.Faults > 0 ? $"外部·fault {controller.Faults}" : "外部·在线";
+        return "外部·在线";
     }
 
     /// <summary>顶栏: 布局编辑模式的选择/数值检视 + 操作按钮 (Main 在编辑器激活时刷新)。</summary>

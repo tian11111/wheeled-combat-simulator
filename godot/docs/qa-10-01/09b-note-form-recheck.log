@@ -1,0 +1,23 @@
+Godot Engine v4.7.2.stable.mono.official.ed1daf0bf - https://godotengine.org
+Vulkan 1.4.309 - Forward+ - Using Device #0: Intel - Intel(R) RaptorLake-S Mobile Graphics Controller
+
+[vision] 视觉源: 默认 classifyRate 桩 (不注入 adapter)
+[settings] 已加载 C:/Users/Neco/AppData/Roaming/Godot/app_userdata/WushuRingSim/wushu-ring-settings.json: 1280x720 windowed, uiScale=1, overrides=0
+[visual-qa] sdfgi=True fog=True glow=True dof=True materialNoise=True
+[rl-runner] contract=controllers/score_block_rl/gym_env.py:123-130,162-168 observation=11 action=2 stdout=jsonl flush=per-frame
+[rl-runner] checkpoint resolved (file): D:\project\robot-simulator\.sim_runs\score-block-v4-independent-throughput-20260927\suite-01\seed-20260929\checkpoints\rl_model_204800_steps.zip
+[rl-runner] mode=real checkpoint=D:\project\robot-simulator\.sim_runs\score-block-v4-independent-throughput-20260927\suite-01\seed-20260929\checkpoints\rl_model_204800_steps.zip sha256=6d8256b242dbb45b6e9f7485d936ebcf5993a145fb43d0ddef08913dba0f12cd num_timesteps=204800 observation=(11,) action=(2,) deterministic=True
+[rl-runner] frame=1 zero-action: no rlObservation (pre-handoff frame) (further pre-handoff frames counted, not logged)
+[controller] 我方 外部进程 · rl_desktop_runner.py（SCORE_BLOCK 展演）, 对手 内置 FSM —— Arm 后预推进到 SCORE_BLOCK 再交接
+[controller] 已启动桌面后台 driver；实况渲染线程不等待外部策略
+[capture] 90 帧后保存视口到 D:/project/robot-simulator/godot/docs/qa-10-01/09b-note-form-recheck.png
+[models] 已加载外观偏好: res://robot-models.json
+[models] us: 已应用外观模型 C:/Users/Neco/Downloads/装配.glb
+[shell] core=sim-core-1.0.5 seed=42 tick=0.05s duration=120s mode=Live
+[rl-runner] contract=controllers/score_block_rl/gym_env.py:123-130,162-168 observation=11 action=2 stdout=jsonl flush=per-frame
+[rl-runner] checkpoint resolved (file): D:\project\robot-simulator\.sim_runs\score-block-v4-independent-throughput-20260927\suite-01\seed-20260929\checkpoints\rl_model_204800_steps.zip
+[rl-runner] mode=real checkpoint=D:\project\robot-simulator\.sim_runs\score-block-v4-independent-throughput-20260927\suite-01\seed-20260929\checkpoints\rl_model_204800_steps.zip sha256=6d8256b242dbb45b6e9f7485d936ebcf5993a145fb43d0ddef08913dba0f12cd num_timesteps=204800 observation=(11,) action=(2,) deterministic=True
+[capture] saved D:/project/robot-simulator/godot/docs/qa-10-01/09b-note-form-recheck.png 1280x720
+[capture] stats: us=11183 them=8069 buff=381 debuff=2252 platform=21029 floor=732779 model=387
+WARNING: 7 RIDs of type "Texture" were leaked.
+   at: finalize (servers/rendering/rendering_device.cpp:8900)

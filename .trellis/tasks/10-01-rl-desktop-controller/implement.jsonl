@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "仿真铁律（Sim.Core 零 IO/时钟/RNG、确定性、协议只加不改）、外部控制器与 Sim.Hosting 装配纪律、rl-env 训练例外与 11 维观测契约、展演/门禁口径。批 1-3 全部改动都要过这里的验收线。"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "分层与 IO 归属：确定性行为在 Sim.Core、文件/进程编排在 Sim.Cli；Sim.Hosting 是物理后端装配入口。决定共享缝放 Sim.Hosting、桥留在 Sim.Controller 的边界依据。"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "抽取共享实现、消除重复的思考清单：本任务把 11 维观测投影与动作映射收敛为唯一实现，禁止 Python 侧第二份构造。"}
+{"file": ".trellis/spec/sim/rl-split-contract.md", "reason": "split v4 预注册契约与盲集纪律：展演不得改 splits.py、不得创建/消费 v4 盲验索引，产出恒 gate_evidence_eligible=false。"}
+{"file": ".trellis/tasks/10-01-rl-desktop-controller/research/facts.md", "reason": "本任务事实底稿：控制器链路 file:line、共享归属现状、观测/动作契约位置、v4 checkpoint 实位与哈希、Python 环境实测、场景与种子纪律。"}

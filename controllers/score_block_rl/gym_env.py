@@ -61,7 +61,8 @@ class ScoreBlockEnv(gym.Env):
     def __init__(self, dotnet_exe: str, cli_dll: str, scenario_path: str,
                  duration: float = 120.0, seed_pool: Optional[list[int]] = None,
                  initial_episode_seed: Optional[int] = None,
-                 max_policy_ticks: int = MAX_POLICY_TICKS, trace: bool = False):
+                 max_policy_ticks: int = MAX_POLICY_TICKS, trace: bool = False,
+                 reward: str = "v4"):
         super().__init__()
         if seed_pool is not None and not seed_pool:
             raise ValueError("seed_pool must contain at least one seed")
@@ -82,9 +83,16 @@ class ScoreBlockEnv(gym.Env):
             raise ValueError("duration and max_policy_ticks must be positive")
         self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
         self.observation_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(11,), dtype=np.float32)
+        self._reward = str(reward)
+        if self._reward not in ("v4", "aggression-v1", "aggression-v2"):
+            raise ValueError(f"unknown reward variant: {self._reward!r}")
+        cmd = [self._dotnet, self._cli, "rl-env", "--scenario", self._scenario,
+               "--duration", str(self._duration)]
+        if self._reward != "v4":
+            # 默认 v4 不加参数: 既有训练/评测的 rl-env 启动命令与 wire 保持逐字节一致。
+            cmd += ["--reward", self._reward]
         self._proc = subprocess.Popen(
-            [self._dotnet, self._cli, "rl-env", "--scenario", self._scenario,
-             "--duration", str(self._duration)],
+            cmd,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             # CLI stdout is the JSONL protocol. Inherit stderr so diagnostics remain visible.
             stderr=None, text=True, encoding="utf-8", errors="replace",

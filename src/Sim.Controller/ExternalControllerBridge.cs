@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text;
 using Sim.Core;
 using Sim.Protocol;
 
@@ -11,11 +12,19 @@ namespace Sim.Controller;
 /// </summary>
 public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
 {
+    /// <summary>
+    /// 进程退出后给 stdout 读取线程的排空宽限: 应答可能在进程退出前已写入管道,
+    /// 但还没被读取线程送进队列。宽限耗尽仍无应答 = 命令实际起不来, 立刻报死,
+    /// 不必等满 TimeoutMs。
+    /// </summary>
+    private static readonly TimeSpan ExitDrainGrace = TimeSpan.FromMilliseconds(100);
+
     private readonly Process _process;
     private readonly BlockingCollection<string> _lines = new();
     private readonly Thread _reader;
     private readonly TimeSpan _deadline;
     private string _lastFault = "";
+    private string _lastProtocolFault = "";
     private long _faults;
     private int _disposed;
 
@@ -32,6 +41,14 @@ public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
 
     /// <summary>Last fault category for a desktop status badge or CLI diagnostic.</summary>
     public string LastFault => Volatile.Read(ref _lastFault);
+
+    /// <summary>
+    /// 最近一次被丢弃的应答原因（非法动作行 / requestId 不匹配）。与
+    /// <see cref="LastFault"/> 不同: 随后的应答超时不会覆盖它 —— 桌面预检据此把
+    /// "进程活着但应答是垃圾/答了别的帧"与"首帧加载慢"分开（前者确定性失败,
+    /// 后者保留外部控制器并告警）。不影响 Faults/LastFault 的既有语义。
+    /// </summary>
+    public string LastProtocolFault => Volatile.Read(ref _lastProtocolFault);
 
     public bool IsRunning
         => Volatile.Read(ref _disposed) == 0 && !_process.HasExited;
@@ -53,6 +70,10 @@ public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
             RedirectStandardOutput = true,
             RedirectStandardError = false,
             CreateNoWindow = true,
+            // JSONL 契约固定 UTF-8 (docs/CONTROLLER_PROTOCOL.md): 不显式设置时 .NET 用
+            // Console.InputEncoding, 随宿主控制台代码页变化(中文 Windows 控制台是 cp936),
+            // obs 里的中文标签会被写成乱码。ASCII 动作行字节不变, 既有语义不变。
+            StandardInputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
         };
         var process = Process.Start(info)
             ?? throw new InvalidOperationException($"failed to start controller process: {command}");
@@ -78,10 +99,26 @@ public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
 
         var expectedId = observation.RequestId.ToString();
         var cutoff = DateTime.UtcNow + _deadline;
+        // 命令能启动但当场退出(脚本不存在/解释器报错)时, 读取线程可能还在把退出前
+        // 写出的行送进队列: 先给 ExitDrainGrace 排空, 仍无应答就立即按"进程已退出"
+        // 报错, 不必空等满 TimeoutMs —— 结论同为拒绝, 但原因不再误写成应答超时。
+        var exitedAt = DateTime.MinValue;
         while (DateTime.UtcNow < cutoff)
         {
             if (!_lines.TryTake(out var line, millisecondsTimeout: 2))
             {
+                if (_process.HasExited)
+                {
+                    if (exitedAt == DateTime.MinValue)
+                    {
+                        exitedAt = DateTime.UtcNow;
+                    }
+                    if (DateTime.UtcNow - exitedAt >= ExitDrainGrace)
+                    {
+                        return Fault("controller process exited without a response"
+                            + " (command failed to start or crashed)");
+                    }
+                }
                 continue;
             }
             if (!ProtocolJson.TryParseActionLine(line, out var action, out var error) || action is null)
@@ -89,6 +126,7 @@ public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
                 if (!string.IsNullOrWhiteSpace(error))
                 {
                     Volatile.Write(ref _lastFault, $"invalid action: {error}");
+                    Volatile.Write(ref _lastProtocolFault, $"invalid action: {error}");
                 }
                 continue; // diagnostics/log lines are not actions
             }
@@ -98,6 +136,10 @@ public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
             {
                 return action;
             }
+            // 丢弃原因单独留痕(不改 Faults/LastFault 语义): 桌面预检据此把
+            // "应答了别的帧/坏行"与"首帧加载慢没应答"分开。
+            Volatile.Write(ref _lastProtocolFault,
+                $"dropped action for requestId '{action.RequestId}' (expected '{expectedId}')");
         }
         return Fault($"controller response timeout for requestId={expectedId}");
     }

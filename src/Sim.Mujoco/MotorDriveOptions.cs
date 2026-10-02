@@ -43,3 +43,40 @@ internal readonly record struct MotorDriveOptions
         return Math.Clamp(voltage / BatteryNoLoadVoltageVolts, 0.0, 1.0);
     }
 }
+
+/// <summary>
+/// 驱动轮-地接触参数(MuJoCo 域标定轮的注入点)。**默认(未设置)取标定值** ——
+/// <see cref="Condim"/> = 0 视为未设置, 取 2026-10-02 域标定轮定值的每模型摩擦
+/// (v1 slide 5.0 / v2 slide 6.0, spin 0.002 / roll 0.002, condim 3);
+/// 显式注入(Condim != 0)时全三元组按注入值生效, 供探针/试验扫描。
+///
+/// 取值锚点(须披露): **工程初值, 无真车锚点** —— 真车胎纹各向异性(顺滚动易/横向难)
+/// 无法用 MuJoCo 各向同性接触摩擦表达, 滑移转向的最优摩擦点是实测扫描峰:
+/// v1 在 f4–f6 平台(峰 f5, 稳态偏航 2.54 rad/s)、v2 在 f6–f9 平台(峰 f6, 1.17 rad/s),
+/// 两侧再抬高(≥f10)或降低(≤f4)都显著变差; f7–f8 处 v1 的偶发低谷为粘滑极限环
+/// 模式切换, 非单调区。摩擦改变会改变 v1/v2 模型哈希(旧 MuJoCo 回放/checkpoint 失配,
+/// 用户已拍板接受)。
+///
+/// 注意 C# 的 <c>default</c> 对 struct 是全零、不执行属性初始值设定项, 故用
+/// "0=未设置"而不是属性默认值。
+/// </summary>
+internal readonly record struct WheelContactOptions
+{
+    /// <summary>接触维度: 0=未设置(取标定默认 3), 3=切向滑动, 4=+扭转, 6=+扭转+滚动。</summary>
+    public int Condim { get; init; }
+
+    /// <summary>滑动摩擦系数(未设置取每模型标定值 v1 5.0 / v2 6.0)。</summary>
+    public double Slide { get; init; }
+
+    /// <summary>扭转摩擦(未设置取 0.02; condim≥4 才有效)。</summary>
+    public double Spin { get; init; }
+
+    /// <summary>滚动摩擦(未设置取 0.002; condim=6 才有效)。</summary>
+    public double Roll { get; init; }
+
+    /// <summary>解析为实际生效值: Condim=0(未设置) ⇒ 取每模型标定默认。</summary>
+    internal (int Condim, double Slide, double Spin, double Roll) Resolved(bool isV2)
+        => Condim == 0
+            ? (3, isV2 ? 6.0 : 5.0, 0.02, 0.002)
+            : (Condim, Slide, Spin, Roll);
+}

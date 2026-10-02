@@ -7,5 +7,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Sim.Core\Sim.Core.csproj" />
     <ProjectReference Include="..\Sim.Mujoco\Sim.Mujoco.csproj" />
+    <!-- 显式引用: ScoreBlockExhibition 的 11 维投影用 Sim.Protocol 类型
+         (Region/Snapshot), 不依赖 Sim.Core 的传递引用。 -->
+    <ProjectReference Include="..\Sim.Protocol\Sim.Protocol.csproj" />
   </ItemGroup>
 </Project>

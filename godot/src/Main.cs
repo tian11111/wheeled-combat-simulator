@@ -49,6 +49,10 @@ public partial class Main : Node
     private Scenario _scenarioTemplate = null!;
     private DesktopLiveDriver? _liveDriver;
     private Snapshot? _driverSnapshot;
+    // 控制器装配（我方 external = SCORE_BLOCK 展演）: 决策/解析在 ControllerWiring
+    // 纯文件, 应用设置时预检一次(结论缓存在 _usPreflight, 供后续场次复用)。
+    private ControllerAssignment _controllerAssignment = ControllerAssignment.BuiltIn;
+    private ControllerPreflightResult? _usPreflight;
     private bool _pendingMatchSettings;
     private Dictionary<string, RobotModelConfig>? _robotModels;
     private string? _robotModelsPath;
@@ -98,6 +102,10 @@ public partial class Main : Node
         var scenario = BuildScenarioWithFallback();
         ReplaceSession(scenario);
         ApplyScenarioToShell(scenario);
+        // 控制器装配（加载的持久化设置 + 当前场景）: 我方 external 只在 mujoco 场景
+        // 启用展演; 应用时预检一次, 拒绝/回退响亮报出来 (同视觉源先例)。
+        _controllerAssignment = RebuildControllerWiring(scenario, probeExternal: true);
+        PublishControllerWiring();
 
         _editor = new LayoutEditor { Name = "LayoutEditor" };
         AddChild(_editor);
@@ -1038,6 +1046,8 @@ public partial class Main : Node
 
         ApplyDisplaySettings(settings);
         RebuildVisionFactory();
+        _controllerAssignment = RebuildControllerWiring(BuildLiveScenarioFromTemplate(), probeExternal: true);
+        PublishControllerWiring();
         if (matchChanged)
         {
             _pendingMatchSettings = true;
@@ -1073,6 +1083,59 @@ public partial class Main : Node
         }
     }
 
+    /// <summary>
+    /// 控制器来源装配（无引擎决策/解析在 ControllerWiring，纯逻辑可单测）:
+    /// 我方 external = SCORE_BLOCK 展演，只在 mujoco 场景启用；应用设置时按 liveProcess
+    /// 视觉源先例预检一次（启动→握手→立刻释放，坏命令当场响亮报错）。拒绝/回退只影响
+    /// 本场，设置本身照旧保存 —— 换回 mujoco 场景或修好命令后重新应用即恢复。
+    /// </summary>
+    private ControllerAssignment RebuildControllerWiring(Scenario scenario, bool probeExternal)
+    {
+        var us = _settings.UsController ?? new ControllerProfile();
+        if (!ControllerWiring.IsRunnableExternal(us))
+        {
+            _usPreflight = null;
+        }
+        else if (probeExternal && ControllerWiring.ScenarioSupportsExhibition(scenario))
+        {
+            _usPreflight = ControllerPreflight.Run(us);
+        }
+        return ControllerWiring.Resolve(scenario, us, _settings.ThemController,
+            ControllerWiring.IsRunnableExternal(us) ? _usPreflight : null);
+    }
+
+    /// <summary>装配结果送控制台与 HUD：拒绝/预检告警红色响亮、正常绿色。</summary>
+    private void PublishControllerWiring()
+    {
+        var assignment = _controllerAssignment;
+        var us = ControllerWiring.DescribeSource(assignment.Us);
+        if (assignment.Notice?.IsRejection == true)
+        {
+            us += "（外部控制器被拒绝）";
+        }
+        else if (assignment.Exhibition)
+        {
+            us += "（SCORE_BLOCK 展演）";
+        }
+        var them = ControllerWiring.DescribeSource(assignment.Them);
+        _hud?.UpdateControllerSources(us, them, assignment.Notice?.IsRejection == true);
+        if (assignment.Notice is { } notice)
+        {
+            if (notice.IsRejection)
+            {
+                GD.PrintErr($"[controller] {notice.Message}");
+            }
+            else
+            {
+                GD.Print($"[controller] {notice.Message}");
+            }
+            _hud?.ShowNotice(notice.Message, ok: !notice.IsRejection);
+            return;
+        }
+        GD.Print($"[controller] 我方 {us}, 对手 {them}"
+            + (assignment.Exhibition ? " —— Arm 后预推进到 SCORE_BLOCK 再交接" : ""));
+    }
+
     private void ApplyDisplaySettings(DesktopSettings settings)
     {
         var window = settings.Window ?? new WindowSettings();
@@ -1103,8 +1166,17 @@ public partial class Main : Node
         _scenarioTemplate = string.IsNullOrEmpty(ScenarioPath)
             ? new Scenario { Seed = Seed, Blocks = OfficialLayout.Blocks }
             : ProtocolJson.Deserialize<Scenario>(System.IO.File.ReadAllText(ScenarioPath));
-        return _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(_scenarioTemplate));
+        return ApplyDesktopSettings(_scenarioTemplate);
     }
+
+    /// <summary>
+    /// 显式桌面覆盖层 (参数 → 小车 → 控制器选择): 仅显式设置生效, 默认档不改
+    /// 场景/车辆字段。控制器选择最后叠加 —— MBri 档把 vehicles[].controller
+    /// 写成 "mbri", builtin/external 保持场景原值 (external 走进程桥, 不占字段)。
+    /// </summary>
+    private Scenario ApplyDesktopSettings(Scenario template)
+        => _settings.ApplyControllerSelection(
+            _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(template)));
 
     // 响亮回退(同视觉源预检先例): 场景文件读不到时给指路报错并回退官方布局,
     // 不留一个没建起场景的空窗口。
@@ -1146,7 +1218,7 @@ public partial class Main : Node
     private Scenario BuildLiveScenarioFromTemplate()
     {
         var template = _scenarioTemplate ?? _session.Engine.Scenario;
-        return _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(template));
+        return ApplyDesktopSettings(template);
     }
 
     /// <summary>
@@ -1174,15 +1246,27 @@ public partial class Main : Node
 
     private void StartLiveDriverIfConfigured(Scenario scenario)
     {
-        if (_session.Mode != SessionMode.Live
-            || (!_settings.UsController.IsExternal && !_settings.ThemController.IsExternal))
+        if (_session.Mode != SessionMode.Live)
+        {
+            return;
+        }
+        // 用本场真实场景重算装配（纯决策 + 上次应用时的预检结论）: 场景不符/预检失败
+        // 即回退内置 FSM, 不启动 driver（响亮说明在 PublishControllerWiring, 只在装配
+        // 变化时打印一次, 避免每场重复刷屏）。
+        var assignment = RebuildControllerWiring(scenario, probeExternal: false);
+        if (assignment != _controllerAssignment)
+        {
+            _controllerAssignment = assignment;
+            PublishControllerWiring();
+        }
+        if (!assignment.Us.IsExternal && !assignment.Them.IsExternal)
         {
             return;
         }
         StopLiveDriver();
         _driverSnapshot = null;
-        _liveDriver = new DesktopLiveDriver(
-            scenario, _settings.UsController, _settings.ThemController, _visionFactory);
+        _liveDriver = new DesktopLiveDriver(scenario, assignment.Us, assignment.Them,
+            _visionFactory, assignment.Exhibition);
         _liveDriver.Start();
         GD.Print("[controller] 已启动桌面后台 driver；实况渲染线程不等待外部策略");
     }
@@ -1727,7 +1811,7 @@ public partial class Main : Node
             ? null
             : new Dictionary<string, double>(_scenarioTemplate.Parameters);
         _scenarioTemplate = scenario with { Parameters = templateParameters };
-        var applied = _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(_scenarioTemplate));
+        var applied = ApplyDesktopSettings(_scenarioTemplate);
         ReplaceSession(applied);
         _pendingMatchSettings = false;
         ApplyScenarioToShell(applied);
