@@ -185,8 +185,16 @@ public sealed record MbriReentryResult
 ///       超时 APPROACH_TIMEOUT → SAFE_STOP）
 ///     → ADC_CORRECT：9 帧中值滤波按校准区间原地矫正，连续确认正对
 ///       （超时 CORRECT_TIMEOUT → SAFE_STOP）
-///     → REVERSE：倒车直到前头红外无值（超时 REVERSE_TIMEOUT → SAFE_STOP）
-///     → SAFE_STOP：灰度恢复（人工/后续上台）后回 WAIT。
+///     → REVERSE：倒车直到前头红外无值（超时 REVERSE_TIMEOUT）
+///     → [A2 仿真加程] 倒车结束时仍掉台（fall-domain 灰度未恢复台面值）→
+///       REMOUNT 有界回台：倒车冲台（=真车 START_REVERSE 同款命令 −1000×1.8s，
+///       main.py:131-147 爬台机制），每 tick 检查 fall-domain 灰度恢复即回 WAIT
+///       （仲裁层重置巡台交还）；单冲时长耗尽仍未上台 → 重试，共 1+2=3 次尝试
+///       （RemountMaxRetries=2）后仍失败 → SAFE_STOP 如实停车。真车 reentry.py:8
+///       "当前流程到倒车脱离为止，主动上台动作尚未实现"——本状态为仿真无人对局
+///       的有界补全，命令复用真车已有的爬台机制（开局倒车冲台），不发明新动作。
+///     → SAFE_STOP：倒车脱离时灰度已恢复（回台成功）/回台重试耗尽 → 停车；
+///       灰度恢复（人工/后续上台）后回 WAIT，仿真无人工超时重新武装（finding 1）。
 /// 参数 config.py:150-158 + 80-84；转向查表复用 MbriPatrol.MotorTurnCalibration
 /// （真车 reentry.py:46 与 ring_patrol 共用 MOTOR_TURN_CALIBRATION）。
 /// </summary>
@@ -200,6 +208,23 @@ public sealed class MbriReentry
     public const double ApproachTouchSignal = 1060.0; // REENTRY_APPROACH_TOUCH_SIGNAL
     public const int ReverseSpeed = 900;            // REENTRY_REVERSE_SPEED
     public const double ReverseTimeout = 3.0;       // REENTRY_REVERSE_TIMEOUT
+
+    /// <summary>
+    /// 回台冲台速度（A2，=真车 START_REVERSE 同款命令 main.py:131-147 的 −1000；
+    /// 与 <see cref="MbriFsmController.StartReverseSpeed"/> 的相等由单测钉住）。
+    /// </summary>
+    public const int RemountSpeed = 1000;
+
+    /// <summary>回台冲台单次时长（A2，=START_REVERSE 同款 1.8s；单测钉住同款关系）。</summary>
+    public const double RemountSeconds = 1.8;
+
+    /// <summary>
+    /// 回台冲台重试上限（A2）：首次冲台 + 最多 2 次重试 = 3 次尝试，全部耗尽仍
+    /// 未检测到灰度恢复 → SAFE_STOP 如实停车（真实失败如实呈现，不无限冲撞）。
+    /// SAFE_STOP 后仍由既有有界重新武装（RearmWaitSeconds）兜底，重新分派会重置
+    /// 冲台预算（StartFromTrigger），故整体仍是有界循环而非吸收态。
+    /// </summary>
+    public const int RemountMaxRetries = 2;
 
     /// <summary>
     /// 仿真无人对局的人工复位等价物（批2 评审 finding 1 修复）：真车 SAFE_STOP/IR_WAIT
@@ -228,6 +253,7 @@ public sealed class MbriReentry
     private double _turnAngle;
     private double _turnDuration;
     private int _correctCount;
+    private int _remountAttempt;
     private readonly double _tickSeconds;
 
     public MbriReentry(double tickSeconds = MbriUnits.DefaultTickSeconds, MbriRiskModel? model = null)
@@ -256,6 +282,7 @@ public sealed class MbriReentry
     // ---------- reentry.py:109-120 _start_from_trigger ----------
     private void StartFromTrigger(MbriDigiIr ir, long tick)
     {
+        _remountAttempt = 0;   // A2：新的掉台回归流程重置回台冲台预算
         if (ir.Front)
         {
             StartCorrect(tick, "掉台触发且前头红外亮，直接矫正");
@@ -315,6 +342,26 @@ public sealed class MbriReentry
         _alignment.Reset();
         _correctCount = 0;
         Enter("ADC_CORRECT", tick, (0, 0), reason);
+    }
+
+    // ---------- A2：REVERSE 结束出口分流（倒车脱离 vs 有界回台） ----------
+    /// <summary>
+    /// 倒车（脱离）结束：灰度已恢复台面值 → SAFE_STOP（下一 tick 因 !Fall 回 WAIT，
+    /// 真车"灰度恢复（人工/后续上台）"出口语义不变）；仍掉台 → REMOUNT 有界回台
+    /// （倒车冲台 = START_REVERSE 同款命令，见 <see cref="RemountSpeed"/>）。
+    /// </summary>
+    private void StartRemountOrSafeStop(long tick, string reverseEndReason)
+    {
+        if (Fall)
+        {
+            _remountAttempt = 1;
+            Enter("REMOUNT", tick, (-RemountSpeed, -RemountSpeed),
+                $"{reverseEndReason}，仍掉台，回台冲台 1/{RemountMaxRetries + 1}");
+        }
+        else
+        {
+            Enter("SAFE_STOP", tick, (0, 0), reverseEndReason);
+        }
     }
 
     // ---------- reentry.py:155-164 _mix（银行家舍入，同巡台） ----------
@@ -488,12 +535,38 @@ public sealed class MbriReentry
         {
             if (!ir.Front)
             {
-                Enter("SAFE_STOP", tick, (0, 0), "倒车完成（前头红外无值）");
+                StartRemountOrSafeStop(tick, "倒车完成（前头红外无值）");
             }
             else if (elapsedTicks >= DurationTicks(ReverseTimeout))
             {
-                Enter("SAFE_STOP", tick, (0, 0), "倒车超时");
+                StartRemountOrSafeStop(tick, "倒车超时");
             }
+            return Result(obs);
+        }
+
+        // ---------- A2 有界回台（仿真无人对局补全，真车 reentry.py:8 披露主动上台未实现）----------
+        if (State == "REMOUNT")
+        {
+            if (!Fall)
+            {
+                // 回台成功判定 = fall-domain 灰度恢复台面值（四路 zone 不再全<0）：
+                // 回 WAIT，仲裁层（MbriFsm.TickFor）据此重置巡台并交还控制权。
+                Enter("WAIT", tick, (0, 0), "回台成功（灰度恢复台面值）");
+            }
+            else if (elapsedTicks >= DurationTicks(RemountSeconds))
+            {
+                if (_remountAttempt < RemountMaxRetries + 1)
+                {
+                    _remountAttempt++;
+                    Enter("REMOUNT", tick, (-RemountSpeed, -RemountSpeed),
+                        $"回台冲台未检测到上台，重试 {_remountAttempt}/{RemountMaxRetries + 1}");
+                }
+                else
+                {
+                    Enter("SAFE_STOP", tick, (0, 0), "回台冲台重试耗尽，如实停车");
+                }
+            }
+            // 冲台时长内仍掉台：保持倒车冲台命令（不重复进入/计数）。
             return Result(obs);
         }
 

@@ -132,8 +132,8 @@ public sealed class MatchEngine : IDisposable
         _events = new EventBus();
         // 场景级控制器选择 (协议加法): "mbri" 才构造移植控制器, 其余走既有
         // FsmController 路径 —— 省略 vehicles[].controller 的场景零变化。
-        _mbriUs = UsesMbri(usVehicle) ? new MbriFsmController(_events, scenario.Field.TickSeconds) : null;
-        _mbriThem = UsesMbri(themVehicle) ? new MbriFsmController(_events, scenario.Field.TickSeconds) : null;
+        _mbriUs = UsesMbri(usVehicle) ? CreateMbriController() : null;
+        _mbriThem = UsesMbri(themVehicle) ? CreateMbriController() : null;
         var context = new PhysicsBackendContext(scenario, _field, _params, _us, _them, _blocks, _events,
             AntiStallPhase(scenario.Seed, RoleNames.Us), AntiStallPhase(scenario.Seed, RoleNames.Them));
         if (scenario.Physics?.Backend == PhysicsSpec.Mujoco)
@@ -173,6 +173,17 @@ public sealed class MatchEngine : IDisposable
 
     /// <summary>该角色生效的 MBri 控制器, null = 走既有内置 FSM。</summary>
     private MbriFsmController? MbriFor(RobotRuntime r) => r.IsUs ? _mbriUs : _mbriThem;
+
+    /// <summary>
+    /// MBri 控制器工厂 + P2 视觉源接线: 视觉追击输入 = ObjectSet 真值投影
+    /// (特权观测, 语义披露见 MbriVisionProjector 头注释)。仅在 mbri 场景调用;
+    /// 其余路径 (含 replays/seed-42 基线) 不触碰。
+    /// </summary>
+    private MbriFsmController CreateMbriController() => new(_events, _scenario.Field.TickSeconds)
+    {
+        VisionSource = (observer, tick) =>
+            MbriVisionProjector.Project(observer, _blocks, _field, tick, _scenario.Field.TickSeconds),
+    };
 
     /// <summary>
     /// 反僵局铲刃微调初相 (rad): 由 (seed, role) 经既有 <c>hashString32</c> 派生到
@@ -523,10 +534,11 @@ public sealed class MatchEngine : IDisposable
         };
         _physics.ResetRobot(r);
         // MBri 角色重启 = 真车 rearm: 换新实例清空滤波窗口/子状态机, 与
-        // FsmRuntime 一并复位 (上面 Armed=true, 首 tick 起重放开局上台)。
+        // FsmRuntime 一并复位 (上面 Armed=true, 首 tick 起重放开局上台);
+        // P2 视觉源随工厂一并接好。
         if (MbriFor(r) is not null)
         {
-            var fresh = new MbriFsmController(_events, _scenario.Field.TickSeconds);
+            var fresh = CreateMbriController();
             fresh.Arm();
             if (r.IsUs)
             {

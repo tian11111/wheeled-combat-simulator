@@ -33,7 +33,7 @@ public sealed class MbriFsmTests
         var events = new EventBus();
         var fsm = new MbriFsmController(events);
         var robot = NewRobot();
-        SetGray(robot, 1000, 1000, 1000, 1000);
+        SetGray(robot, 650, 650, 650, 650); // 官方场台心红区灰度（A1 重标后 zone≈1.0）
         fsm.TickFor(robot, 0);
         Assert.Equal("IDLE", fsm.MbriState);
         Assert.Equal(FsmState.WaitStart, robot.Fsm.State);
@@ -48,7 +48,7 @@ public sealed class MbriFsmTests
         var events = new EventBus();
         var fsm = new MbriFsmController(events);
         var robot = NewRobot();
-        SetGray(robot, 1000, 1000, 1000, 1000);
+        SetGray(robot, 650, 650, 650, 650); // 官方场台心红区灰度（A1 重标后 zone≈1.0 < FAST_ZONE）
         fsm.Arm();
         // tick 0..35：-1000×1.8s=36 tick 独占（main.py:131-147；config.py:163-166）。
         for (long t = 0; t <= 35; t++)
@@ -77,8 +77,8 @@ public sealed class MbriFsmTests
         // 独占窗锚定首个 armed tick（main.py: _start_reverse_until = now + seconds）。
         var events = new EventBus();
         var fsm = new MbriFsmController(events, 0.1);
-        var robot = NewRobot();
-        SetGray(robot, 1000, 1000, 1000, 1000);
+        var robot = new RobotRuntime { Role = RoleNames.Us, Name = "我方" };
+        SetGray(robot, 650, 650, 650, 650);
         fsm.Arm();
         for (long t = 0; t <= 17; t++)
         {
@@ -91,8 +91,8 @@ public sealed class MbriFsmTests
         // 锚点=首个 armed tick：从 tick 100 起发令 → 独占到 117，118 交出。
         var events2 = new EventBus();
         var fsm2 = new MbriFsmController(events2, 0.1);
-        var robot2 = NewRobot();
-        SetGray(robot2, 1000, 1000, 1000, 1000);
+        var robot2 = new RobotRuntime { Role = RoleNames.Us, Name = "我方" };
+        SetGray(robot2, 650, 650, 650, 650);
         fsm2.Arm();
         fsm2.TickFor(robot2, 100);
         Assert.Equal("START_REVERSE", fsm2.MbriState);
@@ -108,15 +108,15 @@ public sealed class MbriFsmTests
         var events = new EventBus();
         var fsm = new MbriFsmController(events);
         var robot = NewRobot();
-        SetGray(robot, 1000, 1000, 1000, 1000);
+        SetGray(robot, 650, 650, 650, 650); // 官方场台心红区灰度（A1 重标后 zone≈1.0）
         fsm.Arm();
         for (long t = 0; t <= 36; t++)
         {
             fsm.TickFor(robot, t);
         }
         Assert.Equal("MEDIUM_CRUISE", fsm.MbriState);
-        // 全场走道灰度 0 → 仿射后 zone=0；filtered 一帧滞后（中值窗口）→
-        // 早期前向风险在 tick 38 触发 → EDGE_AVOID 后退。
+        // 全场走道灰度 0 → 重标仿射后 zone≈−1.0（走道暗域）；filtered 一帧滞后
+        // （中值窗口）→ 早期前向风险在 tick 38 触发 → EDGE_AVOID 后退。
         SetGray(robot, 0, 0, 0, 0);
         fsm.TickFor(robot, 37);
         Assert.Equal("MEDIUM_CRUISE", fsm.MbriState); // 滞后帧
@@ -141,6 +141,7 @@ public sealed class MbriFsmTests
         Assert.Equal(FsmState.Recover, MbriFsmController.SnapshotState("RECOVER_FORWARD"));
         Assert.Equal(FsmState.Recover, MbriFsmController.SnapshotState("RECOVER_BACKWARD"));
         Assert.Equal(FsmState.Incapacitated, MbriFsmController.SnapshotState("SENSOR_STOP"));
+        Assert.Equal(FsmState.Recover, MbriFsmController.SnapshotState("REMOUNT")); // A2 有界回台
         Assert.Equal(FsmState.WaitStart, MbriFsmController.SnapshotState("IDLE"));
     }
 
@@ -150,7 +151,7 @@ public sealed class MbriFsmTests
         var events = new EventBus();
         var fsm = new MbriFsmController(events);
         var robot = NewRobot();
-        SetGray(robot, 1000, 1000, 1000, 1000);
+        SetGray(robot, 650, 650, 650, 650); // 官方场台心红区灰度（A1 重标后 zone≈1.0）
         fsm.Arm();
         for (long t = 0; t <= 36; t++)
         {
@@ -177,7 +178,7 @@ public sealed class MbriFsmTests
         < 40 => 1000,
         < 55 => 0,                                      // 掉入全暗 → early → EDGE_AVOID → EDGE_TURN
         < 80 => 1000,                                   // 回中心 → 转向完成 → RECOVER → 巡航
-        < 90 => 350,                                    // 近边带（g=350 → zone 0.35 边界附近抖动）
+        < 90 => 350,                                    // 台内贴带（g=350 → zone≈0.07，A1 重标后近"台沿=0"锚）
         < 120 => 760,                                   // 中间带（滞回区间）
         < 150 => 0,
         < 200 => 1000,
@@ -254,7 +255,14 @@ public sealed class MbriFsmTests
     /// <summary>ADC 域确定性脚本（含白边相位；显式相位表，无随机源）。</summary>
     private static MbriGraySample ScriptAdc(long tick)
     {
-        var center = MbriGrayCalibration.SimSampleToAdc(1000, 1000, 1000, 1000);
+        // "中心"相位 = 官方场台心红区实测灰度（A1 重标锚点）→ zone=1.0；
+        // 批1 原写 SimSampleToAdc(1000,...)（g=1000→zone=1.0），A1 重标后 g=1000
+        // 为台心锚以上外推亮值（zone≈2.1 → CRUISE 档），脚本相位语义以重标锚点保持。
+        var center = MbriGrayCalibration.SimSampleToAdc(
+            MbriGrayCalibration.CenterGrayReference["front"],
+            MbriGrayCalibration.CenterGrayReference["rear"],
+            MbriGrayCalibration.CenterGrayReference["left"],
+            MbriGrayCalibration.CenterGrayReference["right"]);
         var dark = MbriGrayCalibration.SimSampleToAdc(0, 0, 0, 0);
         return (tick / 20) switch
         {

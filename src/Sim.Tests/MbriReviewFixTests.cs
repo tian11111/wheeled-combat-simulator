@@ -60,10 +60,10 @@ public sealed class MbriReviewFixTests
         var events = new EventBus();
         var fsm = new MbriFsmController(events);
         var robot = new RobotRuntime { Role = RoleNames.Us, Name = "我方" };
-        robot.Sens["gF"] = 1000;
-        robot.Sens["gB"] = 1000;
-        robot.Sens["gL"] = 1000;
-        robot.Sens["gR"] = 1000;
+        robot.Sens["gF"] = 650; // 官方场台心红区灰度（A1 重标后 zone≈1.0 → MEDIUM_CRUISE）
+        robot.Sens["gB"] = 650;
+        robot.Sens["gL"] = 650;
+        robot.Sens["gR"] = 650;
         robot.Sens["f"] = 0;
         fsm.Arm();
         for (long t = 0; t <= 40; t++)

@@ -20,13 +20,26 @@ public sealed class MbriPatrolTests
         => MbriGrayCalibration.EdgeReference[channel]
            + zone * (MbriGrayCalibration.CenterReference[channel] - MbriGrayCalibration.EdgeReference[channel]);
 
-    /// <summary>台面中心（g=1000 → zone=1.0）。</summary>
+    /// <summary>
+    /// 台心红区：官方场实测台心灰度（A1 重标锚点 CenterGrayReference）经标定层
+    /// → zone=1.0，与真车"中心参考读数"同域（批1 原写 g=1000；A1 重标后 g=1000
+    /// 是台心锚以上的外推亮值 → zone≈2.1 → CRUISE 档，另见 Matrix_CruiseFastTier）。
+    /// </summary>
     private static MbriGraySample Center()
-        => MbriGrayCalibration.SimSampleToAdc(1000, 1000, 1000, 1000);
+        => MbriGrayCalibration.SimSampleToAdc(
+            MbriGrayCalibration.CenterGrayReference["front"],
+            MbriGrayCalibration.CenterGrayReference["rear"],
+            MbriGrayCalibration.CenterGrayReference["left"],
+            MbriGrayCalibration.CenterGrayReference["right"]);
 
-    /// <summary>全场均匀暗外圈（zone=0 → 早期前向风险 confirm=1 触发）。</summary>
+    /// <summary>
+    /// 全场均匀暗外圈：ADC 域四路同 zone=0（＝边缘参考亮度，A1 重标前
+    /// SimSampleToAdc(0,0,0,0) 的旧语义）。A1 重标后 g=0 是走道（zone≈−1.0 落深暗域，
+    /// 会在 EDGE_TURN 触发"单路深暗"分支），故本 craft 改用 ADC 域均匀 zone 表达
+    /// "均匀暗外圈"，保持 early confirm=1 触发与 linear=0 后退分支的测试意图。
+    /// </summary>
     private static MbriGraySample UniformDark()
-        => MbriGrayCalibration.SimSampleToAdc(0, 0, 0, 0);
+        => new(ZoneToAdc("front", 0.0), ZoneToAdc("rear", 0.0), ZoneToAdc("left", 0.0), ZoneToAdc("right", 0.0));
 
     /// <summary>
     /// 近边 craft：zone front=0.9（亮，压住 early 判据）、其余 0.2 →

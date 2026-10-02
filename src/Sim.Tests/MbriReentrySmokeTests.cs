@@ -4,15 +4,19 @@ using Sim.Protocol;
 namespace Sim.Tests;
 
 /// <summary>
-/// 批2 行为冒烟（implement.md 批2："官方场景 3-seed：掉台后能走完回归流程"）：
+/// 批2 行为冒烟（implement.md 批2："官方场景 3-seed：掉台后能走完回归流程"；
+/// A2 扩展：倒车脱离后仍掉台 → 有界回台冲台）：
 /// 官方 legacy 场景（wushu-ring-2026.json，2D PhysicsWorld，无 MuJoCo 依赖）+
 /// 迷你引擎循环（采样→MbriFsm→物理步进，镜像 MatchEngine 主干；正式接线在批3）。
 /// 人为掉台（搬运出台面）后断言 reentry 走完 回归流程
-/// （fall×3 → 前头分派 ADC_CORRECT → REVERSE → SAFE_STOP），再断言灰度恢复
+/// （fall×3 → 前头分派 ADC_CORRECT → REVERSE → REMOUNT 有界回台冲台 →
+/// 冲台方向背离擂台时如实失败 → SAFE_STOP），再断言灰度恢复
 /// （人工上台等价物，对应真车 SAFE_STOP 等待"灰度恢复（人工/后续上台）"，
 /// reentry.py:22）后仲裁回到重置后的巡台。
 /// 忠实性边界（reentry.py:8 "当前流程到倒车脱离为止，主动上台动作尚未实现"）：
-/// 真车回归流程不含主动上台动作，冒烟断言的是流程走完与仲裁闭环。
+/// 真车回归流程不含主动上台动作；A2 的 REMOUNT 是仿真无人对局的有界补全
+/// （复用真车爬台机制=START_REVERSE 同款倒车冲台命令，不发明新动作），
+/// 本冒烟位姿（面向擂台墙）下冲台方向背离擂台 → 如实走完失败分支到 SAFE_STOP。
 /// </summary>
 public sealed class MbriReentrySmokeTests
 {
@@ -79,6 +83,7 @@ public sealed class MbriReentrySmokeTests
         us.Vy = 0;
         var sawAdcCorrect = false;
         var sawReverse = false;
+        var sawRemount = false;
         var sawSafeStop = false;
         var reentryOwned = false;
         for (long t = 120; t < 620; t++)
@@ -92,13 +97,15 @@ public sealed class MbriReentrySmokeTests
             them.Fsm.SimT += scenario.Field.TickSeconds;
             sawAdcCorrect |= fsm.MbriState == "ADC_CORRECT";
             sawReverse |= fsm.MbriState == "REVERSE";
+            sawRemount |= fsm.MbriState == "REMOUNT";
             sawSafeStop |= fsm.MbriState == "SAFE_STOP";
             reentryOwned |= fsm.ReentryActive;
         }
         Assert.True(reentryOwned, "掉台后 reentry 应接管");
         Assert.True(sawAdcCorrect, "应进入 ADC_CORRECT（前头红外分派）");
         Assert.True(sawReverse, "应进入 REVERSE（矫正完成倒车）");
-        Assert.True(sawSafeStop, "应到达 SAFE_STOP（流程终点）");
+        Assert.True(sawRemount, "A2：倒车脱离后仍掉台应进入 REMOUNT 有界回台冲台");
+        Assert.True(sawSafeStop, "应到达 SAFE_STOP（回台重试耗尽/真车出口的流程终点）");
         // 无人复位有界重武装（评审 finding 1 修复）后流程会重试：500 tick 窗口末
         // 仍由 reentry 接管（可能处于重试途中的任一状态），但不被吸收为静止。
         Assert.NotEqual("WAIT", fsm.Reentry.State);

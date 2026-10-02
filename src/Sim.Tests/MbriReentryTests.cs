@@ -6,7 +6,9 @@ namespace Sim.Tests;
 /// <summary>
 /// 批2 掉台回归单测：MbriReentry 迁移矩阵（真车 ADC/红外注入域，reentry.py 逐行对照）+
 /// MbriFsm 仲裁链（reentry 接管 &gt; 巡台、unhealthy→reentry、回归完成重置巡台）+
-/// 掉台判定域映射（SimToAdcFallDomain 解决批1 zone&lt;0 域差）。
+/// 掉台判定域映射（SimToAdcFallDomain 解决批1 zone&lt;0 域差）+
+/// A2 有界回台（REMOUNT：倒车脱离后仍掉台 → START_REVERSE 同款倒车冲台，
+/// fall-domain 灰度恢复台面值=回台成功回 WAIT，1+2 次尝试耗尽→SAFE_STOP 如实停车）。
 /// </summary>
 public sealed class MbriReentryTests
 {
@@ -314,10 +316,10 @@ public sealed class MbriReentryTests
         Assert.Equal("大力冲撞超时未贴墙，停车", r.Reason);
     }
 
-    // ---------- REVERSE / SAFE_STOP（reentry.py:256-265, 194-201） ----------
+    // ---------- REVERSE / A2 有界回台（REMOUNT）/ SAFE_STOP ----------
 
     [Fact]
-    public void Matrix_Reverse_CompletesOnFrontIrLoss_TimesOutOtherwise()
+    public void Matrix_ReverseEnd_StillFallen_EntersBoundedRemount()
     {
         var re = new MbriReentry(TickSeconds);
         var t0 = EnterCorrect(re);
@@ -325,21 +327,146 @@ public sealed class MbriReentryTests
         {
             _ = re.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + i);
         }
-        // 前头红外无值 → 倒车完成。
+        // A2：倒车结束（前头红外无值）且 fall-domain 灰度仍暗（仍掉台）→
+        // 有界回台冲台（START_REVERSE 同款命令 −1000×1.8s），而非直接 SAFE_STOP。
         var r = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 12);
+        Assert.Equal("REMOUNT", r.State);
+        Assert.Equal("倒车完成（前头红外无值），仍掉台，回台冲台 1/3", r.Reason);
+        Assert.Equal((-1000, -1000), (r.Left, r.Right));
+        Assert.True(r.Fall);
+    }
+
+    [Fact]
+    public void Matrix_ReverseEnd_GrayRecovered_SafeStopAsTrueCarExit()
+    {
+        // 倒车期间 fall-domain 灰度恢复台面值（＝已回台/人工上台）→ 保持真车出口：
+        // SAFE_STOP（下一 tick 因 !Fall 回 WAIT，reentry.py:194-201 语义不变）。
+        var re = new MbriReentry(TickSeconds);
+        var t0 = EnterCorrect(re);
+        for (long i = 1; i <= 9; i++)
+        {
+            _ = re.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + i);
+        }
+        // 确认帧起喂台面亮值（对正确认不受灰度影响），filtered 两帧后转亮。
+        _ = re.Update(CenterGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + 10);
+        _ = re.Update(CenterGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + 11);
+        var r = re.Update(CenterGray(), IrNone(), AnalogCenter(), t0 + 12);
+        Assert.False(r.Fall);
         Assert.Equal("SAFE_STOP", r.State);
         Assert.Equal("倒车完成（前头红外无值）", r.Reason);
+    }
 
-        // 前头红外持续有值 → 3s=60 tick 倒车超时（REVERSE 于 t1+11 进入，t1+71 超时）。
-        var re2 = new MbriReentry(TickSeconds);
-        var t1 = EnterCorrect(re2);
+    [Fact]
+    public void Matrix_ReverseTimeout_StillFallen_EntersRemount()
+    {
+        // 前头红外持续有值 → 3s=60 tick 倒车超时；仍掉台 → A2 有界回台冲台。
+        var re = new MbriReentry(TickSeconds);
+        var t0 = EnterCorrect(re);
         for (long i = 1; i <= 70; i++)
         {
-            _ = re2.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t1 + i);
+            _ = re.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + i);
         }
-        var r2 = re2.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t1 + 71);
-        Assert.Equal("SAFE_STOP", r2.State);
-        Assert.Equal("倒车超时", r2.Reason);
+        var r = re.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + 71);
+        Assert.Equal("REMOUNT", r.State);
+        Assert.Equal("倒车超时，仍掉台，回台冲台 1/3", r.Reason);
+        Assert.Equal((-1000, -1000), (r.Left, r.Right));
+    }
+
+    [Fact]
+    public void Matrix_Remount_Success_GrayRecoveryReturnsToWait()
+    {
+        var re = new MbriReentry(TickSeconds);
+        var t0 = EnterCorrect(re);
+        for (long i = 1; i <= 11; i++)
+        {
+            _ = re.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + i);
+        }
+        // 倒车结束（前头无值）且仍掉台 → REMOUNT（t0+12 进入）。
+        var enter = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 12);
+        Assert.Equal("REMOUNT", enter.State);
+        // 冲台中灰度恢复台面值（倒车冲上台）：中值滞后 2 帧 → 第 2 亮帧 Fall 解除
+        // → 回 WAIT（仲裁层将重置巡台并交还，main.py:279-281 语义）。
+        var b1 = re.Update(CenterGray(), IrNone(), AnalogCenter(), t0 + 13);
+        Assert.Equal("REMOUNT", b1.State); // filtered 仍暗（滞后帧）
+        var b2 = re.Update(CenterGray(), IrNone(), AnalogCenter(), t0 + 14);
+        Assert.Equal("WAIT", b2.State);
+        Assert.Equal("回台成功（灰度恢复台面值）", b2.Reason);
+        Assert.False(b2.Fall);
+        Assert.Equal((0, 0), (b2.Left, b2.Right));
+    }
+
+    [Fact]
+    public void Matrix_Remount_BoundedRetriesExhausted_SafeStop()
+    {
+        var re = new MbriReentry(TickSeconds);
+        var t0 = EnterCorrect(re);
+        for (long i = 1; i <= 11; i++)
+        {
+            _ = re.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + i);
+        }
+        var enter = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 12);
+        Assert.Equal("REMOUNT", enter.State);
+        // 首冲 1.8s=36 tick（t0+12..t0+47）→ 重试 2/3；再 36 tick → 重试 3/3；
+        // 再 36 tick 仍暗 → SAFE_STOP 如实停车（共 1+2=3 次尝试，全部确定性 tick 计数）。
+        var r1 = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 47);
+        Assert.Equal("REMOUNT", r1.State);
+        var r2 = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 48);
+        Assert.Equal("REMOUNT", r2.State);
+        Assert.Equal("回台冲台未检测到上台，重试 2/3", r2.Reason);
+        Assert.Equal((-1000, -1000), (r2.Left, r2.Right));
+        var r3 = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 84);
+        Assert.Equal("REMOUNT", r3.State);
+        Assert.Equal("回台冲台未检测到上台，重试 3/3", r3.Reason);
+        var r4 = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 120);
+        Assert.Equal("SAFE_STOP", r4.State);
+        Assert.Equal("回台冲台重试耗尽，如实停车", r4.Reason);
+        Assert.Equal((0, 0), (r4.Left, r4.Right));
+    }
+
+    [Fact]
+    public void Matrix_SafeStopRearm_RedispatchResetsRemountBudget()
+    {
+        // 回台重试耗尽 → SAFE_STOP → 仿真无人复位重新武装 → 重新分派 →
+        // 冲台预算重置（新一轮流程仍从 1/3 起），整体有界循环而非吸收态。
+        var re = new MbriReentry(TickSeconds);
+        var t0 = EnterCorrect(re);
+        for (long i = 1; i <= 11; i++)
+        {
+            _ = re.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + i); // 对准+确认 → REVERSE
+        }
+        for (long i = 12; i <= 120; i++)
+        {
+            _ = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + i); // 倒车结束→REMOUNT×3 → SAFE_STOP
+        }
+        Assert.Equal("SAFE_STOP", re.State);
+        // SAFE_STOP 2s=40 tick 后重新武装（评审 finding 1 出口）。
+        var rearm = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 120 + 40);
+        Assert.Equal("WAIT", rearm.State);
+        // 重新长出 fall 边沿（filtered 已持续暗 → 计数逐帧 1/2/3）：第 3 暗帧即边沿，
+        // 但六路无值 → IR_WAIT；下一帧前头有值 → 前头分派。
+        for (long i = 1; i <= 3; i++)
+        {
+            _ = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 160 + i);
+        }
+        var dispatch = re.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + 164);
+        Assert.Equal("ADC_CORRECT", dispatch.State);
+        // 对准窗口 9 帧 + 确认 3 帧 → REVERSE（t0+165..175）；
+        // 下一帧前头无值且仍掉台 → REMOUNT 首次尝试（预算已重置为 1/3）。
+        for (long i = 1; i <= 11; i++)
+        {
+            _ = re.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + 164 + i);
+        }
+        var remount = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 176);
+        Assert.Equal("REMOUNT", remount.State);
+        Assert.Equal("倒车完成（前头红外无值），仍掉台，回台冲台 1/3", remount.Reason);
+    }
+
+    [Fact]
+    public void Remount_Constants_MatchStartReverseCommand()
+    {
+        // "START_REVERSE 同款命令"合同：速度/时长与 MbriFsmController 开局冲台常量同值。
+        Assert.Equal(MbriFsmController.StartReverseSpeed, MbriReentry.RemountSpeed);
+        Assert.Equal(MbriFsmController.StartReverseSeconds, MbriReentry.RemountSeconds);
     }
 
     [Fact]
@@ -432,10 +559,10 @@ public sealed class MbriFsmBatch2Tests
 
     private static void SetStage(RobotRuntime r, double f = 0.0)
     {
-        r.Sens["gF"] = 1000;
-        r.Sens["gB"] = 1000;
-        r.Sens["gL"] = 1000;
-        r.Sens["gR"] = 1000;
+        r.Sens["gF"] = 650; // 官方场台心红区灰度（A1 重标后 zone≈1.0 → MEDIUM_CRUISE）
+        r.Sens["gB"] = 650;
+        r.Sens["gL"] = 650;
+        r.Sens["gR"] = 650;
         r.Sens["f"] = f;
         r.Sens["r"] = 0;
         r.Sens["dLF"] = 0;
@@ -517,15 +644,17 @@ public sealed class MbriFsmBatch2Tests
         Assert.Equal("REVERSE", fsm.MbriState);
         Assert.Equal(-0.8064, robot.V, 6); // −900×k
         Assert.Equal(0.0, robot.W, 12);
-        // 前头红外丢失 → 倒车完成 → SAFE_STOP（保持接管）。
+        // 前头红外丢失 + 仍掉台（走道）→ A2 有界回台冲台（REMOUNT，保持接管，
+        // 命令=START_REVERSE 同款 −1000 → V=−0.896）。
         SetWalkway(robot, f: 0.0);
         fsm.TickFor(robot, 52);
-        Assert.Equal("SAFE_STOP", fsm.MbriState);
+        Assert.Equal("REMOUNT", fsm.MbriState);
         Assert.True(fsm.ReentryActive);
-        Assert.Equal(0.0, robot.V, 12);
+        Assert.Equal(-0.896, robot.V, 6);
         // 事件流：reentry 迁移有 [mbri-reentry] 行（EventKind.Recover）。
         Assert.Contains(events.Events, e => e.Msg.StartsWith("[mbri-reentry] ADC_CORRECT"));
         Assert.Contains(events.Events, e => e.Kind == EventKind.Recover && e.Msg.Contains("REVERSE"));
+        Assert.Contains(events.Events, e => e.Msg.Contains("REMOUNT"));
     }
 
     [Fact]
@@ -547,13 +676,13 @@ public sealed class MbriFsmBatch2Tests
         }
         Assert.Equal("REVERSE", fsm.MbriState);
         SetWalkway(robot, f: 0.0);
-        fsm.TickFor(robot, 52); // → SAFE_STOP
-        Assert.Equal("SAFE_STOP", fsm.MbriState);
-        // 灰度恢复（人工/上台）：t53 filtered 仍暗（滞后）保持 SAFE_STOP，
-        // t54 转亮 → reentry 回 WAIT → 巡台重置（WARMUP）→ 恢复巡航。
+        fsm.TickFor(robot, 52); // 仍掉台 → A2 REMOUNT 有界回台冲台
+        Assert.Equal("REMOUNT", fsm.MbriState);
+        // 灰度恢复（冲上台/人工上台等价物）：t53 filtered 仍暗（滞后）冲台保持，
+        // t54 转亮 → 回台成功回 WAIT → 巡台重置（WARMUP）→ 恢复巡航。
         SetStage(robot);
         fsm.TickFor(robot, 53);
-        Assert.Equal("SAFE_STOP", fsm.MbriState);
+        Assert.Equal("REMOUNT", fsm.MbriState);
         fsm.TickFor(robot, 54);
         Assert.False(fsm.ReentryActive);
         Assert.Equal("WARMUP", fsm.MbriState); // 新实例预热（旧实例残留状态被丢弃）
