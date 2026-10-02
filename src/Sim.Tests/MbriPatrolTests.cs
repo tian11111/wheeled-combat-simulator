@@ -43,15 +43,15 @@ public sealed class MbriPatrolTests
 
     /// <summary>
     /// 近边 craft：zone front=0.9（亮，压住 early 判据）、其余 0.2 →
-    /// zone_score=0.2&lt;0.35（near_edge ✓）且 zone.front≥0.76（early ✗），
+    /// zone_score=0.2&lt;0.35（near_edge ✓）且 zone.front≥0.35（early ✗，A3 前路线），
     /// linear_signal=+0.7&gt;REAR_RETREAT_DELTA → EDGE_AVOID 前进（真车"车尾贴边"分支）。
     /// </summary>
     private static MbriGraySample NearCraft()
         => new(ZoneToAdc("front", 0.9), ZoneToAdc("rear", 0.2), ZoneToAdc("left", 0.2), ZoneToAdc("right", 0.2));
 
     /// <summary>
-    /// 回中 craft：zone front=0.8 / 其余 0.45 → 无 near(≥0.35)、无 early(front≥0.76)、
-    /// 无 diagonal(左右同值)、score=0.45&lt;0.55（RECOVER 超时走"转后前进"分支）。
+    /// 回中 craft：zone front=0.8 / 其余 0.45 → 无 near(≥0.35)、无 early(front≥0.35,
+    /// A3 前路线)、无 diagonal(左右同值)、score=0.45&lt;0.55（RECOVER 超时走"转后前进"分支）。
     /// </summary>
     private static MbriGraySample RecoverCraft()
         => new(ZoneToAdc("front", 0.8), ZoneToAdc("rear", 0.45), ZoneToAdc("left", 0.45), ZoneToAdc("right", 0.45));
@@ -277,6 +277,59 @@ public sealed class MbriPatrolTests
         Assert.Equal("EDGE_TURN", r16.State);
         Assert.Equal("直线退离完成，开始转向", r16.Reason);
         Assert.Equal("right", r16.TurnDirection);
+    }
+
+    /// <summary>
+    /// A3 行为重校钉板（10-01-mbri-hunt-engagement prd.md §1 极限循环机制）：
+    /// RECOVER_FORWARD 途中前路 zone=0.5——旧真车透传线 0.76 会判"前向灰度趋势变暗"
+    /// （score=0.8&lt;0.88 且 front&lt;0.76，1 帧确认）把恢复打断回 EDGE_AVOID；
+    /// A3 前路线 0.35 下 0.5 不触发，恢复走满 2s 后按释放线（0.55）回 MEDIUM_CRUISE。
+    /// 该循环曾是 CRUISE/MEDIUM_CRUISE 不可达 → hunt 门禁永不打开的直接原因。
+    /// </summary>
+    [Fact]
+    public void Matrix_EarlyFrontA3_MidFrontRecoverSurvives_ReleasesToCruise()
+    {
+        // 触发 craft：front 0.2（过 A3 线）+ score=0.8（过 0.88 门）→ early 确认=1 触发。
+        var trip = new MbriGraySample(
+            ZoneToAdc("front", 0.2), ZoneToAdc("rear", 0.6),
+            ZoneToAdc("left", 1.0), ZoneToAdc("right", 1.0));
+        // 恢复中 craft：front 0.5（旧线内/新线外）+ score=0.8；无 near/diagonal/deep。
+        var mid = new MbriGraySample(
+            ZoneToAdc("front", 0.5), ZoneToAdc("rear", 0.6),
+            ZoneToAdc("left", 1.0), ZoneToAdc("right", 1.0));
+        var p = NewPatrol();
+        _ = p.Update(Center(), 0);
+        _ = p.Update(Center(), 1);
+        Assert.Equal("MEDIUM_CRUISE", p.Update(Center(), 2).State);
+        _ = p.Update(trip, 3); // 中值滞后：窗口仍以中心为主，不触发
+        var r4 = p.Update(trip, 4);
+        Assert.Equal("EDGE_AVOID", r4.State);
+        Assert.Equal("前向灰度趋势变暗，提前离边", r4.Reason);
+        Assert.Equal((-400, -400), (r4.Left, r4.Right));
+        Assert.Equal("front", r4.RiskSensor);
+        // 退离 0.6s=12 tick → tick 16 EDGE_TURN；转向尾段（tick 26 起）改喂 mid，
+        // 让恢复起 tick 时滤波窗口已是 mid（否则 front=0.2 残影仍过线）。
+        Assert.Equal("EDGE_AVOID", p.Update(trip, 15).State);
+        Assert.Equal("EDGE_TURN", p.Update(trip, 16).State);
+        for (var t = 17; t <= 25; t++)
+        {
+            _ = p.Update(trip, t);
+        }
+        for (var t = 26; t <= 35; t++)
+        {
+            Assert.Equal("EDGE_TURN", p.Update(mid, t).State);
+        }
+        var r36 = p.Update(mid, 36); // 1.0s=20 tick 转向完成 → RECOVER_FORWARD
+        Assert.Equal("RECOVER_FORWARD", r36.State);
+        Assert.Equal("转向完成，向前离开边缘", r36.Reason);
+        // A3 断言：恢复期间 mid 不再触发 early（旧 0.76 线此处即 EDGE_AVOID）。
+        for (var t = 37; t <= 75; t++)
+        {
+            Assert.Equal("RECOVER_FORWARD", p.Update(mid, t).State);
+        }
+        var r76 = p.Update(mid, 76); // 2.0s=40 tick 恢复完成；score=0.8≥0.55 释放
+        Assert.Equal("MEDIUM_CRUISE", r76.State);
+        Assert.Equal("已达到避边释放线，恢复中速穿越渐变区", r76.Reason);
     }
 
     [Fact]

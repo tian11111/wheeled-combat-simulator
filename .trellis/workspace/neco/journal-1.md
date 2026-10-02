@@ -1477,3 +1477,39 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 ### Next Steps
 
 - 默认切换决策包待拍板(切=重录 legacy 基线全套); '稳而不赢'(hunt 接洽率/巡台避险占主导)与 REMOUNT 显式出口 0 触发留待迭代; 本地领先 origin 19 提交
+
+---
+
+## Session 45 (2026-10-01)
+
+### Task
+
+`10-01-mbri-hunt-engagement` — MBri 巡台行为重校：hunt 接洽与回台链（A3–A6）
+
+### What We Did
+
+1. 根因一（巡台）：真车 early-front 线 0.76 在官方场=探点距沿 0.46m，把 0.72m 的 RECOVER 全程划进提前避边区 → EDGE_AVOID 极限循环 → CRUISE 不可达 → hunt 门禁永不打开。A3：前路线重推 0.35（与 near-edge 同线，↔0.24m）。
+2. 根因二（回台）：A2 固定倒车冲台被"f 对齐台沿→倒离"反转成走道死螺旋（seed42 九轮 REMOUNT/SAFE_STOP 到终场）；mirror 中对手在旁时 analog 桥（max(f,对角)）把对手当墙对齐（seed1 双方 108s 不回台）。A4' 原路前冲回台（REVERSE 必来自 f 对齐⇒台在正后方）+ A5 分派灰度粗定向 + A5b IR_WAIT 转 90° 扫描 + A6 analog Valid=f 亮。
+3. 11-seed×2 对照：head 1:13→2:13（seed8 22:10）；mirror GOOD_PUSH 11/11 场 84 latch（基线个位场次）；mirror 掉台持平、我方中位 2.0→1.0（对手 0→1，如实披露）。
+4. 接线冒烟块位按开局朝向重摆（A3 后巡台有序化，不再靠旧避障环偶然转向扫到块）；smoke 升级为官方场自主回台全链。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| (本轮) | feat(sim): Mbri hunt 接洽行为重校 A3–A6 |
+| (本轮) | docs(task): hunt 重校证据/报告/PRD 修订 |
+
+### Testing
+
+- [OK] 全量 696+1Skip 0 失败; replay-check seed-42 逐位 PASS; Godot 构建 0 错; Mbri 族 129/129
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 推击出界余量（head BlockScore 0/11 主因：探点悬空先于块出界 ~1-2 帧）需块-探点几何 instrumentation
+- 追击振荡（特权投影 8fps 帧时钟下 BIG_TURN/ARC 摆动）留 yolo-bridge 保真轮
+- 角部落水几何（REVERSE 3s 满超时 2.4m 超 REMOUNT 预算）；REMOUNT 显式出口 0 触发同源残余

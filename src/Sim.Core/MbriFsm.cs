@@ -67,7 +67,7 @@ namespace Sim.Core;
 ///   - 回归流程的仿真无人复位（评审 finding 1）：reentry SAFE_STOP/IR_WAIT
 ///     仍掉台超 2s（MbriReentry.RearmWaitSeconds）→ 重新武装重走流程，
 ///     避免 headless 对局吸收态；真车"等人工"出口（灰度恢复→WAIT）保留。
-///   - 有界回台（A2）：reentry 完成对准并倒车脱离后仍在场外 → REMOUNT 倒车冲台
+///   - 有界回台（A2+A4）：reentry 完成对准并倒车脱离后仍在场外 → REMOUNT 冲台
 ///     （START_REVERSE 同款命令 −1000×1.8s），fall-domain 灰度恢复台面值即回台
 ///     成功（回 WAIT 交还巡台），1+2 次尝试耗尽仍失败 → SAFE_STOP 如实停车
 ///     （真车 reentry.py:8 主动上台未实现的仿真补全，见 MbriReentry 注释）。
@@ -550,21 +550,29 @@ public sealed class MbriFsmController
             Valid: true);
 
     /// <summary>
-    /// 前向模拟红外对桥接（批2 评审 finding 2 修复后）：仿真无此硬件对。
-    /// 原实现 f×scale 左右同值 ⇒ diff≡0 恒判 center，左偏/右偏矫正分支集成路径
-    /// 永不执行。改为每侧取 max(f, 对角)：
+    /// 前向模拟红外对桥接（批2 评审 finding 2 修复后；A6 有效性门）：
+    /// 仿真无此硬件对。原实现 f×scale 左右同值 ⇒ diff≡0 恒判 center，左偏/右偏矫正
+    /// 分支集成路径永不执行。改为每侧取 max(f, 对角)：
     /// - 信号 = 前向最近反射源强度：f（墙，居中对称）保证贴墙判定/strong 判定可用；
     /// - diff = 对角不对称量：前向对角（最近反射源，与真车模拟红外的"最近障碍"
     ///   语义一致）偏离时矫正分支可执行，集成路径不再恒 center。
-    /// 残余近似照实披露：对角探的是机器人/方块而非墙，故矫正量为"对最近反射源
-    /// 的对齐"而非真车"对墙垂直度"；官方场空场直线接近时两对角同值仍判 center。
+    /// A6 有效性门（10-01-mbri-hunt-engagement）：Valid = f ≥ IrBitThreshold。
+    /// 动机：对角是 target 模式（探机器人/方块），mirror 对局中掉台位姿旁常有
+    /// 对手/块——f 暗时 analog 桥让 ADC_CORRECT 把对手当墙"正对确认"，REVERSE/
+    /// REMOUNT 全链沿错误方向走道翻滚（mirror seed1 实证：双方 108s 不回台）。
+    /// f 是唯一墙感（edge_target），门在 f 上即"矫正只在真的看到墙时进行"；
+    /// f 暗时 analog 无效 → reentry 走既有 SAFE_STOP（"模拟红外无效"）→ A5b
+    /// 有界扫描直到 f 捕到台沿。f 亮时对角不对称量仍驱动矫正（finding-2 可执行性
+    /// 不变）。残余近似照实披露：对角探的是机器人/方块而非墙，矫正量为"对最近
+    /// 反射源的对齐"而非真车"对墙垂直度"；官方场空场直线接近时两对角同值仍判 center。
     /// </summary>
     private static MbriAnalogIr ReadAnalogIr(RobotRuntime r)
     {
         var f = r.Sens.GetValueOrDefault("f");
+        var frontLit = f >= IrBitThreshold;
         var left = Math.Max(f, r.Sens.GetValueOrDefault("dLF")) * AnalogIrAdcScale;
         var right = Math.Max(f, r.Sens.GetValueOrDefault("dRF")) * AnalogIrAdcScale;
-        return new MbriAnalogIr(left, right, Valid: true);
+        return new MbriAnalogIr(left, right, Valid: frontLit);
     }
 
     /// <summary>对外快照 State 映射（语义近似，见类型注释映射表）。internal 供映射表单测钉死。</summary>

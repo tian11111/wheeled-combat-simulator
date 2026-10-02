@@ -120,20 +120,22 @@ public sealed class MbriGrayCalibrationTests
     [Fact]
     public void OfficialField_ThresholdGrays_LandInsideReachablePlatformRange()
     {
-        // 阈值→灰度落位核对（A1 "同步核对 early-front/FAST_ZONE 等阈值语义"）：
-        // near-edge 0.35 与 early-front 0.76/0.88 的灰度须落在台面渐变带（300–650），
-        // FAST_ZONE 1.10 的灰度须落在内环带（650–825]——即各阈值在官方场均可达且
-        // 顺序正确（对应位置：台沿内 ~0.24m / ~0.46m / ~0.55m / 内环 ~0.66m 起环带）。
+        // 阈值→灰度落位核对（A1 "同步核对 early-front/FAST_ZONE 等阈值语义"；
+        // A3 重校：early-front 前路线 0.76→0.35，与 near-edge 同一条官方场 danger
+        // 边界——near-edge 0.35 与 early-front 0.35/0.88 的灰度须落在台面渐变带
+        // （300–650），FAST_ZONE 1.10 的灰度须落在内环带（650–825]——即各阈值在
+        // 官方场均可达且顺序正确（对应位置：台沿内 ~0.24m / ~0.24m / ~0.55m /
+        // 内环 ~0.66m 起环带）。
         foreach (var channel in MbriGrayCalibration.Names)
         {
             var e = MbriGrayCalibration.EdgeGrayReference[channel];
             var c = MbriGrayCalibration.CenterGrayReference[channel];
             var gNear = e + MbriRiskModel.NearEdgeEnter * (c - e);      // 0.35
-            var gEarly = e + MbriPatrol.ShovelPreheatFrontZone * (c - e); // 0.76
+            var gEarly = e + MbriPatrol.EarlyFrontAbs * (c - e);        // 0.35（A3）
             var gEarlyScore = e + MbriPatrol.EarlyFrontZone * (c - e);  // 0.88
             var gFast = e + MbriPatrol.FastZoneScore * (c - e);         // 1.10
             Assert.InRange(gNear, 300.0, 650.0);
-            Assert.InRange(gEarly, gNear, 650.0);
+            Assert.Equal(gNear, gEarly, 6.0);
             Assert.InRange(gEarlyScore, gEarly, 650.0);
             Assert.InRange(gFast, 650.0, 825.0);
         }

@@ -812,9 +812,16 @@ public sealed class MbriHuntTests
             },
             Blocks =
             [
-                new BlockSpec { Kind = BlockKind.Buff, X = 1.9, Y = 2.2 },
+                // 我方开局 Th=-π/2（背向 +y，倒车上台后面向南）：目标块放朝向正前方
+                // 0.85m、距南沿 0.25m——hunt 在门禁开启后即接洽，GOOD_PUSH 短推
+                // 0.25m 出界得分，此时车探点离沿仍 >0.4m（不触发回归）。更远/反向
+                // 的块位下 legacy14 探点悬空会先于块出界触发回归（推击余量见
+                // 10-01-mbri-hunt-engagement 证据）；A3 后巡台有序化，不再依赖
+                // 旧版避障环的偶然转向把块扫进锥内。冒烟钉"接线+得分路径"而非
+                // 完整对局行为。
+                new BlockSpec { Kind = BlockKind.Buff, X = 1.9, Y = 0.95 },
                 new BlockSpec { Kind = BlockKind.Buff, X = 2.5, Y = 2.6 },
-                new BlockSpec { Kind = BlockKind.Debuff, X = 1.2, Y = 1.0 },
+                new BlockSpec { Kind = BlockKind.Debuff, X = 1.0, Y = 2.9 },
             ],
             Vehicles = new Dictionary<string, VehicleProfile>(StringComparer.Ordinal)
             {

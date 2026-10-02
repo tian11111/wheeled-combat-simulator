@@ -7,7 +7,8 @@ namespace Sim.Tests;
 /// 批2 掉台回归单测：MbriReentry 迁移矩阵（真车 ADC/红外注入域，reentry.py 逐行对照）+
 /// MbriFsm 仲裁链（reentry 接管 &gt; 巡台、unhealthy→reentry、回归完成重置巡台）+
 /// 掉台判定域映射（SimToAdcFallDomain 解决批1 zone&lt;0 域差）+
-/// A2 有界回台（REMOUNT：倒车脱离后仍掉台 → START_REVERSE 同款倒车冲台，
+/// A2 有界回台（REMOUNT：倒车脱离后仍掉台 → 有界冲台；A4 方向裁决：f 前亮/前灰度
+/// 最亮 → 前向，rear 最亮 → 倒车（真车尾先登台语义），侧向/全暗 → 倒车兜底，
 /// fall-domain 灰度恢复台面值=回台成功回 WAIT，1+2 次尝试耗尽→SAFE_STOP 如实停车）。
 /// </summary>
 public sealed class MbriReentryTests
@@ -328,11 +329,12 @@ public sealed class MbriReentryTests
             _ = re.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + i);
         }
         // A2：倒车结束（前头红外无值）且 fall-domain 灰度仍暗（仍掉台）→
-        // 有界回台冲台（START_REVERSE 同款命令 −1000×1.8s），而非直接 SAFE_STOP。
+        // 有界回台冲台，而非直接 SAFE_STOP。A4'：REVERSE 来自 f 对齐 ⇒ 台在正后方
+        // → 原路前向冲回（1000×1.8s）。
         var r = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 12);
         Assert.Equal("REMOUNT", r.State);
         Assert.Equal("倒车完成（前头红外无值），仍掉台，回台冲台 1/3", r.Reason);
-        Assert.Equal((-1000, -1000), (r.Left, r.Right));
+        Assert.Equal((1000, 1000), (r.Left, r.Right));
         Assert.True(r.Fall);
     }
 
@@ -360,6 +362,8 @@ public sealed class MbriReentryTests
     public void Matrix_ReverseTimeout_StillFallen_EntersRemount()
     {
         // 前头红外持续有值 → 3s=60 tick 倒车超时；仍掉台 → A2 有界回台冲台。
+        // A4：夹具前头红外亮（f=edge_target 只见台沿不见围栏，Sensors.cs）= 正对台
+        // → 方向裁决为前向冲台（原固定倒车正是官方场走道死螺旋根因）。
         var re = new MbriReentry(TickSeconds);
         var t0 = EnterCorrect(re);
         for (long i = 1; i <= 70; i++)
@@ -369,7 +373,7 @@ public sealed class MbriReentryTests
         var r = re.Update(DarkGray(), IrNone() with { Front = true }, AnalogCenter(), t0 + 71);
         Assert.Equal("REMOUNT", r.State);
         Assert.Equal("倒车超时，仍掉台，回台冲台 1/3", r.Reason);
-        Assert.Equal((-1000, -1000), (r.Left, r.Right));
+        Assert.Equal((1000, 1000), (r.Left, r.Right));
     }
 
     [Fact]
@@ -408,12 +412,13 @@ public sealed class MbriReentryTests
         Assert.Equal("REMOUNT", enter.State);
         // 首冲 1.8s=36 tick（t0+12..t0+47）→ 重试 2/3；再 36 tick → 重试 3/3；
         // 再 36 tick 仍暗 → SAFE_STOP 如实停车（共 1+2=3 次尝试，全部确定性 tick 计数）。
+        // A4'：REVERSE 来自 f 对齐 ⇒ 每次重试均原路前向冲台（+1000）。
         var r1 = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 47);
         Assert.Equal("REMOUNT", r1.State);
         var r2 = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 48);
         Assert.Equal("REMOUNT", r2.State);
         Assert.Equal("回台冲台未检测到上台，重试 2/3", r2.Reason);
-        Assert.Equal((-1000, -1000), (r2.Left, r2.Right));
+        Assert.Equal((1000, 1000), (r2.Left, r2.Right));
         var r3 = re.Update(DarkGray(), IrNone(), AnalogCenter(), t0 + 84);
         Assert.Equal("REMOUNT", r3.State);
         Assert.Equal("回台冲台未检测到上台，重试 3/3", r3.Reason);
@@ -644,13 +649,13 @@ public sealed class MbriFsmBatch2Tests
         Assert.Equal("REVERSE", fsm.MbriState);
         Assert.Equal(-0.8064, robot.V, 6); // −900×k
         Assert.Equal(0.0, robot.W, 12);
-        // 前头红外丢失 + 仍掉台（走道）→ A2 有界回台冲台（REMOUNT，保持接管，
-        // 命令=START_REVERSE 同款 −1000 → V=−0.896）。
+        // 前头红外丢失 + 仍掉台（走道）→ A2 有界回台冲台（REMOUNT，保持接管）。
+        // A4'：REVERSE 来自 f 对齐 ⇒ 原路前向冲回（+1000 → V=+0.896）。
         SetWalkway(robot, f: 0.0);
         fsm.TickFor(robot, 52);
         Assert.Equal("REMOUNT", fsm.MbriState);
         Assert.True(fsm.ReentryActive);
-        Assert.Equal(-0.896, robot.V, 6);
+        Assert.Equal(0.896, robot.V, 6);
         // 事件流：reentry 迁移有 [mbri-reentry] 行（EventKind.Recover）。
         Assert.Contains(events.Events, e => e.Msg.StartsWith("[mbri-reentry] ADC_CORRECT"));
         Assert.Contains(events.Events, e => e.Kind == EventKind.Recover && e.Msg.Contains("REVERSE"));

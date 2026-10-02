@@ -64,7 +64,25 @@ public sealed class MbriPatrol
     public const double FastZoneScore = 1.10;         // PATROL_FAST_ZONE_SCORE
     public const double EarlyFrontZone = 0.88;        // PATROL_EARLY_FRONT_ZONE
     public const double ShovelPreheatFrontZone = 0.76; // PATROL_SHOVEL_PREHEAT_FRONT_ZONE
-    public const double EarlyFrontAbs = ShovelPreheatFrontZone; // PATROL_EARLY_FRONT_ABS
+
+    /// <summary>
+    /// 前路提前离边线（A3 行为重校，2026-10-01）。真车 PATROL_EARLY_FRONT_ABS=0.76
+    /// 是真车场"内环安全前路 zone 最小 0.817 / 出界最大 0.714"的中点（config.py:110-113
+    /// 注释），其成立前提——安全/出界两分布不重叠——在官方场陡线性渐变
+    /// （g=300+700(1−t)，zone(d)≈1.81d−0.09，d=探点距沿距离）下不存在：0.76 ↔
+    /// 探点距沿 0.46m，而 RECOVER_FORWARD 全程 ≈0.72m，1 帧确认每轮恢复刚起步即
+    /// 触发 → 巡台锁死在沿带 EDGE_AVOID↔EDGE_TURN 循环、CRUISE 不可达、hunt 门禁
+    /// （CRUISE/MEDIUM_CRUISE）永不打开（head-us-mbri 事件日志实证，见任务
+    /// 10-01-mbri-hunt-engagement prd.md §1）。重推：取官方场 danger 边界＝A1 锚下
+    /// near-edge 线 zone=0.35（↔ 探点距沿 0.24m，与 MbriRiskModel.NearEdgeEnter 同源
+    /// 同值）；early-front 语义由"真车内环保护线"变为"官方场台沿危险线"
+    /// （front 单通道过线 + zone_score&lt;0.88 双确认）。防掉台裕度：巡航 0.40m/s
+    /// 下 1 帧确认+反应 ≈2cm ≪ 0.24m。
+    /// 与真车 ALIAS 的偏离（披露）：真车两常数同值双用途（=SHOVEL_PREHEAT 0.76）；
+    /// 仿真铲子为 no-op，<see cref="ShovelPreheatFrontZone"/> 保持真车透传 0.76，
+    /// 本常数独立为 0.35。
+    /// </summary>
+    public const double EarlyFrontAbs = 0.35;
     public const int EarlyConfirm = 1;                // PATROL_EARLY_CONFIRM
     public const double RecoverDeepZone = -0.35;      // PATROL_RECOVER_DEEP_ZONE
     public const int CommandLimit = 1023;             // PATROL_COMMAND_LIMIT

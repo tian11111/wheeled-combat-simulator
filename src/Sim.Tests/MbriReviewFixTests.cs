@@ -134,9 +134,11 @@ public sealed class MbriReviewFixTests
         Assert.Equal("IR_WAIT", re.State); // 触发于 t=6
         _ = re.Update(dark, irNone, analog, 45);
         Assert.Equal("IR_WAIT", re.State); // elapsed 39 < 40
+        // A5b：elapsed 40 → 重臂前先原地转 90°（有界搜索，f 扫描），替代原静默重臂
+        // （回 WAIT"重新武装回归"）；仍掉台且全暗时的滞留由此转为转向+前冲的有界循环。
         _ = re.Update(dark, irNone, analog, 46);
-        Assert.Equal("WAIT", re.State);    // elapsed 40 → 重新武装
-        Assert.Contains("重新武装回归", re.Reason);
+        Assert.Equal("TURN_RIGHT_90", re.State);
+        Assert.Contains("原地转 90 度搜索台沿", re.Reason);
     }
 
     // ---------- finding 2：分派只认墙感 ----------

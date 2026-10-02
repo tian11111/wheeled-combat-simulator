@@ -187,12 +187,18 @@ public sealed record MbriReentryResult
 ///       （超时 CORRECT_TIMEOUT → SAFE_STOP）
 ///     → REVERSE：倒车直到前头红外无值（超时 REVERSE_TIMEOUT）
 ///     → [A2 仿真加程] 倒车结束时仍掉台（fall-domain 灰度未恢复台面值）→
-///       REMOUNT 有界回台：倒车冲台（=真车 START_REVERSE 同款命令 −1000×1.8s，
-///       main.py:131-147 爬台机制），每 tick 检查 fall-domain 灰度恢复即回 WAIT
+///       REMOUNT 有界回台：冲台（−1000×1.8s，main.py:131-147 爬台机制；A4/A4' 起
+///       方向按 <see cref="RemountCommand"/> 逐次裁决——决定性依据 A4'：REVERSE
+///       必然来自 f 对齐而 f 只见台沿 ⇒ 倒车后台在正后方，原路前冲回台；辅以
+///       f 前亮/前探点最亮 → 前向、rear 最亮 → 倒车（真车"尾先登台"语义）、
+///       侧向/全暗 → 倒车兜底=A2 原行为；固定倒车在官方场被"对齐台沿后倒离"
+///       反转成走道死螺旋，seed42 实证 9 轮重试到终场），
+///       每 tick 检查 fall-domain 灰度恢复即回 WAIT
 ///       （仲裁层重置巡台交还）；单冲时长耗尽仍未上台 → 重试，共 1+2=3 次尝试
 ///       （RemountMaxRetries=2）后仍失败 → SAFE_STOP 如实停车。真车 reentry.py:8
 ///       "当前流程到倒车脱离为止，主动上台动作尚未实现"——本状态为仿真无人对局
-///       的有界补全，命令复用真车已有的爬台机制（开局倒车冲台），不发明新动作。
+///       的有界补全，命令复用真车已有的爬台机制（开局冲台），A4/A4' 方向裁决
+///       复用真车红外/灰度语义与流程自身记忆，不发明新传感器。
 ///     → SAFE_STOP：倒车脱离时灰度已恢复（回台成功）/回台重试耗尽 → 停车；
 ///       灰度恢复（人工/后续上台）后回 WAIT，仿真无人工超时重新武装（finding 1）。
 /// 参数 config.py:150-158 + 80-84；转向查表复用 MbriPatrol.MotorTurnCalibration
@@ -254,6 +260,7 @@ public sealed class MbriReentry
     private double _turnDuration;
     private int _correctCount;
     private int _remountAttempt;
+    private bool _reverseAlignedToFront;
     private readonly double _tickSeconds;
 
     public MbriReentry(double tickSeconds = MbriUnits.DefaultTickSeconds, MbriRiskModel? model = null)
@@ -280,9 +287,18 @@ public sealed class MbriReentry
     }
 
     // ---------- reentry.py:109-120 _start_from_trigger ----------
-    private void StartFromTrigger(MbriDigiIr ir, long tick)
+    /// <summary>
+    /// 掉台触发分派。A5 扩展（仿真补全，披露）：六路红外全暗时以 fall-domain
+    /// 灰度做四向粗定向——探点悬在台上方读亮（走道映射 ADC=0），最亮侧=台的
+    /// 方向，复用红外分派的既有状态（前→矫正[f 弱信号→大力前冲]、后→180、
+    /// 侧→90）；红外与灰度全暗才 IR_WAIT 等待（真车语义）。动机：官方场实证
+    /// 分派盲区滞留（IR_WAIT 1757 tick/场，seed42）——f 只见台沿且短程、对角
+    /// 红外只探目标、r 只见围栏，近沿位姿下灰度是唯一含平台方向信息的传感。
+    /// </summary>
+    private void StartFromTrigger(MbriDigiIr ir, MbriGraySample raw, long tick)
     {
         _remountAttempt = 0;   // A2：新的掉台回归流程重置回台冲台预算
+        _reverseAlignedToFront = false; // A4'：新流程重对齐后再置位
         if (ir.Front)
         {
             StartCorrect(tick, "掉台触发且前头红外亮，直接矫正");
@@ -301,7 +317,27 @@ public sealed class MbriReentry
         }
         else
         {
-            Enter("IR_WAIT", tick, (0, 0), "掉台但六路红外暂时无值，停车等待");
+            var brightest = Math.Max(Math.Max(raw.Front, raw.Rear), Math.Max(raw.Left, raw.Right));
+            if (brightest <= 0.0)
+            {
+                Enter("IR_WAIT", tick, (0, 0), "掉台但六路红外暂时无值，停车等待");
+            }
+            else if (raw.Front >= brightest)
+            {
+                StartCorrect(tick, "六路红外无值但前向灰度亮（台在前），直接矫正");
+            }
+            else if (raw.Rear >= brightest)
+            {
+                StartTurn(tick, 180.0, "六路红外无值但后向灰度亮（台在后），转 180 度");
+            }
+            else if (raw.Right >= brightest)
+            {
+                StartTurn(tick, 90.0, "六路红外无值但右侧灰度亮（台在右），右转 90 度");
+            }
+            else
+            {
+                StartTurn(tick, -90.0, "六路红外无值但左侧灰度亮（台在左），左转 90 度");
+            }
         }
     }
 
@@ -348,20 +384,60 @@ public sealed class MbriReentry
     /// <summary>
     /// 倒车（脱离）结束：灰度已恢复台面值 → SAFE_STOP（下一 tick 因 !Fall 回 WAIT，
     /// 真车"灰度恢复（人工/后续上台）"出口语义不变）；仍掉台 → REMOUNT 有界回台
-    /// （倒车冲台 = START_REVERSE 同款命令，见 <see cref="RemountSpeed"/>）。
+    /// （冲台方向按 <see cref="RemountCommand"/> 裁决，见 A4 披露）。
     /// </summary>
-    private void StartRemountOrSafeStop(long tick, string reverseEndReason)
+    private void StartRemountOrSafeStop(long tick, string reverseEndReason, MbriDigiIr ir, MbriGraySample raw)
     {
         if (Fall)
         {
             _remountAttempt = 1;
-            Enter("REMOUNT", tick, (-RemountSpeed, -RemountSpeed),
+            Enter("REMOUNT", tick, RemountCommand(ir, raw),
                 $"{reverseEndReason}，仍掉台，回台冲台 1/{RemountMaxRetries + 1}");
         }
         else
         {
             Enter("SAFE_STOP", tick, (0, 0), reverseEndReason);
         }
+    }
+
+    // ---------- A4/A4'：回台冲台方向裁决（仿真补全的方向语义，真车无主动上台可对照） ----------
+    /// <summary>
+    /// REMOUNT 每次进入/重试时裁决冲台方向。原 A2 固定倒车（−1000，START_REVERSE
+    /// 同款）在官方场形成走道死螺旋（head-us-mbri seed42 实证：9 轮
+    /// REMOUNT/SAFE_STOP 到终场）——机理：f=edge_target 射线含台沿、不含围栏
+    /// （Sensors.cs Digital 桥 inclEdge=true/inclFence=false），走道上"前头红外亮"
+    /// ⇔ 正对台沿台阶；reentry 矫正路径把它当墙对齐后 REVERSE 倒离台，REMOUNT
+    /// 仍背台倒车，永远冲不上。裁决序：
+    ///   1. A4'（决定性）：本次 REVERSE 来自 f 对齐（<see cref="_reverseAlignedToFront"/>
+    ///      ，ADC_CORRECT 完成是 REVERSE 的唯一入口）⇒ 对齐目标=f 可见物=台沿台阶
+    ///      ⇒ 倒车后台在正后方 → **前向原路冲回**（重走倒过的路上台阶）。REVERSE 的
+    ///      "倒离"会把车带进探点悬空盲区（距沿 0.2-0.5m：f 已清、四路灰度全暗、
+    ///      对角红外只探目标），任何逐 tick 感知裁决在该盲区都无信号可依，唯有
+    ///      流程自身记忆（对齐方向）确定性可用；
+    ///   2. ir.Front 亮 → 前向（f 前亮=台在前，180° 转向后等路径的一致性校验）；
+    ///   3. fall-domain 灰度逐路 argmax（走道映射 ADC=0、悬在台上的探点读亮）：
+    ///      front 最亮=台在前 → 前向；rear 最亮=台在后 → 倒车（真车 START_REVERSE
+    ///      "尾先登台"语义保留）；左右最亮=台在侧向——本轮不新增转向机，走倒车
+    ///      兜底（披露缺口：侧向位姿可能有界重试失败 → SAFE_STOP 重臂循环，
+    ///      与 A2 原行为相同，不会更差）；
+    ///   4. 全暗/无法判定 → 倒车兜底（A2 原行为）。
+    /// </summary>
+    private (int Left, int Right) RemountCommand(MbriDigiIr ir, MbriGraySample raw)
+    {
+        if (_reverseAlignedToFront || ir.Front)
+        {
+            return (RemountSpeed, RemountSpeed);
+        }
+        var brightest = Math.Max(Math.Max(raw.Front, raw.Rear), Math.Max(raw.Left, raw.Right));
+        if (brightest > 0.0 && raw.Front >= brightest)
+        {
+            return (RemountSpeed, RemountSpeed);
+        }
+        if (brightest > 0.0 && raw.Rear >= brightest)
+        {
+            return (-RemountSpeed, -RemountSpeed);
+        }
+        return (-RemountSpeed, -RemountSpeed);
     }
 
     // ---------- reentry.py:155-164 _mix（银行家舍入，同巡台） ----------
@@ -426,13 +502,20 @@ public sealed class MbriReentry
             }
             else if (ir.Any)
             {
-                StartFromTrigger(ir, tick);
+                StartFromTrigger(ir, raw, tick);
             }
             else if (elapsedTicks >= DurationTicks(RearmWaitSeconds))
             {
-                // 仿真无人复位：仍掉台且六路无值超时 → 重新武装（重分派重试）。
+                // A5b 仿真无人复位：原 A2 为静默重臂（回 WAIT 重新武装）；
+                // 官方场实证"全暗平行滞留"残例（车身平行台沿 0.2m、车头背离，
+                // f 2.2m/±11.5° 束恰好扫不到台）→ 静默重臂原地打转。改为重臂前
+                // 先原地转 90°（标定表速度/时长），其定时转完必经 ADC_APPROACH
+                // 前冲 → 每个重臂周期转向 90°+前移，f 最多 4 个周期内必捕台沿
+                // （官方场任意走道位姿距台沿 ≤2.2m），滞留转化为有界搜索，捕到后
+                // 走既有矫正/冲台流程。真车语义仍是等人工（本分支只在仿真无人
+                // 对局超时后触发）。
+                StartTurn(tick, 90.0, "仿真无人复位：六路无值，原地转 90 度搜索台沿");
                 _fallCount = 0;
-                Enter("WAIT", tick, (0, 0), "等待掉台触发（仿真无人复位，重新武装回归）");
             }
             return Result(obs);
         }
@@ -442,7 +525,7 @@ public sealed class MbriReentry
             if (State != "SAFE_STOP" && FallEdge)
             {
                 // WAIT 首次触发 / SENSOR_STOP 恢复后重新达到连续帧数：重走流程
-                StartFromTrigger(ir, tick);
+                StartFromTrigger(ir, raw, tick);
             }
             else if (!Fall)
             {
@@ -504,6 +587,7 @@ public sealed class MbriReentry
                 Reason = $"ADC 正对确认 {_correctCount}/{MbriAlignmentModel.Confirm}，diff={d:F0}";
                 if (_correctCount >= MbriAlignmentModel.Confirm)
                 {
+                    _reverseAlignedToFront = true; // A4'：f 对齐目标只见台沿 ⇒ 台在车头方向
                     Enter("REVERSE", tick, (-ReverseSpeed, -ReverseSpeed), "ADC 矫正完成，倒车");
                 }
             }
@@ -535,11 +619,11 @@ public sealed class MbriReentry
         {
             if (!ir.Front)
             {
-                StartRemountOrSafeStop(tick, "倒车完成（前头红外无值）");
+                StartRemountOrSafeStop(tick, "倒车完成（前头红外无值）", ir, raw);
             }
             else if (elapsedTicks >= DurationTicks(ReverseTimeout))
             {
-                StartRemountOrSafeStop(tick, "倒车超时");
+                StartRemountOrSafeStop(tick, "倒车超时", ir, raw);
             }
             return Result(obs);
         }
@@ -558,7 +642,7 @@ public sealed class MbriReentry
                 if (_remountAttempt < RemountMaxRetries + 1)
                 {
                     _remountAttempt++;
-                    Enter("REMOUNT", tick, (-RemountSpeed, -RemountSpeed),
+                    Enter("REMOUNT", tick, RemountCommand(ir, raw),
                         $"回台冲台未检测到上台，重试 {_remountAttempt}/{RemountMaxRetries + 1}");
                 }
                 else

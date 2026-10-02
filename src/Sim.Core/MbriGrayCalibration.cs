@@ -34,9 +34,11 @@ namespace Sim.Core;
 ///   逐路硬件差不同属正常，语义等价。
 ///
 /// 重标后 zone 语义（zone=(g−E)/(C−E)，与真车"zone 0=台沿参考、1=中心参考"对齐）：
-/// 台心红区 ≈1.0、内环最亮带 ≈1.54、走道 ≈−1.03（掉台判定可达）、early-front
-/// 0.76/0.88 ↔ 前探点距台沿约 0.46/0.55 m、near-edge 0.35 ↔ 约 0.24 m、
-/// FAST_ZONE 1.10 ↔ 内环带（可达，CRUISE 恢复）。逐点核对表见
+/// 台心红区 ≈1.0、内环最亮带 ≈1.54、走道 ≈−1.03（掉台判定可达）、near-edge 0.35 ↔
+/// 约 0.24 m；early-front 前路线 A3 重校为 0.35（同一条 danger 边界，↔ ~0.24 m；
+/// 原真车透传 0.76 ↔ ~0.46 m 会把 RECOVER 全程划进提前避边区，见 MbriPatrol.
+/// EarlyFrontAbs 注释）、zone_score 门 0.88 ↔ ~0.55 m；FAST_ZONE 1.10 ↔ 内环带
+/// （可达，CRUISE 恢复）。逐点核对表见
 /// MbriGrayCalibrationTests.OfficialField_ZoneSemantics（纯常量断言）。
 ///
 /// White 不重推：官方手绘场无白边域（FieldGrayLocal 上限 825，无白输出），
