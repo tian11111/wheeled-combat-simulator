@@ -280,3 +280,12 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   `src/Sim.VisionReplay`（仅引用 Sim.Protocol）。rng 流纪律（回放适配器绝不
   消费 `context.Random`）、unknown 原因码、导入错误矩阵与 evidence_only 门禁
   见 [vision-replay-contract.md](./vision-replay-contract.md)。
+
+## MuJoCo 域标定契约（domain-calib-v1，10-02 落地）
+
+- 改轮-地接触参数 / 原地转向补偿 / MuJoCo 模型几何执行器 / 任何 MuJoCo 域行为钉值前，
+  先读 [mujoco-domain-calibration-contract.md](./mujoco-domain-calibration-contract.md)。
+- 速记：轮-地摩擦默认**每模型** v1=5.0 / v2=6.0、补偿 10.0（工程初值，扫描锚定）；
+  v2 转向上限带 [1.0, 1.35] rad/s 是各向同性接触的天花板（建模缺口，禁用无锚点参数硬凑）；
+  MJCF 字节变 ⇒ v1 哈希钉值重钉 + 旧 MuJoCo 回放/RL checkpoint 失效（政策：直接改现有
+  v1/v2 并重训）；`fidelity.json` 不因标定晋升；legacy 零改动（replay-check 逐位 PASS）。
