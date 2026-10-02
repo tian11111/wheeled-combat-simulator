@@ -1579,3 +1579,34 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 
 - 桌面展演 checkpoint 换 409600（随机/冻结都优于旧策略现状）——待用户拍板
 - 策略"苟分不推块"若要纠正 → 奖励/课程新轮（训练前 No-Go 流程）
+
+## Session 48 (2026-10-02)
+
+`10-01-rl-desktop-controller` 后续 — aggression 奖励变体两轮（用户指令"不能苟分，让他动"，显式解除 v4 奖励冻结）
+
+### What We Did
+
+1. `RlEnvCommand --reward` 变体开关（默认 v4 逐位不变，info 变体才写 reward_variant 键；gym_env/train.py 穿透 + run-config 记录；selftest 44/44）。
+2. aggression-v1（时间成本 −0.0004 + 逼近整形 0.04×Δ）：动了但仍不推块（BlockScore 0–2/20 场）——逼近电位到接触即归零，策略贴着块苟；教训=只加活动整形不够。
+3. aggression-v2（成功 +5 + 边沿整形 0.5×Δ）：**102400 checkpoint 过 gate（项目首个）**——锁定推分 5=FSM、掉台 9<11、总分 88:47；但后期衰减（409600 起推块归 0、总分涨到 145）——"安全苟分"盆地随 value 收敛重新吸收策略，单靠权重钉不住推块。
+4. v2@102400 冻结迁移 59:131（推 3/FSM 6，掉 10）：推块部分迁移，总分输 them 主场。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| (本轮) | feat(rl): aggression-v1/v2 奖励变体（--reward 开关，默认 v4 逐位不变） |
+| (本轮) | docs(task): aggression 两轮摘要（首个 gate-passed checkpoint 与后期衰减披露） |
+
+### Testing
+
+- [OK] selftest 44 过 0 失败；三组 dev 阶梯 json 落 .sim_runs/score-block-v4-aggression-20261002/（不入库）
+
+### Status
+
+[OK] **Completed**（探索轮；checkpoint 转正/盲验待用户拍板）
+
+### Next Steps
+
+- 展演 checkpoint 候选 v2@102400（随机 gate True）；若转正按契约跑 final_holdout_v4 盲验一次
+- 钉住推块（抗后期衰减）需课程/KL 锚定等结构手段——新预注册轮
