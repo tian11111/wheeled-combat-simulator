@@ -186,11 +186,13 @@ def dotnet_identity(executable: str) -> dict[str, object]:
 
 
 def make_env_factory(dotnet: str, cli_dll: Path, scenario: Path,
-                     worker_seeds: list[int], initial_episode_seed: int | None = None):
+                     worker_seeds: list[int], initial_episode_seed: int | None = None,
+                     reward: str = "v4"):
     """Return a cloudpickle-compatible subprocess worker initializer."""
     def create():
         return ScoreBlockEnv(dotnet, str(cli_dll), str(scenario), duration=120.0,
-                             seed_pool=worker_seeds, initial_episode_seed=initial_episode_seed)
+                             seed_pool=worker_seeds, initial_episode_seed=initial_episode_seed,
+                             reward=reward)
     return create
 
 
@@ -204,6 +206,8 @@ def main() -> None:
     parser.add_argument("--dotnet", default=None)
     parser.add_argument("--cli-dll", default="src/Sim.Cli/bin/Debug/net8.0/Sim.Cli.dll")
     parser.add_argument("--scenario", default="scenarios/wushu-ring-2026-mujoco.json")
+    parser.add_argument("--reward", default="v4", choices=["v4", "aggression-v1", "aggression-v2"],
+                        help="reward variant; v4 (default) keeps the frozen v4 terms byte-identical")
     parser.add_argument("--checkpoint-interval", type=int, default=CHECKPOINT_INTERVAL_STEPS,
                         help="global transitions between CheckpointCallback snapshots")
     args = parser.parse_args()
@@ -254,13 +258,15 @@ def main() -> None:
         env = ScoreBlockEnv(dotnet, str(cli_dll), str(scenario), duration=120.0,
                             seed_pool=subsequent_episode_seed_streams[0],
                             initial_episode_seed=(None if legacy_seed_compat else
-                                                  initial_episode_seeds[0]))
+                                                  initial_episode_seeds[0]),
+                            reward=args.reward)
         monitored_env = Monitor(env, filename=str(monitor_path), info_keywords=INFO_LOG_FIELDS)
     else:
         vector_env = SubprocVecEnv(
             [make_env_factory(dotnet, cli_dll, scenario,
                               subsequent_episode_seed_streams[index],
-                              initial_episode_seeds[index])
+                              initial_episode_seeds[index],
+                              reward=args.reward)
              for index in range(args.n_envs)],
             start_method="spawn")
         monitored_env = VecMonitor(vector_env, filename=str(monitor_path),
@@ -304,6 +310,7 @@ def main() -> None:
         "evaluation_split_usage": {name: SPLIT_USAGE[name] for name in NAMED_SPLITS},
         "scenario": str(scenario),
         "scenario_sha256": sha256_file(scenario),
+        "reward_variant": args.reward,
         "cli_dll": str(cli_dll),
         "cli_dll_sha256": sha256_file(cli_dll),
         "dotnet_executable": str(Path(dotnet).expanduser().resolve()),

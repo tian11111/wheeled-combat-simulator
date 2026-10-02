@@ -22,6 +22,23 @@ public static class RlEnvCommand
     private const double StepCost = -0.0001;
     private const double EdgeShapingScale = 0.1;
     private const long MaxPolicyTicks = 2400;
+    // ---- 奖励变体(默认 v4 = 逐位不变; 变体经 --reward 显式选择并由 train.py 写入 run-config) ----
+    // aggression-v1(2026-10-02, 用户指令"不能苟分, 让他动"): 随机块探索轮(seed 20261005)实测
+    // 策略收敛到"保台读秒苟分"(20 场 BlockScore 事件 0-1 次 vs FSM 7), 根因是活动无收益:
+    // 旧时间成本每 tick -0.0001 × 2400 = -0.24, 远低于行动风险(掉台 -1 / 目标被夺 -0.5),
+    // 风险厌恶最优即原地苟。两项修正(仅本变体生效):
+    // ① 时间成本抬到 -0.0004(苟满场 -0.96, **刻意仍低于掉台 -1** —— 防止学会跳台止损);
+    // ② 逼近目标块稠密整形 0.04 × Δdist(机器人→目标块心; 电位型整形, 绕圈/振荡净收益≈0)。
+    internal const string RewardV4 = "v4";
+    internal const string RewardAggressionV1 = "aggression-v1";
+    // aggression-v2(2026-10-02 同日第二轮): v1 实测"动了但仍不推块"(BlockScore 0-2 次/20 场)——
+    // 成功支付 +1 对掉台 -1 的 1:1 风险收益比不足, 且过程支付(边沿整形 0.1×Δ)太弱, 策略
+    // 靠近块后贴着苟。抬杠杆: 推块成功 +5(风险收益 5:1) + 块进沿整形 0.5×Δ(0.3m 推进≈+0.15)。
+    internal const string RewardAggressionV2 = "aggression-v2";
+    private const double AggressionStepCost = -0.0004;
+    private const double ApproachShapingScale = 0.04;
+    private const double AggressionTargetReward = 5.0;
+    private const double AggressionEdgeShapingScale = 0.5;
     // 常量与投影/预推进/目标锁定都委托 Sim.Hosting.ScoreBlockExhibition(唯一实现);
     // 这里的名字只保留给本文件的零观测长度与响应形状。
     private const int ObservationSize = ScoreBlockExhibition.ObservationSize;
@@ -30,9 +47,11 @@ public static class RlEnvCommand
     {
         var scenarioPath = "scenarios/wushu-ring-2026-mujoco.json";
         var duration = 120.0;
+        var rewardVariant = RewardV4;
         for (var i = 0; i < args.Length; i++)
         {
             if (args[i] == "--scenario" && i + 1 < args.Length) scenarioPath = args[i + 1];
+            if (args[i] == "--reward" && i + 1 < args.Length) rewardVariant = args[i + 1];
             if (args[i] == "--duration" && i + 1 < args.Length
                 && !TryParseDuration(args[i + 1], out duration, out var durationError))
             {
@@ -42,10 +61,15 @@ public static class RlEnvCommand
                 return 2;
             }
         }
+        if (rewardVariant is not (RewardV4 or RewardAggressionV1 or RewardAggressionV2))
+        {
+            EmitError($"unknown --reward '{rewardVariant}' (expected '{RewardV4}'/'{RewardAggressionV1}'/'{RewardAggressionV2}')");
+            return 2;
+        }
 
         var factory = new MujocoTrainingPhysicsBackendFactory();
         MatchEngine? engine = null;
-        var state = new EpisodeState();
+        var state = new EpisodeState { RewardVariant = rewardVariant };
         try
         {
             string? line;
@@ -179,6 +203,9 @@ public static class RlEnvCommand
         public Scenario Scenario = new();
         public bool NoScoreBlock;
 
+        /// <summary>奖励变体(--reward, 会话级): v4 = 逐位不变默认; aggression-v1 见常量注释。</summary>
+        public string RewardVariant = RewardV4;
+
         /// <summary>Diagnostic trace opt-in (set per episode by the <c>reset</c> request).</summary>
         public bool Trace;
 
@@ -298,6 +325,9 @@ public static class RlEnvCommand
         }
 
         var edgeBefore = EdgeDistance(engine, state.TargetIndex);
+        var aggression = state.RewardVariant is RewardAggressionV1 or RewardAggressionV2;
+        var aggressionV2 = state.RewardVariant == RewardAggressionV2;
+        var blockDistBefore = aggression ? TargetBlockDistance(engine, state.TargetIndex) : double.NaN;
         var wasOut = engine.Blocks.Select(b => b.Out).ToArray();
         state.PolicyTicks++;
         var tickTimer = timing ? Stopwatch.StartNew() : null;
@@ -311,7 +341,7 @@ public static class RlEnvCommand
         state.ThemBlockScoreEvents += events.Count(e => e.Kind == EventKind.BlockScore && !e.Neutral && !e.Robot.IsUs);
         state.UnownedBlockOffs += events.Count(e => e.Kind == EventKind.BlockOff);
 
-        var reward = StepCost;
+        var reward = aggression ? AggressionStepCost : StepCost;
         var terminated = false;
         var truncated = false;
         var targetName = TargetBlockName(engine, state.TargetIndex);
@@ -326,7 +356,7 @@ public static class RlEnvCommand
         if (targetScored || targetLost) state.TargetOutcomeTick = engine.TickIndex;
         if (targetScored)
         {
-            reward += TargetReward;
+            reward += aggressionV2 ? AggressionTargetReward : TargetReward;
             state.TargetBlockScores++;
         }
         else if (targetLost)
@@ -347,7 +377,15 @@ public static class RlEnvCommand
         var edgeAfter = EdgeDistance(engine, state.TargetIndex);
         if (!double.IsNaN(edgeAfter) && !double.IsNaN(edgeBefore))
         {
-            reward += EdgeShapingScale * (edgeBefore - edgeAfter);
+            reward += (aggressionV2 ? AggressionEdgeShapingScale : EdgeShapingScale) * (edgeBefore - edgeAfter);
+        }
+        if (aggression && !double.IsNaN(blockDistBefore))
+        {
+            var blockDistAfter = TargetBlockDistance(engine, state.TargetIndex);
+            if (!double.IsNaN(blockDistAfter))
+            {
+                reward += ApproachShapingScale * (blockDistBefore - blockDistAfter);
+            }
         }
 
         if (engine.Done) terminated = true;
@@ -355,6 +393,11 @@ public static class RlEnvCommand
 
         var (obs, info) = BuildObservation(engine, state, state.Seed, snapshot.Robots[RoleNames.Us].OnPlatform, snapshot.Timer);
         info["policy_ticks"] = state.PolicyTicks;
+        if (aggression)
+        {
+            // 默认 v4 不写该键: rl-env 响应形状对默认路径逐字节不变(gym_env 契约注释)。
+            info["reward_variant"] = state.RewardVariant;
+        }
         info["target_scored"] = targetScored;
         info["target_lost_not_ours"] = targetLost;
         info["attribution_ambiguous_this_step"] = attributionAmbiguous;
@@ -437,6 +480,12 @@ public static class RlEnvCommand
     private static double EdgeDistance(MatchEngine engine, int index) =>
         index >= 0 && index < engine.Blocks.Count
             ? engine.Field.DistToNearestEdge(engine.Blocks[index].X, engine.Blocks[index].Y)
+            : double.NaN;
+
+    /// <summary>我方车到目标块心的距离(aggression-v1 逼近整形用); 目标缺失 ⇒ NaN。</summary>
+    private static double TargetBlockDistance(MatchEngine engine, int index) =>
+        index >= 0 && index < engine.Blocks.Count
+            ? Js.Hypot(engine.Blocks[index].X - engine.Us.X, engine.Blocks[index].Y - engine.Us.Y)
             : double.NaN;
 
     /// <summary>
