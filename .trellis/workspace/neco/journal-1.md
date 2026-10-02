@@ -1548,3 +1548,34 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 - v2 场景 seed42 无推块得分（掉台 7+3 偏多）→ v2 对局行为可作 v2 保真度轮的观测项
 - mbri REMOUNT 台角/围栏卡位残例（legacy 2/11、mujoco 4/11 种子）→ 10-01-mbri-fsm-port 残余清单
 - RL 重训（用户已拍板：模型改完重训，直接改现有 v1/v2）
+
+## Session 47 (2026-10-02)
+
+`10-01-rl-desktop-controller` 后续 — RL 随机块重训探索轮（seed 20261005）
+
+### What We Did
+
+1. 域随机化场景落地：`wushu-ring-2026-mujoco-random.json`（三块 X/Y=null ⇒ RespawnBlock 按种子确定性放置），两端冒烟过。
+2. 对照实验先出：旧最优（20261004@204800）在校准后物理两边全失效——冻结 40:126（基线 97:138）、随机 52:48（基线 52:50），gate 0；桌面"RL 变笨"坐实。
+3. 单-env 训练卡死诊断：随机布局 preroll 失败率 32%（4800 tick 上限白跑），34 步/s；`--n-envs 4` 重启 → 470 步/s（×10），500k 约 18 分钟。
+4. 随机重训结果（dev 20 seeds，探索性）：总分碾压（最好 409600 = 138:66 vs FSM 52:50，掉台 5 vs 11）**但推块能力未学到**（BlockScore 事件 0–1 次 vs FSM 7；全部得分来自保台读秒+对手掉台），gate 全 False 如实披露；冻结迁移 72:144（劣于基线但掉台 2 vs 旧 13）。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| (本轮) | feat(scenario): 训练变体——三能量块按种子随机 |
+| (本轮) | docs(task): RL 随机块重训探索轮摘要 |
+
+### Testing
+
+- [OK] 训练 run-config status=completed；三组 dev 评测 json 落 `.sim_runs/score-block-v4-randomblocks-20261002/`（不入库）；探索性分析不作门槛证据（契约）
+
+### Status
+
+[OK] **Completed**（探索轮；推块激励属奖励设计，按 v4 冻结决策需另立任务拍板）
+
+### Next Steps
+
+- 桌面展演 checkpoint 换 409600（随机/冻结都优于旧策略现状）——待用户拍板
+- 策略"苟分不推块"若要纠正 → 奖励/课程新轮（训练前 No-Go 流程）
