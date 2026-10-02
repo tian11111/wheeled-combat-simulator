@@ -65,14 +65,29 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   （`src/Sim.Core/MbriUnits.cs:14-17`；来源 `src/Sim.Mujoco/MujocoModel.cs:95-97` 轮心实测与
   v2 场景同值；旧桥猜测 0.18 已弃用，偏差 21.4% < 30% 停线阈值）。灰度 0–1000 → 真车 ADC
   的逐通道仿射（`SimToAdc`/`SimToAdcWhite`）是"结构忠实、数值近似"层：真车非线性/噪声
-  不建模；仿真灰度上限使 `white_hits`/`WHITE_ESCAPE` 结构性不可达（默认手绘场）；掉台判定
-  另走 fall-domain 采样（走道 g<150 → ADC 0，`src/Sim.Core/MbriGrayCalibration.cs:70-97`）。
+  不建模；**A1 重标（2026-10-02）**：巡台 zone 的 anchor 0/1 端点已从 g=0/1000 重锚到
+  官方场实测台沿/台心灰度（E≈329 / C≈651 逐通道，`src/Sim.Core/MbriGrayCalibration.cs:31-33,71,96`，
+  采样件 tmp/mbri-recal/ 不入库）——重标后 zone：台心红区 ≈1.0、内环最亮带 ≈1.54、
+  走道 ≈−1.03，early-front/near-edge/FAST_ZONE 阈值距台沿语义见
+  `MbriGrayCalibrationTests.OfficialField_ZoneSemantics`（纯常量断言，改锚必跑）；
+  白域仍结构性不可达（`WhiteEnter_UnreachableOnOfficialField`）。掉台判定另走 fall-domain
+  采样（走道 g<150 → ADC 0，`src/Sim.Core/MbriGrayCalibration.cs:70-97`）。
   改这些常量/公式会改变 mbri 轨迹，必须重跑 `--filter "FullyQualifiedName~Mbri"` 与
   11-seed 行为对照。
-- **能力边界（不得当作可用比赛策略宣称）**：官方 legacy 11-seed 对照中 mbri 每车仅
-  开场上台一次、掉台后不再回台、得分 0（修复前修订版另叠加 SAFE_STOP 冻结吸收态）；
-  P2 hunt/probe 与真车铲子红外未移植；mbri + MuJoCo 组合未验证。完整对照与修复后复测见
-  `.trellis/tasks/10-01-mbri-fsm-port/evidence/comparison.md`。
+- **能力边界（按 2026-10-02 能力修复轮修订；不得超出证据宣称）**：
+  巡台分级（A1 重标后）MEDIUM_CRUISE/FAST_ZONE 已可达，early-fire（批1 g/1000 锚定下
+  全程 EDGE_AVOID）已消除；回台能力成立——官方 legacy 11-seed 中 mbri 掉台后物理再上台
+  **60–68%**（builtin 95.9%），掉台中位 **2** vs builtin 43；得分能力**非零但弱**——
+  mirror 内战我方得分中位 2.0（0–12，含 hunt 推块 BlockScore+3/登台读秒），但**同场对
+  builtin 11/11 全负（得分中位 1 vs 13）**，不得宣称 mbri 整体优于 builtin；
+  **默认控制器未切换**（决策包与切换风险含 RL 对手分布漂移，见
+  `.trellis/tasks/10-01-mbri-fsm-port/report-capability.md` §4）。残余披露：A2 REMOUNT
+  显式"回台成功"出口在 33 场中 0 次触发（回台实际经 REVERSE 结束灰度恢复分流，
+  `MbriReentry.cs:347-363` / IR_WAIT `!Fall` 出口 `:428-429`）；P2 hunt/probe 已移植
+  （视觉=ObjectSet 真值投影的特权观测，`MbriFsm.cs:43-49` 头注释+事件流双披露），
+  真车铲子红外守卫仍为 no-op；mbri+MuJoCo 已验证不崩溃且确定性，但回台 seed 相关
+  （走道滞留可达 120 s）、MuJoCo 场地灰度域未按 A1 流程单独校准。完整对照见
+  `evidence/comparison-postfix.md`（本轮）与 `evidence/comparison.md`（修复前口径）。
 
 ## 物理后端契约（legacy 缺省 / mujoco 可选）
 
