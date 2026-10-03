@@ -1672,3 +1672,31 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 
 - 翻默认(默认开 L1/L2/L3)是产品决策: 开启态回放需同开关构造, 待用户拍板
 - 块-块对穿/平移上台/接触参数单独轮次(deferred 清单)
+
+## Session 51 (2026-10-03)
+
+legacy 接触默认翻转——L1+L2+L3 全开（用户拍板"都开"）
+
+### What We Did
+
+1. `ContactResolveOptions` 三开关默认翻 true：null 注入 = 全开；旧全关行为须显式构造三 false。
+2. 连带处理：replays/seed-42.json 重录（4:49/752 事件 → 5:10/302 事件，-60% 事件数即互穿修复证据）；godot-parity-seed42.json 同步重录；restart-replay-seed42.json 由测试确定性再生成。
+3. 测试适配 11 处失败全部归因：4 个 Off_Default 现状测试改显式全关；AllOff 守卫改 null==全开；AntiStallmate 容差放宽（L1 顶开 ~0.119m）+ FirstContactTick 改"间距停止收缩"判定（L1 后对峙停在 OBB 触距 0.439，2R 固定带宽失效）；VisionLive servedFrames ≥1（帧窗命中随轨迹变化，非空洞本意不变）。
+4. 门禁：全量 716/717（唯一失败=已知性能门并行抖动，隔离复跑 2/2）+ replay-check 逐位 PASS。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| 6ffbe27 | feat(mujoco): 轮 solref 注入点（决策数据交付） |
+| 8ddc301 | feat(sim): legacy 接触 opt-in 修复（L1/L2/L3） |
+| (本轮) | feat(sim)!: legacy 接触 L1+L2+L3 默认全开 |
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 推送到 PR #13 待用户确认
+- deferred 清单：块-块对穿/平移上台/计分边界/mujoco 接触参数单独轮次
