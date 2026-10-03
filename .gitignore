@@ -55,3 +55,8 @@ tmp/
 
 # Local desktop appearance preference (machine-specific absolute paths)
 godot/robot-models.json
+
+# AI 助手/平台本地工具(不入库)
+/.codex/
+/.agents/
+/.learnings/
