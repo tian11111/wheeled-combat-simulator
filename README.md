@@ -94,6 +94,7 @@ godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.j
 
 ## 文档
 
+- [AI / 外部程序接入指南（把用户程序接进模拟器）](docs/AGENT_GUIDE.md)
 - [架构与确定性契约](docs/ARCHITECTURE.md)
 - [控制器协议 decide(obs)→{v,w}](docs/CONTROLLER_PROTOCOL.md)
 - [Sim.Cli 命令参考](docs/CLI.md)
@@ -119,6 +120,12 @@ godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.j
 **控制器**
 
 - 内置 MBri 控制器（可选档）回台率有限：MuJoCo 下中位 50%（legacy 对照 67%），台角/围栏卡位残例存在。
+
+**感知与保真度等级**
+
+- **真机保真度未晋升**：`fidelity.json` 只到"场地布局已验证；摩擦/碰撞/堵转/登台未标定"，真机遥测采集尚未执行——模拟成绩不能当真机成绩引用。
+- **视觉是半特权管线**：桌面 vision live 吃 CSV 帧回放/投影桥（观测里的 `objects` 坐标是仿真真值包装，非真实相机检测）；真实相机 + YOLO 推理的端到端尚未在桌面完整目检。
+- **传感器是解析投影**：灰度/红外是平面几何投影近似，不是真实传感器仿真；MBri 灰度标定为"结构忠实、数值近似"层（真车非线性与噪声不建模）。
 
 **确定性契约**
 
