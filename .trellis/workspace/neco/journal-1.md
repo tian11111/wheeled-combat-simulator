@@ -1610,3 +1610,34 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 
 - 展演 checkpoint 候选 v2@102400（随机 gate True）；若转正按契约跑 final_holdout_v4 盲验一次
 - 钉住推块（抗后期衰减）需课程/KL 锚定等结构手段——新预注册轮
+
+## Session 49 (2026-10-03)
+
+`10-01-rl-desktop-controller` 后续 — aggression-v3 怠工惩罚轮（负结果）+ 方法结论
+
+### What We Did
+
+1. 用户问"训练后期衰减能解决吗"→ 实现 aggression-v3（v2 全部项 + 台沿距离 300tick 无 5cm 新低 → −0.005/tick 怠工罚），构建+selftest 44/44。
+2. 训练 500k（seed 20261008）+ dev 阶梯：BlockScore 0–3 次/20 场、无 gate 通过、final 0 推块——**衰减未钉住（负结果）**。
+3. 博弈发现：策略偶尔蹭 5cm 重置怠工计时器，阈值惩罚被部分规避。
+4. 三轮（v1 活动/v2 奖池/v3 惩罚）总判读：奖励侧收益递减确认收线；根因是技能习得（11 维观测下推块长序列被价值收敛抹平）。结构性出路 = FSM 行为克隆热启动 / 布局课程 / 加富观测。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| (本轮) | feat(rl): aggression-v3 怠工惩罚变体（负结果如实披露） |
+| (本轮) | docs(task): v3 负结果与三轮方法结论 |
+
+### Testing
+
+- [OK] selftest 44/44；v3 dev 阶梯 json 落 .sim_runs/（不入库）
+
+### Status
+
+[OK] **Completed**（探索轮收线；BC 热启动是否立项待用户拍板）
+
+### Next Steps
+
+- 展演 checkpoint 仍推荐 v2@102400（v3 未能超越）
+- BC 热启动轮（FSM 推块技能蒸馏 → PPO 微调）若立项走预注册流程
