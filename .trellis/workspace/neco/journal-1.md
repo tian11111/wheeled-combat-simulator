@@ -1641,3 +1641,34 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 
 - 展演 checkpoint 仍推荐 v2@102400（v3 未能超越）
 - BC 热启动轮（FSM 推块技能蒸馏 → PPO 微调）若立项走预注册流程
+
+## Session 50 (2026-10-03)
+
+`/workflow 穿模问题优化` — 动态工作流: 侦察→方案→评审→实现→门禁→复核 (dwfrun-3e55c229, GLM-5.3-Flash 串行)
+
+### What We Did
+
+1. 两路并行侦察 legacy/MuJoCo 穿模量化 → 方案设计师合成(独立评审员两轮评审把关) → 条件双路实现 → world.run 门禁 → 独立复核员亲手重跑复现命令。子代理模型踩坑: GUI 切回 GLM-5.3 并行创建即挂(Model creation failed, 0 token), max_concurrency=1 串行绕开。
+2. legacy 侧交付 opt-in 三开关(默认全关, 默认路径逐位不变): L1 车车顶牛 0.120→0.001m; L2 车块互穿 86-92% tick→5.3%(钉死消失); L3 块-台沿穿墙/压入封死。mujoco 侧交付轮 solref 注入点+决策数据: 0.008 更差否决, 0.005 最坏对撞仍 -27mm——默认 0.02 维持, 单独轮次另议。
+3. 未修(deferred 如实): 块-块 2.4m/s 对穿、平移上台放行增强、计分边界、围栏钉死 0.0595 设计内残差; 改善全在开关后面, 生产默认零变化。
+4. 复核员 11 条发现(9 verified/2 unconfirmed), 含两处实现口径低估的纠正(0.005 车-floor 实为 ≤7.2mm; penprobe rr 指标为探针伪影非引擎真值)。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| 8ddc301 | feat(sim): legacy 接触 opt-in 修复——L1/L2/L3 |
+| 6ffbe27 | feat(mujoco): 轮 solref 注入点——决策数据交付 |
+
+### Testing
+
+- [OK] 全量 dotnet test(replay 逐位 PASS; TrainingResetPerformanceTests 并行全量抖动 1 次, 隔离复跑 2/2 过——已知抖动); 新增 LegacyContactResolveOptInTests + MujocoWheelSolrefTests
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 翻默认(默认开 L1/L2/L3)是产品决策: 开启态回放需同开关构造, 待用户拍板
+- 块-块对穿/平移上台/接触参数单独轮次(deferred 清单)
