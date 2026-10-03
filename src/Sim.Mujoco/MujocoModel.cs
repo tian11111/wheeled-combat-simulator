@@ -361,6 +361,14 @@ internal static class MujocoModel
         sb.Append("</body>");
     }
 
+    /// <summary>
+    /// 轮 geom 接触 solref timeconst(s) 的现行历史字面量(0.02)。v1/v2 共用
+    /// (2026-10-03 读码裁决: 轮 solref 只此一处, 无"v1 用默认 0.008"的分支)。
+    /// 未注入(<see cref="WheelContactOptions.SolRefTimeconst"/>=0)时轮 geom
+    /// 逐字节写回本值 —— 默认路径 MJCF 不变, 模型哈希不变。
+    /// </summary>
+    internal const double WheelSolrefTimeconstLiteral = 0.02;
+
     private static void WheelBodies(StringBuilder sb, RobotRuntime r, double radius, double halfWidth,
         double mass, double localZ, double frontX, double rearX, double leftY, double rightY,
         bool isV2, WheelContactOptions? wheelContact = null)
@@ -382,8 +390,20 @@ internal static class MujocoModel
             {
                 sb.Append("\" condim=\"").Append(condim);
             }
+            // solref 注入点(2026-10-03 M1): 未设置(0) ⇒ 历史字面量 "0.02 1"
+            // (逐字节不变); 设置 ⇒ "{N(t)} 1"(damping ratio 恒 1, 取值域
+            // timeconst ≥ 2×MjcTimestep 见 WheelContactOptions.SolRefTimeconst)。
+            var solrefTimeconst = (wheelContact ?? default).SolRefTimeconst;
             sb.Append("\" friction=\"").Append(N(slide)).Append(' ').Append(N(spin))
-                .Append(' ').Append(N(roll)).Append("\" solref=\"0.02 1\"/>");
+                .Append(' ').Append(N(roll)).Append("\" solref=\"");
+            if (solrefTimeconst > 0)
+            {
+                sb.Append(N(solrefTimeconst)).Append(" 1\"/>");
+            }
+            else
+            {
+                sb.Append(N(WheelSolrefTimeconstLiteral)).Append(" 1\"/>");
+            }
             sb.Append("</body>");
         }
     }

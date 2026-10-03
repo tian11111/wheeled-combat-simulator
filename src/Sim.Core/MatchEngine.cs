@@ -99,8 +99,15 @@ public sealed class MatchEngine : IDisposable
     {
     }
 
-    /// <summary>Creates the selected backend after the runtime entities exist.</summary>
-    public MatchEngine(Scenario scenario, IVisionAdapter? visionAdapter, IPhysicsBackendFactory? physicsFactory)
+    /// <summary>
+    /// Creates the selected backend after the runtime entities exist.
+    /// <paramref name="contactOptions"/> 为 L1/L2/L3 opt-in 接触求解扩展开关
+    /// (<see cref="ContactResolveOptions"/>): null = 默认 = L1+L2+L3 全开(2026-10-03
+    /// 用户拍板"都开"; 旧全关行为须显式构造三属性 false, 见 ContactResolveOptions 注释);
+    /// 仅 legacy 后端消费, 开启态回放需以同开关构造引擎 (不进场景/协议字段)。
+    /// </summary>
+    public MatchEngine(Scenario scenario, IVisionAdapter? visionAdapter, IPhysicsBackendFactory? physicsFactory,
+        ContactResolveOptions? contactOptions = null)
     {
         ArgumentNullException.ThrowIfNull(scenario);
         var errors = scenario.Validate().ToList();
@@ -154,7 +161,7 @@ public sealed class MatchEngine : IDisposable
         else
         {
             _physics = new PhysicsWorld(_field, _params, _us, _them, _blocks, _events,
-                context.AntiStallPhaseUs, context.AntiStallPhaseThem);
+                context.AntiStallPhaseUs, context.AntiStallPhaseThem, contactOptions);
         }
         _sensors = new SensorSampler(_field, _params, _us, _them, _blocks, scenario.Seed, () => SimStepIndex, _physics);
         _fsm = new FsmController(_field, _physics, _params, () => _rng.Next(), _us, _them, _blocks, _events,

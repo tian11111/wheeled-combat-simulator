@@ -84,7 +84,7 @@ class ScoreBlockEnv(gym.Env):
         self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
         self.observation_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(11,), dtype=np.float32)
         self._reward = str(reward)
-        if self._reward not in ("v4", "aggression-v1", "aggression-v2"):
+        if self._reward not in ("v4", "aggression-v1", "aggression-v2", "aggression-v3"):
             raise ValueError(f"unknown reward variant: {self._reward!r}")
         cmd = [self._dotnet, self._cli, "rl-env", "--scenario", self._scenario,
                "--duration", str(self._duration)]

@@ -25,6 +25,9 @@ public class MujocoVehicleMeshTests
     /// (v1 f5/v2 f6, 工程初值, 见 MotorDriveOptions.WheelContactOptions) ⇒ v1 哈希再次
     /// 有意更新; 既有 MuJoCo 回放/RL checkpoint 失配为已披露代价。新值来源: 本日重跑的
     /// seed 42 官方场景(20:0, BlockScore 1 事件, 见本任务 evidence/)。
+    /// 2026-10-03 M1 轮接触 solref 注入点(WheelContactOptions.SolRefTimeconst, opt-in):
+    /// 未注入路径 MJCF 逐字节不变, 本哈希**维持不变** —— tmp/hashpin 探针在生产改动
+    /// 前后各实测一次, 输出逐字节一致; 见 MujocoWheelSolrefTests 的注入点契约断言。
     /// </summary>
     private const string V1ModelSha256 = "4d7b181088be4afaa9858818d2a08d2ce071aaa96c3c3d4bbb2bd4a394a08d18";
 

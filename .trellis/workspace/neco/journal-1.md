@@ -1610,3 +1610,93 @@ review-agent 全分支审查（572 文件 / +62,615 行）确认 1×P1+2×P2+3×
 
 - 展演 checkpoint 候选 v2@102400（随机 gate True）；若转正按契约跑 final_holdout_v4 盲验一次
 - 钉住推块（抗后期衰减）需课程/KL 锚定等结构手段——新预注册轮
+
+## Session 49 (2026-10-03)
+
+`10-01-rl-desktop-controller` 后续 — aggression-v3 怠工惩罚轮（负结果）+ 方法结论
+
+### What We Did
+
+1. 用户问"训练后期衰减能解决吗"→ 实现 aggression-v3（v2 全部项 + 台沿距离 300tick 无 5cm 新低 → −0.005/tick 怠工罚），构建+selftest 44/44。
+2. 训练 500k（seed 20261008）+ dev 阶梯：BlockScore 0–3 次/20 场、无 gate 通过、final 0 推块——**衰减未钉住（负结果）**。
+3. 博弈发现：策略偶尔蹭 5cm 重置怠工计时器，阈值惩罚被部分规避。
+4. 三轮（v1 活动/v2 奖池/v3 惩罚）总判读：奖励侧收益递减确认收线；根因是技能习得（11 维观测下推块长序列被价值收敛抹平）。结构性出路 = FSM 行为克隆热启动 / 布局课程 / 加富观测。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| (本轮) | feat(rl): aggression-v3 怠工惩罚变体（负结果如实披露） |
+| (本轮) | docs(task): v3 负结果与三轮方法结论 |
+
+### Testing
+
+- [OK] selftest 44/44；v3 dev 阶梯 json 落 .sim_runs/（不入库）
+
+### Status
+
+[OK] **Completed**（探索轮收线；BC 热启动是否立项待用户拍板）
+
+### Next Steps
+
+- 展演 checkpoint 仍推荐 v2@102400（v3 未能超越）
+- BC 热启动轮（FSM 推块技能蒸馏 → PPO 微调）若立项走预注册流程
+
+## Session 50 (2026-10-03)
+
+`/workflow 穿模问题优化` — 动态工作流: 侦察→方案→评审→实现→门禁→复核 (dwfrun-3e55c229, GLM-5.3-Flash 串行)
+
+### What We Did
+
+1. 两路并行侦察 legacy/MuJoCo 穿模量化 → 方案设计师合成(独立评审员两轮评审把关) → 条件双路实现 → world.run 门禁 → 独立复核员亲手重跑复现命令。子代理模型踩坑: GUI 切回 GLM-5.3 并行创建即挂(Model creation failed, 0 token), max_concurrency=1 串行绕开。
+2. legacy 侧交付 opt-in 三开关(默认全关, 默认路径逐位不变): L1 车车顶牛 0.120→0.001m; L2 车块互穿 86-92% tick→5.3%(钉死消失); L3 块-台沿穿墙/压入封死。mujoco 侧交付轮 solref 注入点+决策数据: 0.008 更差否决, 0.005 最坏对撞仍 -27mm——默认 0.02 维持, 单独轮次另议。
+3. 未修(deferred 如实): 块-块 2.4m/s 对穿、平移上台放行增强、计分边界、围栏钉死 0.0595 设计内残差; 改善全在开关后面, 生产默认零变化。
+4. 复核员 11 条发现(9 verified/2 unconfirmed), 含两处实现口径低估的纠正(0.005 车-floor 实为 ≤7.2mm; penprobe rr 指标为探针伪影非引擎真值)。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| 8ddc301 | feat(sim): legacy 接触 opt-in 修复——L1/L2/L3 |
+| 6ffbe27 | feat(mujoco): 轮 solref 注入点——决策数据交付 |
+
+### Testing
+
+- [OK] 全量 dotnet test(replay 逐位 PASS; TrainingResetPerformanceTests 并行全量抖动 1 次, 隔离复跑 2/2 过——已知抖动); 新增 LegacyContactResolveOptInTests + MujocoWheelSolrefTests
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 翻默认(默认开 L1/L2/L3)是产品决策: 开启态回放需同开关构造, 待用户拍板
+- 块-块对穿/平移上台/接触参数单独轮次(deferred 清单)
+
+## Session 51 (2026-10-03)
+
+legacy 接触默认翻转——L1+L2+L3 全开（用户拍板"都开"）
+
+### What We Did
+
+1. `ContactResolveOptions` 三开关默认翻 true：null 注入 = 全开；旧全关行为须显式构造三 false。
+2. 连带处理：replays/seed-42.json 重录（4:49/752 事件 → 5:10/302 事件，-60% 事件数即互穿修复证据）；godot-parity-seed42.json 同步重录；restart-replay-seed42.json 由测试确定性再生成。
+3. 测试适配 11 处失败全部归因：4 个 Off_Default 现状测试改显式全关；AllOff 守卫改 null==全开；AntiStallmate 容差放宽（L1 顶开 ~0.119m）+ FirstContactTick 改"间距停止收缩"判定（L1 后对峙停在 OBB 触距 0.439，2R 固定带宽失效）；VisionLive servedFrames ≥1（帧窗命中随轨迹变化，非空洞本意不变）。
+4. 门禁：全量 716/717（唯一失败=已知性能门并行抖动，隔离复跑 2/2）+ replay-check 逐位 PASS。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| 6ffbe27 | feat(mujoco): 轮 solref 注入点（决策数据交付） |
+| 8ddc301 | feat(sim): legacy 接触 opt-in 修复（L1/L2/L3） |
+| (本轮) | feat(sim)!: legacy 接触 L1+L2+L3 默认全开 |
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 推送到 PR #13 待用户确认
+- deferred 清单：块-块对穿/平移上台/计分边界/mujoco 接触参数单独轮次
