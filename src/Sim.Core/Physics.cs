@@ -3,6 +3,40 @@ using Sim.Protocol;
 namespace Sim.Core;
 
 /// <summary>
+/// L1/L2/L3 opt-in 接触求解扩展开关 (legacy 侧修复, 评审三轮方案)。
+/// 2026-10-03 用户拍板"都开": 三开关默认 **true**, legacy 默认物理即 L1+L2+L3 全开
+/// (null 注入 = 默认 = 全开)。这是 legacy 默认物理的一次**有意变更**: 旧默认(全关)
+/// 录制的 legacy 回放(含原 replays/seed-42.json 基线)在新默认下不可复现, 基线已重录;
+/// 显式全关(三属性置 false)仍可构造旧物理引擎做对照。
+/// 开关不进场景/协议字段。
+/// (public 而非 internal: PhysicsWorld/MatchEngine 公共构造器可选参数的
+/// 可访问性必须不低于方法本身 CS0051。)
+/// </summary>
+public sealed record ContactResolveOptions
+{
+    /// <summary>
+    /// L1: 车车 OBB 稳态分离 (圆盘代理覆盖不到的顶牛 0.12m 铲刃/车角互穿) +
+    /// 求解位移后的台壁位置穿越钳位 (速度无关; 归因门只钳 solver 位移造成的穿越)。
+    /// 开启实测: 顶牛稳态互穿 0.120 → 0.001 m(slop)。
+    /// </summary>
+    public bool RobotPairObbSeparation { get; init; } = true;
+
+    /// <summary>
+    /// L2: 车块 OBB 分离 + 推块速度镜像 (推块带 d∈(0.235,0.295) 与卡角互穿;
+    /// 与该对本步圆盘接触互斥, 防双重冲量)。
+    /// 开启实测: 实赛车块互穿 tick 占比 86-92% → 5.3%(>2mm 对-tick 22412 → 1310)。
+    /// </summary>
+    public bool RobotBlockObbSeparation { get; init; } = true;
+
+    /// <summary>
+    /// L3: 块-台壁阻挡 (积分穿越钳位 + 步初已在外块的面接触带维持;
+    /// 步初台内双门完全放行合法低速出台)。
+    /// 开启实测: 块-台沿高速穿墙登台封死, 台沿外 74mm 压入封死。
+    /// </summary>
+    public bool BlockStageWall { get; init; } = true;
+}
+
+/// <summary>
 /// Deterministic 2D motion and contact resolution, ported from the legacy
 /// CORE (motionFor / stageWall / swept contacts / robot pair / block chain).
 /// This model is authoritative for scores, replay and observations.
@@ -52,12 +86,16 @@ public sealed class PhysicsWorld : IPhysicsBackend
     private const double BodyRadius = 0.16;  // legacy BODY fallback
     private const double FenceMargin = 0.12; // robot/block fence margin (m)
 
+    /// <summary>OBB 分离目标间隙 (m) — 锚 ResolveBlockPair 的 gap=0.001 (Physics.cs:762)。</summary>
+    private const double ObbSlop = 0.001;
+
     private readonly FieldModel _field;
     private readonly SimParameters _params;
     private readonly RobotRuntime _us;
     private readonly RobotRuntime _them;
     private readonly List<BlockRuntime> _blocks;
     private readonly EventBus _events;
+    private readonly ContactResolveOptions _contact;
 
     // 反僵局铲刃微调 (docs/PORTING_NOTES.md 有意偏差): 正面顶牛的同型机器人铲刃静差
     // 恒为 0, 楔入阈值 |aBlade−bBlade|>0.004 永不触发 → 对推死锁。给双方有效铲刃
@@ -84,7 +122,8 @@ public sealed class PhysicsWorld : IPhysicsBackend
     public double AntiStallPhaseThem => _phaseThem;
 
     public PhysicsWorld(FieldModel field, SimParameters parameters, RobotRuntime us, RobotRuntime them,
-        List<BlockRuntime> blocks, EventBus events, double phaseUs = 0, double phaseThem = 0)
+        List<BlockRuntime> blocks, EventBus events, double phaseUs = 0, double phaseThem = 0,
+        ContactResolveOptions? contactOptions = null)
     {
         _field = field;
         _params = parameters;
@@ -94,6 +133,8 @@ public sealed class PhysicsWorld : IPhysicsBackend
         _events = events;
         _phaseUs = phaseUs;
         _phaseThem = phaseThem;
+        // L1/L2/L3 opt-in 开关: null = 全关 = 既有路径逐位不变。
+        _contact = contactOptions ?? new ContactResolveOptions();
         // 可空参数解析: null/非有限 → 默认; 振幅显式 0 = 关闭; 周期必须为正。
         _antiStallAmp = _params.AntiStallBladeAmp is { } amp && double.IsFinite(amp) ? amp : 0.006;
         _antiStallPeriodUs = _params.AntiStallBladePeriodUs is { } pu && double.IsFinite(pu) && pu > 0 ? pu : 2.1;
@@ -497,6 +538,173 @@ public sealed class PhysicsWorld : IPhysicsBackend
         b.Y += ny * overlap * (invB / total);
     }
 
+    // ---------- L1/L2: OBB SAT (opt-in, 默认路径不进) ----------
+
+    /// <summary>
+    /// 车车 OBB SAT (L1, 非对称 footprint): 4 轴 = 双方各自的 forward/lateral,
+    /// 每轴按区间投影 [c−h(−n̂), c+h(n̂)] 计算重叠 (单向支撑 = <see cref="FootprintSupport"/>,
+    /// 前后非对称精确)。返回最小重叠轴的 MTV (法线从 a 指向 b), 无重叠返回 null。
+    /// </summary>
+    private static (double Nx, double Ny, double Overlap)? PairObbMtv(RobotRuntime a, RobotRuntime b)
+    {
+        var dx = b.X - a.X;
+        var dy = b.Y - a.Y;
+        var ca = Math.Cos(a.Th);
+        var sa = Math.Sin(a.Th);
+        var cb = Math.Cos(b.Th);
+        var sb = Math.Sin(b.Th);
+        (double Nx, double Ny)[] axes = [(ca, sa), (-sa, ca), (cb, sb), (-sb, cb)];
+        var best = double.PositiveInfinity;
+        var bnx = 0.0;
+        var bny = 0.0;
+        foreach (var (nx, ny) in axes)
+        {
+            var aC = a.X * nx + a.Y * ny;
+            var bC = b.X * nx + b.Y * ny;
+            var aRight = aC + FootprintSupport(a, a.Th, nx, ny);
+            var aLeft = aC - FootprintSupport(a, a.Th, -nx, -ny);
+            var bRight = bC + FootprintSupport(b, b.Th, nx, ny);
+            var bLeft = bC - FootprintSupport(b, b.Th, -nx, -ny);
+            var overlap = Math.Min(aRight, bRight) - Math.Max(aLeft, bLeft);
+            if (overlap <= 0)
+            {
+                return null; // 该轴分离
+            }
+            if (overlap < best)
+            {
+                best = overlap;
+                // 绑定面为 a 右侧面 (aRight≤bRight) → 法线 +n̂ 推 b 远离 a; 否则 −n̂。
+                if (aRight <= bRight)
+                {
+                    bnx = nx;
+                    bny = ny;
+                }
+                else
+                {
+                    bnx = -nx;
+                    bny = -ny;
+                }
+            }
+        }
+        return (bnx, bny, best);
+    }
+
+    /// <summary>
+    /// 车块 OBB SAT (L2): 车 footprint 矩形 (非对称, 车局部 x/y 轴) vs 块世界轴对齐
+    /// 方块 (恒轴对齐, 半边 o.R — 世界 x/y 轴)。同 <see cref="PairObbMtv"/> 的区间投影,
+    /// 法线从车指向块。无重叠返回 null。
+    /// </summary>
+    private static (double Nx, double Ny, double Overlap)? RobotBlockObbMtv(RobotRuntime r, BlockRuntime o)
+    {
+        var cr = Math.Cos(r.Th);
+        var sr = Math.Sin(r.Th);
+        (double Nx, double Ny)[] axes = [(cr, sr), (-sr, cr), (1, 0), (0, 1)];
+        var best = double.PositiveInfinity;
+        var bnx = 0.0;
+        var bny = 0.0;
+        foreach (var (nx, ny) in axes)
+        {
+            var extO = o.R * (Math.Abs(nx) + Math.Abs(ny));
+            var aC = r.X * nx + r.Y * ny;
+            var bC = o.X * nx + o.Y * ny;
+            var aRight = aC + FootprintSupport(r, r.Th, nx, ny);
+            var aLeft = aC - FootprintSupport(r, r.Th, -nx, -ny);
+            var bRight = bC + extO;
+            var bLeft = bC - extO;
+            var overlap = Math.Min(aRight, bRight) - Math.Max(aLeft, bLeft);
+            if (overlap <= 0)
+            {
+                return null;
+            }
+            if (overlap < best)
+            {
+                best = overlap;
+                if (aRight <= bRight)
+                {
+                    bnx = nx;
+                    bny = ny;
+                }
+                else
+                {
+                    bnx = -nx;
+                    bny = -ny;
+                }
+            }
+        }
+        return (bnx, bny, best);
+    }
+
+    /// <summary>
+    /// 台壁表 (南/北/西/东, 法线指向台内) — 与 <see cref="StageWall"/> 内联表同一几何,
+    /// 供 L1/L2/L3 新增钳位复用; StageWall 本体一字不动 (默认路径逐位)。
+    /// </summary>
+    private (double Nx, double Ny, bool AxisX, double Boundary)[] StageWalls()
+    {
+        var el = _field.El;
+        var er = _field.Er;
+        return
+        [
+            (0, 1, false, el),   // 南边, 向北入台
+            (0, -1, false, er),  // 北边, 向南入台
+            (1, 0, true, el),    // 西边, 向东入台
+            (-1, 0, true, er),   // 东边, 向西入台
+        ];
+    }
+
+    /// <summary>
+    /// L1/L2 开启态: 求解器 (圆盘+OBB) 位移造成的台壁位置穿越钳位 (速度无关)。
+    /// 归因门: <paramref name="pre"/> (求解前车心 = MotionFor 子步后、求解前的位置)
+    /// 已在台内 → 合法登台 (StageWall 登台门在子步内放行), 不钳; 只钳
+    /// "求解前车心在台外、求解位移后被推进台内" 的无门槛穿越。
+    /// 每壁独立钳回 Boundary − n̂·(support+0.002) (与 StageWall 同一公式同一 2mm 余量),
+    /// 角部双壁交叉双轴钳位 (镜像 StageWall foreach contacts); 位置修正不动速度;
+    /// 末了重跑既有 <see cref="ClampRobotInsideFence"/> (其位置钳位无条件, 对静止车有效)。
+    /// </summary>
+    private void ClampSolverStageCrossing(RobotRuntime r, (double X, double Y) pre)
+    {
+        var t = _field.Transform;
+        var (lpx, lpy) = t.WorldToLocalPoint(pre.X, pre.Y);
+        if (_field.OnPlatformLocal(lpx, lpy))
+        {
+            return; // 归因门: 求解前车心已在台内 (合法登台放行)
+        }
+        var (lx, ly) = t.WorldToLocalPoint(r.X, r.Y);
+        if (!_field.OnPlatformLocal(lx, ly))
+        {
+            return; // 位移后仍在台外: 无穿越
+        }
+        var lth = t.WorldToLocalHeading(r.Th);
+        var crossed = false;
+        foreach (var wall in StageWalls())
+        {
+            var coord0 = wall.AxisX ? lpx : lpy;
+            var coord1 = wall.AxisX ? lx : ly;
+            var nAxis = wall.AxisX ? wall.Nx : wall.Ny;
+            var in0 = (coord0 - wall.Boundary) * nAxis;
+            var in1 = (coord1 - wall.Boundary) * nAxis;
+            if (!(in0 < 0 && in1 >= 0))
+            {
+                continue; // 该壁未被本次求解位移穿越
+            }
+            var support = FootprintSupport(r, lth, wall.Nx, wall.Ny);
+            var safe = wall.Boundary - nAxis * (support + 0.002);
+            if (wall.AxisX)
+            {
+                lx = safe;
+            }
+            else
+            {
+                ly = safe;
+            }
+            crossed = true;
+        }
+        if (crossed)
+        {
+            (r.X, r.Y) = t.LocalToWorldPoint(lx, ly); // 位置修正不动速度
+        }
+        ClampRobotInsideFence(r);
+    }
+
     private static void ApplyPairImpulse(IBody a, IBody b, double nx, double ny, double restitution, double scale)
     {
         var rel = (a.Vx * nx + a.Vy * ny) - (b.Vx * nx + b.Vy * ny);
@@ -804,8 +1012,23 @@ public sealed class PhysicsWorld : IPhysicsBackend
         var dx = b.X - a.X;
         var dy = b.Y - a.Y;
         var d = Js.Hypot(dx, dy);
-        var swept = d >= radius ? SweptRobotPairContact(a0, a, b0, b, radius) : null;        if (!(d < radius) && swept is null)
+        // L1: 求解器位移前车心快照 (= MotionFor 子步后、求解前的 r.X/r.Y),
+        // 供台壁位置穿越钳位的归因门使用; 纯读取, 默认路径零影响。
+        var preA = (a.X, a.Y);
+        var preB = (b.X, b.Y);
+        var swept = d >= radius ? SweptRobotPairContact(a0, a, b0, b, radius) : null;
+        if (!(d < radius) && swept is null)
         {
+            // L1-A: 稳态/逼近带 —— 圆盘代理已无接触 (d≥2R) 但铲刃/车角 OBB 仍互穿
+            // (实测顶牛稳态 d=0.3200=2R 时 rect_pen=0.12)。逆质量全量分离留 slop,
+            // 位置修正不改速度; 台壁穿越钳位 + 围栏复评后返回 (该分支不触发楔入)。
+            if (_contact.RobotPairObbSeparation && PairObbMtv(a, b) is { } obb)
+            {
+                SeparatePair(a, b, obb.Nx, obb.Ny, obb.Overlap - ObbSlop);
+                ClampSolverStageCrossing(a, preA);
+                ClampSolverStageCrossing(b, preB);
+                return true;
+            }
             return false;
         }
 
@@ -863,6 +1086,10 @@ public sealed class PhysicsWorld : IPhysicsBackend
                 b.Vx += nx * correction * invB;
                 b.Vy += ny * correction * invB;
             }
+            if (_contact.RobotPairObbSeparation)
+            {
+                FinishPairContactResidual(a, b, preA, preB);
+            }
             return true;
         }
         var rel = avn - bvn;
@@ -915,7 +1142,27 @@ public sealed class PhysicsWorld : IPhysicsBackend
                 (aBlade > bBlade ? a : b).WedgedFront = true;
             }
         }
+        if (_contact.RobotPairObbSeparation)
+        {
+            FinishPairContactResidual(a, b, preA, preB);
+        }
         return true;
+    }
+
+    /// <summary>
+    /// L1-B (opt-in): 圆盘接触路径的收尾 —— ① 残余 OBB 步: 圆盘分离后铲刃/车角仍可能
+    /// 互穿, 每步全量闭合 (逼近带每步闭合 3.0×0.05=0.15m &gt; 0.12m 带宽, 双分支必要);
+    /// ② 台壁位置穿越钳位 (归因门, 圆盘+OBB 位移都算 solver 位移); ③ 围栏复评。
+    /// 开关关时不进 (默认路径逐位)。
+    /// </summary>
+    private void FinishPairContactResidual(RobotRuntime a, RobotRuntime b, (double X, double Y) preA, (double X, double Y) preB)
+    {
+        if (PairObbMtv(a, b) is { } obb && obb.Overlap > ObbSlop)
+        {
+            SeparatePair(a, b, obb.Nx, obb.Ny, obb.Overlap - ObbSlop);
+        }
+        ClampSolverStageCrossing(a, preA);
+        ClampSolverStageCrossing(b, preB);
     }
 
     // ---------- motion ----------
@@ -1037,7 +1284,24 @@ public sealed class PhysicsWorld : IPhysicsBackend
             }
         }
         ResolveRobotBlockContacts(contacts);
+        // L2 (opt-in): 车块 OBB 分离 + 推块速度镜像 —— 追加于圆盘求解之后、块积分之前;
+        // 与该对本步圆盘接触互斥 (防双重冲量)。开关关时不进 (默认路径逐位)。
+        if (_contact.RobotBlockObbSeparation)
+        {
+            ResolveRobotBlockObbOverlaps(contacts);
+        }
+        // L3 (opt-in): 块积分循环前捕获块步初位置 (L2 OBB 步之后), 供积分后
+        // KeepBlockOffStage 的穿越/带维持判定。开关关时不出快照 (默认路径逐位)。
+        (double X, double Y)[]? blockPre = _contact.BlockStageWall ? new (double, double)[_blocks.Count] : null;
+        if (blockPre is not null)
+        {
+            for (var i = 0; i < _blocks.Count; i++)
+            {
+                blockPre[i] = (_blocks[i].X, _blocks[i].Y);
+            }
+        }
         // out = 已计分下场; 掉台块在走道上仍是实体, 可继续被推到围栏。
+        var blockIndex = 0;
         foreach (var o in _blocks)
         {
             o.X += o.Vx * dt;
@@ -1074,8 +1338,171 @@ public sealed class PhysicsWorld : IPhysicsBackend
                 o.Vy *= 2.4 / spd;
             }
             KeepBlockInsideFence(o);
+            // L3 (opt-in): 块-台壁阻挡, 与既有围栏钳位同点执行 (积分后逐块)。
+            if (blockPre is not null)
+            {
+                KeepBlockOffStage(o, blockPre[blockIndex]);
+            }
+            blockIndex++;
         }
         SettleBlockPairs();
+    }
+
+    /// <summary>
+    /// L2 (opt-in): 车块 OBB 全对遍历步。触发: SAT 重叠 &gt; slop 且该对本步无圆盘接触
+    /// (互斥门防双重冲量)。动作: ① 位置逆质量全量分离 (车 1kg : 块 0.30kg ⇒ 块承担
+    /// ~77%, 不设每步上限); ② 速度镜像既有圆盘冲量公式 rel×(1+0.08)×PushFactor/(invR+invO)
+    /// + ApplyContactTorque + MarkBlockContact (保 PushFactor 与 LastContactRole 归因链);
+    /// ③ 车侧被位移车按 L1 同款速度无关位置穿越钳位 + 围栏; 块侧交既有 KeepBlockInsideFence。
+    /// </summary>
+    private void ResolveRobotBlockObbOverlaps(List<RobotBlockContact> diskContacts)
+    {
+        var robots = new[] { _us, _them };
+        // 互斥门: 本步已发生圆盘接触 (扫掠或重叠) 的对不再走 OBB 步。
+        var diskPairs = new HashSet<(RobotRuntime, BlockRuntime)>();
+        foreach (var c in diskContacts)
+        {
+            diskPairs.Add((c.R, c.O));
+        }
+        var pre = new Dictionary<RobotRuntime, (double X, double Y)>();
+        var displaced = new HashSet<RobotRuntime>();
+        foreach (var r in robots)
+        {
+            pre[r] = (r.X, r.Y);
+        }
+        foreach (var r in robots)
+        {
+            if (!(r.Fsm.Armed || r.Fsm.Manual))
+            {
+                continue; // 与圆盘收集同门: 未武装车不参与
+            }
+            foreach (var o in _blocks)
+            {
+                if (diskPairs.Contains((r, o)))
+                {
+                    continue;
+                }
+                if (RobotBlockObbMtv(r, o) is not { } mtv || !(mtv.Overlap > ObbSlop))
+                {
+                    continue;
+                }
+                // ① 位置逆质量全量分离, 留 slop, 不设每步上限。
+                SeparatePair(r, o, mtv.Nx, mtv.Ny, mtv.Overlap - ObbSlop);
+                // ② 速度镜像既有圆盘冲量公式 (同 ResolveRobotBlockContacts)。
+                var rel = (r.Vx - o.Vx) * mtv.Nx + (r.Vy - o.Vy) * mtv.Ny;
+                if (rel > 0)
+                {
+                    var invR = 1 / BodyMass(r);
+                    var invO = 1 / BodyMass(o);
+                    var push = Js.Clamp(r.Vehicle.PushFactor, 0.1, 3);
+                    var impulse = rel * (1 + 0.08) * push / (invR + invO);
+                    r.Vx -= mtv.Nx * impulse * invR;
+                    r.Vy -= mtv.Ny * impulse * invR;
+                    o.Vx += mtv.Nx * impulse * invO;
+                    o.Vy += mtv.Ny * impulse * invO;
+                    var cp = ClosestPointOnRobot(r, o.X, o.Y);
+                    ApplyContactTorque(r, -mtv.Nx * impulse, -mtv.Ny * impulse, cp.X - r.X, cp.Y - r.Y);
+                }
+                MarkBlockContact(o, r, 1);
+                displaced.Add(r);
+            }
+        }
+        // ③ 车侧: 被位移车按 L1 同款位置穿越钳位 (归因门) + 围栏复评。
+        foreach (var r in robots)
+        {
+            if (displaced.Contains(r))
+            {
+                ClampSolverStageCrossing(r, pre[r]);
+            }
+        }
+    }
+
+    /// <summary>
+    /// L3 (opt-in): 块-台壁阻挡, 积分后逐块调用 (KeepBlockInsideFence 旁)。
+    /// 【i】穿越检测: 步初块心在台外、积分后台内 → 沿被穿壁法线钳回台沿外 R 处 +
+    /// 清零内向法向速度 (封一 tick 高速整带穿越, 2.4m/s×0.05=0.12m&gt;0.075m 带宽)。
+    /// 【ii】面接触带维持 (双门): 步初块心已在台外 (函数早退保证) 且积分后仍在台外
+    /// 且距台沿 &lt;R (块面压过墙线) 且外向法向速度 ≤0 (向内或平行) → 钳位到面接触
+    /// (距沿=R) + 仅清零内向法向分量 (切向保留可沿墙滑行)。
+    /// 步初在台内的块完全放行 (镜像 StageWall 台上→台下自由), 合法低速出台不受钳位;
+    /// 角部双壁独立钳位 (镜像 StageWall foreach); 墙线切向范围外 (台角外延) 无壁可挡。
+    /// </summary>
+    private void KeepBlockOffStage(BlockRuntime o, (double X, double Y) pre)
+    {
+        var t = _field.Transform;
+        var (lpx, lpy) = t.WorldToLocalPoint(pre.X, pre.Y);
+        if (_field.OnPlatformLocal(lpx, lpy))
+        {
+            return; // 步初在台内: 台上→台下自由出台 (镜像 StageWall 早退)
+        }
+        var (lx, ly) = t.WorldToLocalPoint(o.X, o.Y);
+        var (lvx, lvy) = t.WorldToLocalVector(o.Vx, o.Vy);
+        var el = _field.El;
+        var er = _field.Er;
+        var clamped = false;
+        foreach (var wall in StageWalls())
+        {
+            var coord0 = wall.AxisX ? lpx : lpy;
+            var coord1 = wall.AxisX ? lx : ly;
+            var nAxis = wall.AxisX ? wall.Nx : wall.Ny;
+            var in0 = (coord0 - wall.Boundary) * nAxis;
+            var in1 = (coord1 - wall.Boundary) * nAxis;
+            if (in0 < 0 && in1 >= 0)
+            {
+                // 【i】积分穿越: 钳回台沿外面接触 (距沿 R) + 清零内向法向速度。
+                var safe = wall.Boundary - nAxis * o.R;
+                if (wall.AxisX)
+                {
+                    lx = safe;
+                }
+                else
+                {
+                    ly = safe;
+                }
+                var vN = lvx * wall.Nx + lvy * wall.Ny;
+                if (vN > 0)
+                {
+                    lvx -= wall.Nx * vN;
+                    lvy -= wall.Ny * vN;
+                }
+                clamped = true;
+            }
+            else if (in0 < 0 && in1 < 0 && in1 > -o.R)
+            {
+                // 【ii】面接触带。双门之二: 外向法向速度 ≤0 ⇔ 内向法向分量 vN ≥ 0;
+                // vN < 0 = 正在外离, 放行 (合法低速出台出口)。
+                var tangentCoord = wall.AxisX ? ly : lx;
+                if (tangentCoord < el - o.R || tangentCoord > er + o.R)
+                {
+                    continue; // 墙线切向范围外 (台角外延), 无壁可挡
+                }
+                var vN = lvx * wall.Nx + lvy * wall.Ny;
+                if (vN < 0)
+                {
+                    continue;
+                }
+                var safe = wall.Boundary - nAxis * o.R;
+                if (wall.AxisX)
+                {
+                    lx = safe;
+                }
+                else
+                {
+                    ly = safe;
+                }
+                if (vN > 0)
+                {
+                    lvx -= wall.Nx * vN; // 仅清零内向法向分量, 切向保留
+                    lvy -= wall.Ny * vN;
+                }
+                clamped = true;
+            }
+        }
+        if (clamped)
+        {
+            (o.X, o.Y) = t.LocalToWorldPoint(lx, ly);
+            (o.Vx, o.Vy) = t.LocalToWorldVector(lvx, lvy);
+        }
     }
 
     private void FinishRobotMotion(RobotRuntime r, double dt)

@@ -182,7 +182,10 @@ public class VisionLiveCommandTests(ITestOutputHelper output) : IDisposable
         // link: 非空洞(不是"两侧都 stale"的假绿), 且 stale 率与实测相符。
         var link = report.Link!;
         Assert.True(link.ClassifyCalls >= 10, $"整场 classify 过少({link.ClassifyCalls})");
-        Assert.True(link.ServedFrames >= 10, $"窗内被服务帧过少({link.ServedFrames})");
+        // 2026-10-03 legacy 接触默认改 L1+L2+L3 全开(用户拍板"都开"): FSM 分类窗的
+        // 时间分布随轨迹变化, CSV 帧窗命中数从 ≥10 降到 2。阈值降到 ≥1 保住
+        // "非空洞"(桥确实服务过真实帧)的本意, 等价门/侧车完整性断言不变。
+        Assert.True(link.ServedFrames >= 1, $"窗内被服务帧过少({link.ServedFrames})");
         Assert.True(link.DetectionCalls > 0, "整场没有任何真实检测, 等价门可能空洞");
         Assert.True(link.StaleCalls > 0, "fixture 流远短于比赛时长, 后段必有 stale");
         Assert.Equal(link.ClassifyCalls, link.DetectionCalls + link.UnknownCalls);

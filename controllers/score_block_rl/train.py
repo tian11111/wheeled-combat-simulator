@@ -206,7 +206,7 @@ def main() -> None:
     parser.add_argument("--dotnet", default=None)
     parser.add_argument("--cli-dll", default="src/Sim.Cli/bin/Debug/net8.0/Sim.Cli.dll")
     parser.add_argument("--scenario", default="scenarios/wushu-ring-2026-mujoco.json")
-    parser.add_argument("--reward", default="v4", choices=["v4", "aggression-v1", "aggression-v2"],
+    parser.add_argument("--reward", default="v4", choices=["v4", "aggression-v1", "aggression-v2", "aggression-v3"],
                         help="reward variant; v4 (default) keeps the frozen v4 terms byte-identical")
     parser.add_argument("--checkpoint-interval", type=int, default=CHECKPOINT_INTERVAL_STEPS,
                         help="global transitions between CheckpointCallback snapshots")
