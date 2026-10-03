@@ -102,7 +102,8 @@ public sealed class MatchEngine : IDisposable
     /// <summary>
     /// Creates the selected backend after the runtime entities exist.
     /// <paramref name="contactOptions"/> 为 L1/L2/L3 opt-in 接触求解扩展开关
-    /// (<see cref="ContactResolveOptions"/>): null = 全关 = 既有路径逐位不变;
+    /// (<see cref="ContactResolveOptions"/>): null = 默认 = L1+L2+L3 全开(2026-10-03
+    /// 用户拍板"都开"; 旧全关行为须显式构造三属性 false, 见 ContactResolveOptions 注释);
     /// 仅 legacy 后端消费, 开启态回放需以同开关构造引擎 (不进场景/协议字段)。
     /// </summary>
     public MatchEngine(Scenario scenario, IVisionAdapter? visionAdapter, IPhysicsBackendFactory? physicsFactory,

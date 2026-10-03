@@ -62,17 +62,25 @@ public class AntiStallmateTests
     /// <summary>相对位置 (us.X − them.X); 顶牛锁死时其净变化≈0, 破局后被楔方被推退。</summary>
     private static double RelativeSeparation(MatchEngine engine) => Math.Abs(engine.Us.X - engine.Them.X);
 
-    /// <summary>首帧接触 (物理层报告的本 tick 接触) 的 tick 序号, 未接触返回 null。</summary>
+    /// <summary>首帧接触的 tick 序号, 未接触返回 null。判定 = WedgedFront, 或相对间距
+    /// 停止收缩(2026-10-03 L1 默认开后对峙距离停在 OBB 触距 0.439, 不再是圆盘触距 2R,
+    /// 原固定带宽判定不再成立)。</summary>
     private static int? FirstContactTick(MatchEngine engine, int maxTicks)
     {
+        double? prev = null;
         for (var i = 0; i < maxTicks; i++)
         {
             engine.Tick(FullSpeed(), FullSpeed());
-            if (engine.Us.WedgedFront || engine.Them.WedgedFront
-                || Math.Abs(RelativeSeparation(engine) - 2 * VehicleProfile.Default.CollisionRadius) < 0.02)
+            if (engine.Us.WedgedFront || engine.Them.WedgedFront)
             {
                 return i;
             }
+            var d = RelativeSeparation(engine);
+            if (prev is not null && d >= prev.Value - 1e-9)
+            {
+                return i;
+            }
+            prev = d;
         }
         return null;
     }
@@ -127,7 +135,9 @@ public class AntiStallmateTests
             Assert.False(engine.Us.WedgedFront);
             Assert.False(engine.Them.WedgedFront);
         }
-        Assert.True(Math.Abs(engine.Us.X - atContact.usX) < 0.01 && Math.Abs(engine.Them.X - atContact.themX) < 0.01,
+        // 2026-10-03 L1 车车 OBB 分离默认开(用户拍板"都开"): 对峙对被分离到 slop,
+        // 位置从初始互穿点顶开约 0.119 m 属预期; 锁死语义改为"保持鼻对鼻对峙"。
+        Assert.True(Math.Abs(engine.Us.X - atContact.usX) < 0.15 && Math.Abs(engine.Them.X - atContact.themX) < 0.15,
             $"locked pair must hold the deadlock position for 60 s, " +
             $"us drifted {Math.Abs(engine.Us.X - atContact.usX):R} m, them drifted {Math.Abs(engine.Them.X - atContact.themX):R} m");
     }

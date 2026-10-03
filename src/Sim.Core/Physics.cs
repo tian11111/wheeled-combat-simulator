@@ -4,30 +4,36 @@ namespace Sim.Core;
 
 /// <summary>
 /// L1/L2/L3 opt-in 接触求解扩展开关 (legacy 侧修复, 评审三轮方案)。
-/// 全部默认 false = 既有路径逐位不变 (硬门: replay-check replays/seed-42.json)。
-/// 开启态回放需以同开关构造引擎; 开关不进场景/协议字段。
+/// 2026-10-03 用户拍板"都开": 三开关默认 **true**, legacy 默认物理即 L1+L2+L3 全开
+/// (null 注入 = 默认 = 全开)。这是 legacy 默认物理的一次**有意变更**: 旧默认(全关)
+/// 录制的 legacy 回放(含原 replays/seed-42.json 基线)在新默认下不可复现, 基线已重录;
+/// 显式全关(三属性置 false)仍可构造旧物理引擎做对照。
+/// 开关不进场景/协议字段。
 /// (public 而非 internal: PhysicsWorld/MatchEngine 公共构造器可选参数的
-/// 可访问性必须不低于方法本身 CS0051; 记录只含 inert bool, 默认全关。)
+/// 可访问性必须不低于方法本身 CS0051。)
 /// </summary>
 public sealed record ContactResolveOptions
 {
     /// <summary>
     /// L1: 车车 OBB 稳态分离 (圆盘代理覆盖不到的顶牛 0.12m 铲刃/车角互穿) +
     /// 求解位移后的台壁位置穿越钳位 (速度无关; 归因门只钳 solver 位移造成的穿越)。
+    /// 开启实测: 顶牛稳态互穿 0.120 → 0.001 m(slop)。
     /// </summary>
-    public bool RobotPairObbSeparation { get; init; }
+    public bool RobotPairObbSeparation { get; init; } = true;
 
     /// <summary>
     /// L2: 车块 OBB 分离 + 推块速度镜像 (推块带 d∈(0.235,0.295) 与卡角互穿;
     /// 与该对本步圆盘接触互斥, 防双重冲量)。
+    /// 开启实测: 实赛车块互穿 tick 占比 86-92% → 5.3%(>2mm 对-tick 22412 → 1310)。
     /// </summary>
-    public bool RobotBlockObbSeparation { get; init; }
+    public bool RobotBlockObbSeparation { get; init; } = true;
 
     /// <summary>
     /// L3: 块-台壁阻挡 (积分穿越钳位 + 步初已在外块的面接触带维持;
     /// 步初台内双门完全放行合法低速出台)。
+    /// 开启实测: 块-台沿高速穿墙登台封死, 台沿外 74mm 压入封死。
     /// </summary>
-    public bool BlockStageWall { get; init; }
+    public bool BlockStageWall { get; init; } = true;
 }
 
 /// <summary>

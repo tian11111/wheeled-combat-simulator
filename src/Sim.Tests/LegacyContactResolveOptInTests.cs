@@ -92,7 +92,7 @@ public class LegacyContactResolveOptInTests
         var us = MkRobot(RoleNames.Us, 1.5, 1.9, 0);
         var them = MkRobot(RoleNames.Them, 2.0, 1.9, Math.PI);
         var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime>(), new EventBus(),
-            contactOptions: new ContactResolveOptions { RobotPairObbSeparation = true });
+            contactOptions: new ContactResolveOptions { RobotPairObbSeparation = true, RobotBlockObbSeparation = false, BlockStageWall = false });
         for (var t = 0; t < 60; t++)
         {
             us.V = 1.5;
@@ -107,11 +107,11 @@ public class LegacyContactResolveOptInTests
 
     /// <summary>E1 (默认/现状): 顶牛稳态保持 d=2R、OBB 互穿 0.12 (逐位现状)。</summary>
     [Fact]
-    public void RobotPairObb_Off_Default_HeadOnShove_KeepsLegacyInterpenetration()
+    public void RobotPairObb_AllOff_HeadOnShove_KeepsLegacyInterpenetration()
     {
         var us = MkRobot(RoleNames.Us, 1.5, 1.9, 0);
         var them = MkRobot(RoleNames.Them, 2.0, 1.9, Math.PI);
-        var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime>(), new EventBus());
+        var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime>(), new EventBus(), contactOptions: new ContactResolveOptions { RobotPairObbSeparation = false, RobotBlockObbSeparation = false, BlockStageWall = false });
         for (var t = 0; t < 60; t++)
         {
             us.V = 1.5;
@@ -136,7 +136,7 @@ public class LegacyContactResolveOptInTests
         var them = MkRobot(RoleNames.Them, 1.9, Edge - 0.05, Math.PI / 2, armed: false);
         var us = MkRobot(RoleNames.Us, 1.9, 0.30, Math.PI / 2);
         var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime>(), new EventBus(),
-            contactOptions: new ContactResolveOptions { RobotPairObbSeparation = true });
+            contactOptions: new ContactResolveOptions { RobotPairObbSeparation = true, RobotBlockObbSeparation = false, BlockStageWall = false });
         var clampTarget = Edge - (Front + 0.002); // 0.478: 与 StageWall 同公式 (support+2mm)
         var sawClampTarget = false;
         for (var t = 0; t < 40; t++)
@@ -156,11 +156,11 @@ public class LegacyContactResolveOptInTests
 
     /// <summary>E7 (默认/现状): 同场景无开关 → 静止车被 solver 位移无门槛推上台 (现状复现)。</summary>
     [Fact]
-    public void RobotPairObb_Off_Default_StationaryRobotShovedOntoStage()
+    public void RobotPairObb_AllOff_StationaryRobotShovedOntoStage()
     {
         var them = MkRobot(RoleNames.Them, 1.9, Edge - 0.05, Math.PI / 2, armed: false);
         var us = MkRobot(RoleNames.Us, 1.9, 0.30, Math.PI / 2);
-        var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime>(), new EventBus());
+        var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime>(), new EventBus(), contactOptions: new ContactResolveOptions { RobotPairObbSeparation = false, RobotBlockObbSeparation = false, BlockStageWall = false });
         for (var t = 0; t < 40; t++)
         {
             us.V = 1.5;
@@ -185,7 +185,7 @@ public class LegacyContactResolveOptInTests
         var them = MkRobot(RoleNames.Them, 0.3, 0.3, Math.PI);
         var block = MkBlock(2.0, 1.9);
         var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime> { block }, new EventBus(),
-            contactOptions: new ContactResolveOptions { RobotBlockObbSeparation = true });
+            contactOptions: new ContactResolveOptions { RobotPairObbSeparation = false, RobotBlockObbSeparation = true, BlockStageWall = false });
         var approachMaxPen = 0.0;
         var reachedFence = false;
         for (var t = 0; t < 60; t++)
@@ -216,7 +216,7 @@ public class LegacyContactResolveOptInTests
         var them = MkRobot(RoleNames.Them, 0.3, 0.3, Math.PI);
         var block = MkBlock(1.5 + 0.24, 1.9);
         var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime> { block }, new EventBus(),
-            contactOptions: new ContactResolveOptions { RobotBlockObbSeparation = true });
+            contactOptions: new ContactResolveOptions { RobotPairObbSeparation = false, RobotBlockObbSeparation = true, BlockStageWall = false });
         var maxPen = 0.0;
         for (var t = 0; t < 80; t++)
         {
@@ -237,7 +237,7 @@ public class LegacyContactResolveOptInTests
         var them = MkRobot(RoleNames.Them, 0.3, 0.3, Math.PI);
         var block = MkBlock(1.9, 1.9);
         var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime> { block }, new EventBus(),
-            contactOptions: new ContactResolveOptions { RobotBlockObbSeparation = true });
+            contactOptions: new ContactResolveOptions { RobotPairObbSeparation = false, RobotBlockObbSeparation = true, BlockStageWall = false });
         var passed = false;
         var maxPen = 0.0;
         for (var t = 0; t < 30; t++)
@@ -258,13 +258,13 @@ public class LegacyContactResolveOptInTests
 
     /// <summary>E2/E3 (默认/现状): 推块逼近相与铲角扫块的 0.06-0.10 互穿保持 (逐位现状)。</summary>
     [Fact]
-    public void RobotBlockObb_Off_Default_ShovelPenetrationStatusQuo()
+    public void RobotBlockObb_AllOff_ShovelPenetrationStatusQuo()
     {
         // E2: 直推
         var us = MkRobot(RoleNames.Us, 1.5, 1.9, 0);
         var them = MkRobot(RoleNames.Them, 0.3, 0.3, Math.PI);
         var block = MkBlock(2.0, 1.9);
-        var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime> { block }, new EventBus());
+        var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime> { block }, new EventBus(), contactOptions: new ContactResolveOptions { RobotPairObbSeparation = false, RobotBlockObbSeparation = false, BlockStageWall = false });
         var e2Max = 0.0;
         for (var t = 0; t < 60; t++)
         {
@@ -279,7 +279,7 @@ public class LegacyContactResolveOptInTests
         var us3 = MkRobot(RoleNames.Us, 1.5, 1.9, 0);
         var them3 = MkRobot(RoleNames.Them, 0.3, 0.3, Math.PI);
         var block3 = MkBlock(1.5 + 0.24, 1.9);
-        var world3 = new PhysicsWorld(Field, Params, us3, them3, new List<BlockRuntime> { block3 }, new EventBus());
+        var world3 = new PhysicsWorld(Field, Params, us3, them3, new List<BlockRuntime> { block3 }, new EventBus(), contactOptions: new ContactResolveOptions { RobotPairObbSeparation = false, RobotBlockObbSeparation = false, BlockStageWall = false });
         var e3Max = 0.0;
         for (var t = 0; t < 80; t++)
         {
@@ -302,7 +302,7 @@ public class LegacyContactResolveOptInTests
         var them = MkRobot(RoleNames.Them, 0.2, 3.6, -Math.PI / 2);
         var block = MkBlock(1.9, 0.62, wasOn: false, out_: true);
         var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime> { block }, new EventBus(),
-            contactOptions: new ContactResolveOptions { BlockStageWall = true });
+            contactOptions: new ContactResolveOptions { RobotPairObbSeparation = false, RobotBlockObbSeparation = false, BlockStageWall = true });
         for (var t = 0; t < 40; t++)
         {
             us.V = 1.5;
@@ -316,12 +316,12 @@ public class LegacyContactResolveOptInTests
 
     /// <summary>E6 (默认/现状): 同场景无开关 → 块一 tick 越沿登台 (现状复现)。</summary>
     [Fact]
-    public void BlockStageWall_Off_Default_HighSpeedCross_CrossesOntoStage()
+    public void BlockStageWall_AllOff_HighSpeedCross_CrossesOntoStage()
     {
         var us = MkRobot(RoleNames.Us, 1.9, 0.35, Math.PI / 2);
         var them = MkRobot(RoleNames.Them, 0.2, 3.6, -Math.PI / 2);
         var block = MkBlock(1.9, 0.62, wasOn: false, out_: true);
-        var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime> { block }, new EventBus());
+        var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime> { block }, new EventBus(), contactOptions: new ContactResolveOptions { RobotPairObbSeparation = false, RobotBlockObbSeparation = false, BlockStageWall = false });
         for (var t = 0; t < 40; t++)
         {
             us.V = 1.5;
@@ -342,7 +342,7 @@ public class LegacyContactResolveOptInTests
         var block = MkBlock(1.0, 0.699, wasOn: false, out_: true);
         block.Vx = 0.5; // 平行台沿 (向东), 74mm 压入带内
         var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime> { block }, new EventBus(),
-            contactOptions: new ContactResolveOptions { BlockStageWall = true });
+            contactOptions: new ContactResolveOptions { RobotPairObbSeparation = false, RobotBlockObbSeparation = false, BlockStageWall = true });
         world.Step(0.05);
         Assert.Equal(Edge - BlockHalf, block.Y, precision: 9);
         Assert.True(block.X > 1.0, $"tangential slide must be preserved (x={block.X:F4})");
@@ -361,7 +361,7 @@ public class LegacyContactResolveOptInTests
         var them = MkRobot(RoleNames.Them, 0.2, 3.6, -Math.PI / 2);
         var block = MkBlock(1.9, 0.9, wasOn: true);
         var world = new PhysicsWorld(Field, Params, us, them, new List<BlockRuntime> { block }, new EventBus(),
-            contactOptions: new ContactResolveOptions { BlockStageWall = true });
+            contactOptions: new ContactResolveOptions { RobotPairObbSeparation = false, RobotBlockObbSeparation = false, BlockStageWall = true });
         for (var t = 0; t < 12; t++)
         {
             us.V = 1.0; // 外向速度须大于每 tick 库仑摩擦 0.245 才能带外向速度入带 (tmp/penctl2 E6c(b))
@@ -390,7 +390,7 @@ public class LegacyContactResolveOptInTests
             },
         };
         using var engine = new MatchEngine(scenario, null, null,
-            new ContactResolveOptions { BlockStageWall = true });
+            new ContactResolveOptions { RobotPairObbSeparation = false, RobotBlockObbSeparation = false, BlockStageWall = true });
         var push = new RobotAction { V = 1.5, W = 0 };
         var scored = false;
         for (var t = 0; t < 10 * 20 && !scored; t++)
@@ -414,9 +414,9 @@ public class LegacyContactResolveOptInTests
 
     // ================= 默认开关组合逐位守卫 =================
 
-    /// <summary>显式全关的 ContactResolveOptions 与 null (默认) 引擎逐位一致 (记录默认值守卫)。</summary>
+    /// <summary>null (默认 = L1+L2+L3 全开, 2026-10-03 拍板"都开") 与显式全开引擎逐位一致 (默认值守卫)。</summary>
     [Fact]
-    public void AllOffContactOptions_EngineBitwiseIdenticalToNull()
+    public void NullDefault_EqualsExplicitAllOn_Bitwise()
     {
         var scenarioA = new Scenario
         {
@@ -433,7 +433,12 @@ public class LegacyContactResolveOptInTests
         };
         var scenarioB = scenarioA with { };
         using var nullOpts = new MatchEngine(scenarioA);
-        using var allOff = new MatchEngine(scenarioB, null, null, new ContactResolveOptions());
+        using var allOff = new MatchEngine(scenarioB, null, null, new ContactResolveOptions
+        {
+            RobotPairObbSeparation = true,
+            RobotBlockObbSeparation = true,
+            BlockStageWall = true,
+        });
         for (var i = 0; i < 200; i++)
         {
             var a = nullOpts.Tick();
