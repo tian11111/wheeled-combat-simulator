@@ -35,10 +35,19 @@ public static class RlEnvCommand
     // 成功支付 +1 对掉台 -1 的 1:1 风险收益比不足, 且过程支付(边沿整形 0.1×Δ)太弱, 策略
     // 靠近块后贴着苟。抬杠杆: 推块成功 +5(风险收益 5:1) + 块进沿整形 0.5×Δ(0.3m 推进≈+0.15)。
     internal const string RewardAggressionV2 = "aggression-v2";
+    // aggression-v3(2026-10-03, 衰减对策): v2 实测早期 checkpoint 能过 gate 但训练后期滑回
+    // 苟分——根因是"苟满场"期望收益仍好过推块尝试失败(掉台 -1/被夺 -0.5), 价值收敛后
+    // 贴着块不动成为最稳选项。v3 = v2 全部项 + **怠工惩罚**: 锁定目标块的台沿距离连续
+    // 300 tick(15 s)无 ≥5 cm 新低 → -0.005/tick, 一有进展即清零(只认新低, 块被推离沿不回血)。
+    // 苟满场从 -0.96 变为约 -11.5, 从"最稳选项"变成"最差选项"; 主动逼近/推块的策略不触发。
+    internal const string RewardAggressionV3 = "aggression-v3";
     private const double AggressionStepCost = -0.0004;
     private const double ApproachShapingScale = 0.04;
     private const double AggressionTargetReward = 5.0;
     private const double AggressionEdgeShapingScale = 0.5;
+    private const double CampingPenaltyPerTick = -0.005;
+    private const long CampingIdleWindowTicks = 300;
+    private const double CampingProgressThreshold = 0.05;
     // 常量与投影/预推进/目标锁定都委托 Sim.Hosting.ScoreBlockExhibition(唯一实现);
     // 这里的名字只保留给本文件的零观测长度与响应形状。
     private const int ObservationSize = ScoreBlockExhibition.ObservationSize;
@@ -61,9 +70,9 @@ public static class RlEnvCommand
                 return 2;
             }
         }
-        if (rewardVariant is not (RewardV4 or RewardAggressionV1 or RewardAggressionV2))
+        if (rewardVariant is not (RewardV4 or RewardAggressionV1 or RewardAggressionV2 or RewardAggressionV3))
         {
-            EmitError($"unknown --reward '{rewardVariant}' (expected '{RewardV4}'/'{RewardAggressionV1}'/'{RewardAggressionV2}')");
+            EmitError($"unknown --reward '{rewardVariant}' (expected '{RewardV4}'/'{RewardAggressionV1}'/'{RewardAggressionV2}'/'{RewardAggressionV3}')");
             return 2;
         }
 
@@ -206,6 +215,10 @@ public static class RlEnvCommand
         /// <summary>奖励变体(--reward, 会话级): v4 = 逐位不变默认; aggression-v1 见常量注释。</summary>
         public string RewardVariant = RewardV4;
 
+        /// <summary>aggression-v3 怠工惩罚状态: 目标块台沿距离已达新低 / 连续无进展 tick 数。</summary>
+        public double CampingBaselineEdge = double.NaN;
+        public long CampingIdleTicks;
+
         /// <summary>Diagnostic trace opt-in (set per episode by the <c>reset</c> request).</summary>
         public bool Trace;
 
@@ -252,6 +265,8 @@ public static class RlEnvCommand
         state.Trace = trace;
         state.Seed = seed;
         state.PolicyTicks = 0;
+        state.CampingBaselineEdge = double.NaN;
+        state.CampingIdleTicks = 0;
         state.LastSeq = LatestEventSequence(engine);
         state.EntryTick = -1;
         state.TargetIndex = -1;
@@ -325,8 +340,8 @@ public static class RlEnvCommand
         }
 
         var edgeBefore = EdgeDistance(engine, state.TargetIndex);
-        var aggression = state.RewardVariant is RewardAggressionV1 or RewardAggressionV2;
-        var aggressionV2 = state.RewardVariant == RewardAggressionV2;
+        var aggression = state.RewardVariant is RewardAggressionV1 or RewardAggressionV2 or RewardAggressionV3;
+        var aggressionV2 = state.RewardVariant is RewardAggressionV2 or RewardAggressionV3;
         var blockDistBefore = aggression ? TargetBlockDistance(engine, state.TargetIndex) : double.NaN;
         var wasOut = engine.Blocks.Select(b => b.Out).ToArray();
         state.PolicyTicks++;
@@ -385,6 +400,26 @@ public static class RlEnvCommand
             if (!double.IsNaN(blockDistAfter))
             {
                 reward += ApproachShapingScale * (blockDistBefore - blockDistAfter);
+            }
+        }
+        if (state.RewardVariant == RewardAggressionV3 && !double.IsNaN(edgeAfter))
+        {
+            // 怠工惩罚(见 RewardAggressionV3 注释): 台沿距离无新低则计怠工, 有 5cm 新低即清零。
+            if (double.IsNaN(state.CampingBaselineEdge)
+                || edgeAfter < state.CampingBaselineEdge - CampingProgressThreshold)
+            {
+                state.CampingBaselineEdge = double.IsNaN(state.CampingBaselineEdge)
+                    ? edgeAfter
+                    : Math.Min(state.CampingBaselineEdge, edgeAfter);
+                state.CampingIdleTicks = 0;
+            }
+            else
+            {
+                state.CampingIdleTicks++;
+                if (state.CampingIdleTicks > CampingIdleWindowTicks)
+                {
+                    reward += CampingPenaltyPerTick;
+                }
             }
         }
 
