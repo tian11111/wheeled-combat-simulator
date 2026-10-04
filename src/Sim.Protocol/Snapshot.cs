@@ -190,7 +190,10 @@ public sealed record PhysicsPoses
 {
     public Dictionary<string, PhysicsPose3> Robots { get; init; } = new();
     public List<PhysicsPose3> Buffs { get; init; } = [];
+    /// <summary>First debuff pose, kept for wire compatibility; see <see cref="Debuffs"/>.</summary>
     public PhysicsPose3? Debuff { get; init; }
+    /// <summary>All debuff poses in block index order (2026-10-04 configurable layouts).</summary>
+    public List<PhysicsPose3> Debuffs { get; init; } = [];
 
     public IEnumerable<string> Validate()
     {

@@ -45,6 +45,11 @@ public partial class SettingsPanel : Control
     private Label? _visionNote;
     private OptionButton? _sensorProfile;
     private GridContainer? _sensorChannelGrid;
+    private CheckButton? _blockCustom;
+    private SpinBox? _blockBuffCount;
+    private SpinBox? _blockDebuffCount;
+    private OptionButton? _blockPlacement;
+    private Label? _blockNote;
     private readonly List<(string ChannelId, CheckButton Enabled, SpinBox Dx, SpinBox Dy, SpinBox Dz, SpinBox Yaw)> _sensorChannelRows = new();
     private Label? _sensorBaseNote;
     private readonly Dictionary<string, LineEdit> _modelPathInputs = new(StringComparer.Ordinal);
@@ -77,7 +82,7 @@ public partial class SettingsPanel : Control
 
     public bool IsOpen => Visible;
 
-    /// <summary>QA/冒烟用: 无交互切换到指定页 (0=显示 1=仿真 2=控制器 3=小车 4=视觉)。</summary>
+    /// <summary>QA/冒烟用: 无交互切换到指定页 (0=显示 1=仿真 2=控制器 3=小车 4=视觉 5=能量块)。</summary>
     public void SelectTab(int index)
     {
         if (_tabs is not null)
@@ -130,8 +135,8 @@ public partial class SettingsPanel : Control
         if (_pendingNote is not null)
         {
             _pendingNote.Text = pendingSimulationChanges
-                ? "已有仿真/控制器/视觉修改待下一场生效 · F5 可立即重置并应用"
-                : "显示设置立即生效 · 仿真/控制器/视觉设置在下一场或 F5 重置后生效";
+                ? "已有修改待下一场生效（回放/编辑布局中不自动重置）· F5 可立即重置并应用"
+                : "显示设置立即生效 · 仿真/控制器/视觉/能量块设置保存后自动重置生效（回放/编辑布局中为下一场生效）";
         }
         ClearError();
         Visible = true;
@@ -212,9 +217,11 @@ public partial class SettingsPanel : Control
         tabs.SetTabTitle(3, "小车");
         tabs.AddChild(BuildVisionPage());
         tabs.SetTabTitle(4, "视觉");
+        tabs.AddChild(BuildBlocksPage());
+        tabs.SetTabTitle(5, "能量块");
 
         _pendingNote = AddLabel(root,
-            "显示设置立即生效 · 仿真/控制器/视觉设置在下一场或 F5 重置后生效",
+            "显示设置立即生效 · 仿真/控制器/视觉/能量块设置保存后自动重置生效（回放/编辑布局中为下一场生效）",
             11, Yellow);
         _pendingNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 
@@ -556,6 +563,25 @@ public partial class SettingsPanel : Control
         }
         UpdateVehicleNote();
 
+        var blocks = settings.BlockLayout;
+        if (_blockCustom is not null)
+        {
+            _blockCustom.ButtonPressed = blocks is not null && !blocks.IsFollowScenario;
+        }
+        if (_blockBuffCount is not null)
+        {
+            _blockBuffCount.Value = blocks?.BuffCount ?? 2;
+        }
+        if (_blockDebuffCount is not null)
+        {
+            _blockDebuffCount.Value = blocks?.DebuffCount ?? 1;
+        }
+        if (_blockPlacement is not null)
+        {
+            _blockPlacement.Select(blocks?.RandomPositions == true ? 1 : 0);
+        }
+        UpdateBlockInputs();
+
         if (_sensorProfile is not null)
         {
             var presetId = settings.Vehicle?.SensorProfileId;
@@ -680,6 +706,14 @@ public partial class SettingsPanel : Control
             },
             UiScale = _uiScale?.Value ?? 1.0,
             SimulationParameters = values,
+            BlockLayout = _blockCustom is { ButtonPressed: true }
+                ? new BlockLayoutSettings
+                {
+                    BuffCount = (int)(_blockBuffCount?.Value ?? 2),
+                    DebuffCount = (int)(_blockDebuffCount?.Value ?? 1),
+                    RandomPositions = _blockPlacement?.Selected == 1,
+                }
+                : null,
             Vehicle = new VehicleSettings
             {
                 Mass = _vehicleMass?.Value ?? 3.5,
@@ -775,7 +809,7 @@ public partial class SettingsPanel : Control
             spin.ValueChanged += _ => UpdateVehicleNote();
         }
 
-        _vehicleNote = AddLabel(page, "", 12, Blue);
+        _vehicleNote = AddLabel(page, "", 12, Blue, new Vector2(0, 44));
         _vehicleNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         UpdateVehicleNote();
 
@@ -797,7 +831,7 @@ public partial class SettingsPanel : Control
         presetRow.AddChild(_sensorProfile);
         _sensorProfile.ItemSelected += _ => RebuildSensorChannelRows();
 
-        _sensorBaseNote = AddLabel(page, "", 11, Blue);
+        _sensorBaseNote = AddLabel(page, "", 11, Blue, new Vector2(0, 22));
         _sensorBaseNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 
         _sensorChannelGrid = new GridContainer { Columns = 6 };
@@ -976,6 +1010,107 @@ public partial class SettingsPanel : Control
             + "扭矩当前仅存档（仿真为速度伺服）。";
     }
 
+    /// <summary>
+    /// 能量块设置页(2026-10-04): 自定义开关关闭 = 跟随场景(逐位不变); 开启后可调
+    /// 增益/减益数量与落位方式。应用写入 DesktopSettings.BlockLayout, 下一场生效。
+    /// </summary>
+    private Control BuildBlocksPage()
+    {
+        var scroll = new ScrollContainer
+        {
+            Name = "BlockLayoutSettings",
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        var page = new VBoxContainer();
+        page.AddThemeConstantOverride("separation", 10);
+        page.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.AddChild(page);
+
+        AddLabel(page, "能量块布局", 16, Primary);
+        AddLabel(page,
+            "自定义比赛的能量块数量与类型：增益块被推上台我方 +3，减益块被推上台对方 +6。"
+            + "关闭自定义 = 跟随场景/官方布局（2 增益 + 1 减益，行为逐位不变）。下一场或 F5 重置后生效。",
+            11, Secondary);
+
+        _blockCustom = new CheckButton { Text = "自定义能量块布局", FocusMode = FocusModeEnum.None };
+        ApplyCheckButtonTheme(_blockCustom);
+        _blockCustom.Toggled += _ => UpdateBlockInputs();
+        page.AddChild(_blockCustom);
+
+        var grid = new GridContainer { Columns = 2 };
+        grid.AddThemeConstantOverride("h_separation", 18);
+        grid.AddThemeConstantOverride("v_separation", 10);
+        page.AddChild(grid);
+
+        AddLabel(grid, "增益块数量", 12, Secondary);
+        _blockBuffCount = MakeSpin(0, Scenario.MaxBlocks, 1, "个");
+        grid.AddChild(_blockBuffCount);
+        AddLabel(grid, "减益块数量", 12, Secondary);
+        _blockDebuffCount = MakeSpin(0, Scenario.MaxBlocks, 1, "个");
+        grid.AddChild(_blockDebuffCount);
+        AddLabel(grid, "落位方式", 12, Secondary);
+        _blockPlacement = MakeOption(
+            ("官方坐标优先，多出的由裁判随机放置", "official"),
+            ("全部随机位置（裁判按种子放置）", "random"));
+        grid.AddChild(_blockPlacement);
+
+        _blockBuffCount.ValueChanged += _ => UpdateBlockNote();
+        _blockDebuffCount.ValueChanged += _ => UpdateBlockNote();
+        _blockPlacement.ItemSelected += _ => UpdateBlockNote();
+
+        _blockNote = AddLabel(page, "", 12, Blue, new Vector2(0, 44));
+        _blockNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        UpdateBlockInputs();
+
+        page.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
+        return scroll;
+    }
+
+    /// <summary>自定义开关只控制数量/落位输入的可用性；关闭 = 跟随场景(不改布局)。</summary>
+    private void UpdateBlockInputs()
+    {
+        var custom = _blockCustom?.ButtonPressed ?? false;
+        if (_blockBuffCount is not null)
+        {
+            _blockBuffCount.Editable = custom;
+        }
+        if (_blockDebuffCount is not null)
+        {
+            _blockDebuffCount.Editable = custom;
+        }
+        if (_blockPlacement is not null)
+        {
+            _blockPlacement.Disabled = !custom;
+        }
+        UpdateBlockNote();
+    }
+
+    /// <summary>实时数量提示: 合计超上限时预告截断规则, 落位方式说明同步刷新。</summary>
+    private void UpdateBlockNote()
+    {
+        if (_blockNote is null)
+        {
+            return;
+        }
+        if (_blockCustom is not { ButtonPressed: true })
+        {
+            _blockNote.Text = "跟随场景：使用场景文件/官方布局的能量块（行为逐位不变）。";
+            return;
+        }
+        var buffs = (int)(_blockBuffCount?.Value ?? 2);
+        var debuffs = (int)(_blockDebuffCount?.Value ?? 1);
+        var total = buffs + debuffs;
+        var placement = _blockPlacement?.Selected == 1
+            ? "全部块由裁判按种子确定性放置（禁区：避台沿 0.35m / 避两车 0.8m / 避中央 0.6m / 块间 0.5m）"
+            : "前两个增益块与第一个减益块用官方坐标，多出的块由裁判确定性放置";
+        var clamp = total > Scenario.MaxBlocks
+            ? $"（合计 {total} 超过上限 {Scenario.MaxBlocks}，应用时按增益优先截断）"
+            : "";
+        _blockNote.Text = $"增益 {buffs} + 减益 {debuffs} = {total} 块{clamp}；{placement}。0 块 = 纯对抗。";
+    }
+
     private Control BuildVisionPage()
     {
         var page = MakePage();
@@ -1033,7 +1168,7 @@ public partial class SettingsPanel : Control
             _visionProcessCommand.TextChanged += _ => UpdateVisionNote();
         }
 
-        _visionNote = AddLabel(page, "", 12, Blue);
+        _visionNote = AddLabel(page, "", 12, Blue, new Vector2(0, 44));
         _visionNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         UpdateVisionInputs();
 

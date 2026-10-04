@@ -275,11 +275,18 @@ public sealed record VisionInfo
 /// <summary>Energy blocks visible in the observation.</summary>
 public sealed record ObjectSet
 {
-    /// <summary>The two buff blocks (15x15x15 cm, simulation radius 0.075 m).</summary>
+    /// <summary>The buff blocks (15x15x15 cm, simulation radius 0.075 m), in block index order.</summary>
     public List<EnergyBlockView> Buffs { get; init; } = [];
 
-    /// <summary>The single debuff block.</summary>
+    /// <summary>
+    /// First debuff block (null when the layout has none). Kept for wire
+    /// compatibility with existing controllers and the RL environment; layouts
+    /// may carry several debuff blocks — <see cref="Debuffs"/> lists them all.
+    /// </summary>
     public EnergyBlockView? Debuff { get; init; }
+
+    /// <summary>All debuff blocks in block index order (2026-10-04: block count and kind mix became configurable).</summary>
+    public List<EnergyBlockView> Debuffs { get; init; } = [];
 }
 
 /// <summary>A single energy block.</summary>

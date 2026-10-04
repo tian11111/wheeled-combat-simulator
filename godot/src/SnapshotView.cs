@@ -121,7 +121,18 @@ public static class SnapshotView
                 var pose = snapshot.PhysicsPoses?.Buffs.ElementAtOrDefault(i);
                 blocks.Add(ToBlockVisual("buff", objects.Buffs[i], platformHeight, pose));
             }
-            if (objects.Debuff is { } debuff)
+            // 2026-10-04: layouts may carry several debuff blocks; Debuffs (block
+            // index order) is authoritative, the single Debuff field is the
+            // legacy path for snapshots produced before it existed.
+            if (objects.Debuffs.Count > 0)
+            {
+                for (var i = 0; i < objects.Debuffs.Count; i++)
+                {
+                    var pose = snapshot.PhysicsPoses?.Debuffs.ElementAtOrDefault(i);
+                    blocks.Add(ToBlockVisual("debuff", objects.Debuffs[i], platformHeight, pose));
+                }
+            }
+            else if (objects.Debuff is { } debuff)
             {
                 blocks.Add(ToBlockVisual("debuff", debuff, platformHeight, snapshot.PhysicsPoses?.Debuff));
             }

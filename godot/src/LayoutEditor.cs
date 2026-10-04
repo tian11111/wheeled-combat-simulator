@@ -296,6 +296,18 @@ public partial class LayoutEditor : Node3D
         {
             RotateField(LayoutDraft.RotationSnap);
         }
+        if (Input.IsActionJustPressed("editor_block_add"))
+        {
+            AddBlock(BlockKind.Buff);
+        }
+        if (Input.IsActionJustPressed("editor_block_kind"))
+        {
+            ToggleSelectedBlockKind();
+        }
+        if (Input.IsActionJustPressed("editor_block_remove"))
+        {
+            RemoveSelectedBlock();
+        }
         if (Input.IsActionJustPressed("ui_accept"))
         {
             RequestApply();
@@ -305,6 +317,70 @@ public partial class LayoutEditor : Node3D
         {
             NudgeSelected(nx, ny);
         }
+    }
+
+    /// <summary>Adds a buff block at the first free spot and selects it (B key).</summary>
+    private void AddBlock(BlockKind kind)
+    {
+        if (_draft is null)
+        {
+            return;
+        }
+        var index = _draft.AddBlock(kind);
+        if (index < 0)
+        {
+            _message = $"加块失败: 能量块已达上限 ({Scenario.MaxBlocks}) 或场地无空位";
+            PreviewChanged?.Invoke();
+            return;
+        }
+        _selected = Selection.Block;
+        _selectedBlock = index;
+        _message = $"已添加{(kind == BlockKind.Buff ? "增益" : "减益")}块 #{index + 1} (K 切类型 / Del 删除)";
+        RefreshPreview();
+    }
+
+    /// <summary>Flips the selected block's kind between buff and debuff (K key).</summary>
+    private void ToggleSelectedBlockKind()
+    {
+        if (_draft is null)
+        {
+            return;
+        }
+        if (_selected != Selection.Block || _selectedBlock < 0 || _selectedBlock >= _draft.State.Blocks.Count)
+        {
+            _message = "切换类型: 先点击选中一个能量块 (K)";
+            PreviewChanged?.Invoke();
+            return;
+        }
+        var kind = _draft.ToggleBlockKind(_selectedBlock);
+        if (kind is { } newKind)
+        {
+            _message = $"能量块 #{_selectedBlock + 1} → {(newKind == BlockKind.Buff ? "增益块" : "减益块")}";
+        }
+        RefreshPreview();
+    }
+
+    /// <summary>Removes the selected block (Delete key); the selection clears.</summary>
+    private void RemoveSelectedBlock()
+    {
+        if (_draft is null)
+        {
+            return;
+        }
+        if (_selected != Selection.Block || _selectedBlock < 0 || _selectedBlock >= _draft.State.Blocks.Count)
+        {
+            _message = "删除: 先点击选中一个能量块 (Del)";
+            PreviewChanged?.Invoke();
+            return;
+        }
+        var index = _selectedBlock;
+        if (_draft.RemoveBlock(index))
+        {
+            _message = $"已删除能量块 #{index + 1} (共 {_draft.State.Blocks.Count} 块)";
+            _selectedBlock = -1;
+            _selected = Selection.None;
+        }
+        RefreshPreview();
     }
 
     private void RotateField(double dyaw)
@@ -665,7 +741,10 @@ public partial class LayoutEditor : Node3D
         Selection.Field => "场地整体",
         Selection.ZoneUs => "黄色出发区",
         Selection.ZoneThem => "蓝色出发区",
-        Selection.Block => _selectedBlock >= 0 ? $"能量块 #{_selectedBlock + 1}" : "能量块",
+        Selection.Block => _selectedBlock >= 0 && _draft is not null
+                && _selectedBlock < _draft.State.Blocks.Count
+            ? $"能量块 #{_selectedBlock + 1} ({(_draft.State.Blocks[_selectedBlock].Kind == BlockKind.Buff ? "增益" : "减益")})"
+            : "能量块",
         Selection.RobotUs => "我方小车",
         Selection.RobotThem => "对手小车",
         _ => "无 (点击选择)",

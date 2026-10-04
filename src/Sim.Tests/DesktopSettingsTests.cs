@@ -574,6 +574,7 @@ public class DesktopSettingsTests : IDisposable
                 Source = VisionSources.LiveProcess,
                 ProcessCommand = "py bridge.py --stub x.csv",
             },
+            BlockLayout = new BlockLayoutSettings { BuffCount = 3, DebuffCount = 2, RandomPositions = true },
         };
 
         store.Save(settings);
@@ -587,5 +588,91 @@ public class DesktopSettingsTests : IDisposable
         Assert.Equal(-0.1, offset.Value.Yaw, 12);
         Assert.Equal(VisionSources.LiveProcess, loaded.Vision.Source);
         Assert.Equal("py bridge.py --stub x.csv", loaded.Vision.ProcessCommand);
+        Assert.NotNull(loaded.BlockLayout);
+        Assert.Equal(3, loaded.BlockLayout!.BuffCount);
+        Assert.Equal(2, loaded.BlockLayout.DebuffCount);
+        Assert.True(loaded.BlockLayout.RandomPositions);
+    }
+
+    // ---------- ApplyBlocks: 设置页能量块布局覆盖 (2026-10-04) ----------
+
+    [Fact]
+    public void ApplyBlocks_FollowScenario_KeepsScenarioUntouched()
+    {
+        var scenario = new Scenario { Seed = 42, Blocks = OfficialLayout.Blocks };
+
+        // 覆盖缺失(老设置文件)与两个数量都为 null(显式跟随场景)都原样返回。
+        Assert.Same(scenario, DesktopSettings.Default.ApplyBlocks(scenario));
+        var follow = DesktopSettings.Default with
+        {
+            BlockLayout = new BlockLayoutSettings { BuffCount = null, DebuffCount = null },
+        };
+        Assert.Same(scenario, follow.ApplyBlocks(scenario));
+    }
+
+    [Fact]
+    public void ApplyBlocks_CustomCounts_OfficialCoordsFirst_ExtraSeeded()
+    {
+        var settings = DesktopSettings.Default with
+        {
+            BlockLayout = new BlockLayoutSettings { BuffCount = 3, DebuffCount = 2 },
+        };
+        var scenario = new Scenario { Seed = 42, Blocks = OfficialLayout.Blocks };
+
+        var applied = settings.ApplyBlocks(scenario);
+        Assert.Equal(5, applied.Blocks.Count);
+        Assert.Equal(
+            [BlockKind.Buff, BlockKind.Buff, BlockKind.Buff, BlockKind.Debuff, BlockKind.Debuff],
+            applied.Blocks.Select(b => b.Kind).ToList());
+        // 前两个增益/第一个减益用官方冻结坐标, 多出的交裁判按 seed 放置(null)。
+        Assert.Equal(1.35, applied.Blocks[0].X!.Value, 9);
+        Assert.Equal(1.35, applied.Blocks[0].Y!.Value, 9);
+        Assert.Equal(2.5, applied.Blocks[1].X!.Value, 9);
+        Assert.Equal(2.6, applied.Blocks[1].Y!.Value, 9);
+        Assert.Null(applied.Blocks[2].X);
+        Assert.Equal(1.6, applied.Blocks[3].X!.Value, 9);
+        Assert.Equal(2.4, applied.Blocks[3].Y!.Value, 9);
+        Assert.Null(applied.Blocks[4].X);
+        Assert.Empty(applied.Validate());
+    }
+
+    [Fact]
+    public void ApplyBlocks_RandomPositions_AllSeeded()
+    {
+        var settings = DesktopSettings.Default with
+        {
+            BlockLayout = new BlockLayoutSettings { BuffCount = 2, DebuffCount = 1, RandomPositions = true },
+        };
+        var applied = settings.ApplyBlocks(new Scenario { Seed = 42, Blocks = OfficialLayout.Blocks });
+        Assert.Equal(3, applied.Blocks.Count);
+        Assert.All(applied.Blocks, b => Assert.Null(b.X));
+        Assert.All(applied.Blocks, b => Assert.Null(b.Y));
+        Assert.Empty(applied.Validate());
+    }
+
+    [Fact]
+    public void ApplyBlocks_ClampsTotalToMaxBlocks_BuffsFirst()
+    {
+        var settings = DesktopSettings.Default with
+        {
+            BlockLayout = new BlockLayoutSettings { BuffCount = 8, DebuffCount = 8 },
+        };
+        var applied = settings.ApplyBlocks(new Scenario { Seed = 42, Blocks = OfficialLayout.Blocks });
+        Assert.Equal(Scenario.MaxBlocks, applied.Blocks.Count);
+        Assert.Equal(8, applied.Blocks.Count(b => b.Kind == BlockKind.Buff));
+        Assert.Equal(4, applied.Blocks.Count(b => b.Kind == BlockKind.Debuff));
+        Assert.Empty(applied.Validate());
+    }
+
+    [Fact]
+    public void ApplyBlocks_ZeroBlocks_IsValidPureCombat()
+    {
+        var settings = DesktopSettings.Default with
+        {
+            BlockLayout = new BlockLayoutSettings { BuffCount = 0, DebuffCount = 0 },
+        };
+        var applied = settings.ApplyBlocks(new Scenario { Seed = 42, Blocks = OfficialLayout.Blocks });
+        Assert.Empty(applied.Blocks);
+        Assert.Empty(applied.Validate());
     }
 }

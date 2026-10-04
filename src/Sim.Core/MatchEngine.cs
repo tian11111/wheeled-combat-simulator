@@ -1010,7 +1010,7 @@ public sealed class MatchEngine : IDisposable
     private ObjectSet BuildObjectSet()
     {
         var buffs = new List<EnergyBlockView>();
-        EnergyBlockView? debuff = null;
+        var debuffs = new List<EnergyBlockView>();
         EnergyBlockView View(BlockRuntime b) => new()
         {
             X = b.X,
@@ -1027,10 +1027,12 @@ public sealed class MatchEngine : IDisposable
             }
             else
             {
-                debuff = View(b);
+                debuffs.Add(View(b));
             }
         }
-        return new ObjectSet { Buffs = buffs, Debuff = debuff };
+        // Debuff keeps "first debuff" semantics for older consumers; Debuffs
+        // (2026-10-04) exposes every debuff block in block index order.
+        return new ObjectSet { Buffs = buffs, Debuff = debuffs.FirstOrDefault(), Debuffs = debuffs };
     }
 
     // ---------- snapshots ----------

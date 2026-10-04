@@ -829,6 +829,28 @@ public partial class Main : Node
         Check(Near(blockNow.X!.Value, block.X.Value - 0.04) && Near(blockNow.Y!.Value, block.Y.Value - 0.03),
             "select block + drag fixes new position");
 
+        // ---------- block layout editing: add (B) / toggle kind (K) / remove (Del) ----------
+        // All three walk the key-action path and land in the undo stack; the
+        // sequence nets out to zero change so later sections keep this baseline.
+        var blocksBeforeBlockOps = draft.State.Blocks.ToList();
+        InjectAction("editor_block_add");
+        await WaitFrames(2);
+        Check(draft.State.Blocks.Count == blocksBeforeBlockOps.Count + 1, "B adds one block");
+        Check(_editor.SelectedLabel.Contains("增益"), "added buff block is selected");
+        InjectAction("editor_block_kind");
+        await WaitFrames(2);
+        Check(draft.State.Blocks[^1].Kind == BlockKind.Debuff, "K toggles the new block to debuff");
+        InjectAction("editor_block_remove");
+        await WaitFrames(2);
+        Check(draft.State.Blocks.Count == blocksBeforeBlockOps.Count, "Del removes the selected block");
+        _editor.RequestUndo();
+        Check(draft.State.Blocks.Count == blocksBeforeBlockOps.Count + 1
+            && draft.State.Blocks[^1].Kind == BlockKind.Debuff, "undo restores the removed block");
+        _editor.RequestRedo();
+        Check(draft.State.Blocks.Count == blocksBeforeBlockOps.Count
+            && draft.State.Blocks.Select((b, i) => b.Equals(blocksBeforeBlockOps[i])).All(ok => ok),
+            "redo re-removes; original blocks untouched");
+
         // ---------- entity picking: drag a vehicle through the real input pipeline ----------
         // The injected left-drag walks the exact press/motion/release path the
         // mouse uses: entity pick (analytic proxy at the vehicle body) → ground
@@ -1050,8 +1072,18 @@ public partial class Main : Node
         PublishControllerWiring();
         if (matchChanged)
         {
-            _pendingMatchSettings = true;
-            GD.Print("[settings] 仿真参数/控制器/视觉设置已保存，将在下一场或 F5 重置后生效");
+            // 2026-10-04 用户拍板"保存后自动重置生效": 实况中(含待命/进行中/已结束)
+            // 保存即重建会话, 省一次手动 F5。两个安全例外维持"下一场生效": 回放中
+            // (重置会踢出回放)与布局编辑中(重置会丢弃未应用草稿)。
+            if (_session.Mode == SessionMode.Live && !_editor.Active)
+            {
+                ResetLiveSession("[settings] 已保存并自动重置生效");
+            }
+            else
+            {
+                _pendingMatchSettings = true;
+                GD.Print("[settings] 设置已保存，将在下一场或 F5 重置后生效");
+            }
         }
         else
         {
@@ -1176,7 +1208,9 @@ public partial class Main : Node
     /// </summary>
     private Scenario ApplyDesktopSettings(Scenario template)
         => _settings.ApplyControllerSelection(
-            _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(template)));
+            _settings.ApplyVehicleOverrides(
+            _settings.ApplyBlocks(
+            _settings.ApplySimulationParameters(template))));
 
     // 响亮回退(同视觉源预检先例): 场景文件读不到时给指路报错并回退官方布局,
     // 不留一个没建起场景的空窗口。
@@ -1307,7 +1341,13 @@ public partial class Main : Node
         => DictionaryEqual(left.SimulationParameters, right.SimulationParameters)
             && ControllerEqual(left.UsController, right.UsController)
             && ControllerEqual(left.ThemController, right.ThemController)
-            && VisionEqual(left.Vision, right.Vision);
+            && VisionEqual(left.Vision, right.Vision)
+            && BlockLayoutEqual(left.BlockLayout, right.BlockLayout);
+
+    private static bool BlockLayoutEqual(BlockLayoutSettings? left, BlockLayoutSettings? right)
+        => left?.BuffCount == right?.BuffCount
+            && left?.DebuffCount == right?.DebuffCount
+            && left?.RandomPositions == right?.RandomPositions;
 
     private static bool VisionEqual(VisionSettings? left, VisionSettings? right)
         => left?.Source == right?.Source
@@ -1797,7 +1837,7 @@ public partial class Main : Node
             return;
         }
         _editor.Enter(_session.ScenarioWithResolvedBlocks());
-        GD.Print("[editor] 进入布局编辑: 点击选择, 拖动移动, [ ] 旋转, S 吸附, Ctrl+Z/Y 撤销/重做, Enter 应用, E 退出");
+        GD.Print("[editor] 进入布局编辑: 点击选择, 拖动移动, [ ] 旋转, S 吸附, B 添加能量块, K 切换增益/减益, Del 删除块, Ctrl+Z/Y 撤销/重做, Enter 应用, E 退出");
     }
 
     private void ApplyLayoutScenario(Scenario scenario)

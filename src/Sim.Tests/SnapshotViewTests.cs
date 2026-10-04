@@ -124,4 +124,54 @@ public class SnapshotViewTests
         Assert.Equal(1, frame.Us.Rotation!.Value.W, 9);
         Assert.True(Math.Abs(frame.Blocks[0].Rotation!.Value.X) > 0.1);
     }
+
+    [Fact]
+    public void From_RendersEveryDebuff_FromDebuffsList()
+    {
+        var engine = new MatchEngine(Scenario());
+        var legacy = engine.CommitSnapshot();
+        var debuffA = new EnergyBlockView { X = 1.6, Y = 2.4 };
+        var debuffB = new EnergyBlockView { X = 2.9, Y = 1.1 };
+        var physical = legacy with
+        {
+            Objects = new ObjectSet
+            {
+                Buffs =
+                [
+                    new EnergyBlockView { X = 1.35, Y = 1.35 },
+                    new EnergyBlockView { X = 2.5, Y = 2.6 },
+                ],
+                Debuff = debuffA,
+                Debuffs = [debuffA, debuffB],
+            },
+            PhysicsPoses = new PhysicsPoses
+            {
+                Robots = new()
+                {
+                    [RoleNames.Us] = new PhysicsPose3(),
+                    [RoleNames.Them] = new PhysicsPose3(),
+                },
+                Buffs =
+                [
+                    new PhysicsPose3 { X = 1.35, Y = 1.35, Z = 0.13 },
+                    new PhysicsPose3 { X = 2.5, Y = 2.6, Z = 0.13 },
+                ],
+                Debuff = new PhysicsPose3 { X = 5, Y = 2.4, Z = 0.13 },
+                Debuffs =
+                [
+                    new PhysicsPose3 { X = 5, Y = 2.4, Z = 0.13 },
+                    new PhysicsPose3 { X = 6, Y = 1.1, Z = 0.13 },
+                ],
+            },
+        };
+
+        var frame = SnapshotView.From(physical);
+        Assert.Equal(4, frame.Blocks.Count);
+        Assert.Equal(2, frame.Blocks.Count(b => b.Kind == "buff"));
+        Assert.Equal(2, frame.Blocks.Count(b => b.Kind == "debuff"));
+        // Physics poses pair with Debuffs by block index order.
+        var debuffs = frame.Blocks.Where(b => b.Kind == "debuff").ToList();
+        Assert.Equal(5, debuffs[0].Position.X, 9);
+        Assert.Equal(6, debuffs[1].Position.X, 9);
+    }
 }

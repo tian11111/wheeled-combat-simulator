@@ -544,6 +544,13 @@ public partial class ArenaVisualizer : Node3D
                 ? _outBlockMaterial
                 : block.Kind == "buff" ? _buffBlockMaterial : _debuffBlockMaterial;
         }
+        // 2026-10-04 布局可配置后块数会变少 (设置页改数量/编辑器删块): 上一帧更大
+        // 布局留下的多余节点必须隐藏, 否则幽灵块以旧位置永远挂在场上
+        // (曾致 "改成 1+1 后场上仍是旧 6 块")。
+        for (var i = frame.Blocks.Count; i < _blockNodes.Count; i++)
+        {
+            _blockNodes[i].Visible = false;
+        }
     }
 
     private void ApplyRobot(Node3D? root, RobotVisual robot, MeshInstance3D? ring,
