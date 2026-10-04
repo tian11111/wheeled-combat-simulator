@@ -1700,3 +1700,36 @@ legacy 接触默认翻转——L1+L2+L3 全开（用户拍板"都开"）
 
 - 推送到 PR #13 待用户确认
 - deferred 清单：块-块对穿/平移上台/计分边界/mujoco 接触参数单独轮次
+
+---
+
+## 2026-10-04 — 能量块布局可配置: 数量可调 + 增益/减益 (feat/block-layout-config)
+
+### What We Did
+
+1. 协议只加不改: ObjectSet/PhysicsPoses 新增 Debuffs 列表(块索引序), Debuff 语义固定"第一个减益块"(旧控制器/RL 环境零感知); Scenario.Validate 块数上限 MaxBlocks=12, 0 块合法。
+2. 内核/MuJoCo: BuildObjectSet/BuildPhysicsPoses 填 Debuffs; 多减益各自独立计分(+6 给对手), 计分循环本身按块遍历无需改。
+3. 桌面编辑器: LayoutDraft.AddBlock(空位螺旋搜索: 避块 0.35m/避车 0.5m/避边 0.3m)/RemoveBlock/ToggleBlockKind 全走 Apply 撤销栈; LayoutEditor B/K/Del 三键(project.godot 新动作); SnapshotView 按 Debuffs 列表渲染(空列表回退单 Debuff 兼容旧快照)。
+4. 门禁全绿: 725 单测(1 跳过为平台门) + CLI replay-check 逐位 PASS + godot --edit-smoke 全过(新增 加块→切类型→删块→undo/redo 五步) + godot headless parity PASS。
+
+### Key Learnings
+
+- godot --edit-smoke 静默跑旧程序集: dotnet build godot -c Release 不够, Godot 默认加载 Debug 配置, 必须 build -c Debug 再冒烟(踩过两次)。
+- replays/ 下的 godot-parity-seed42.json 是不入库的本地副本, 会落后于时基/物理基线重录; 权威 fixture 在 src/Sim.Tests/fixtures/, 重录用 `replay-record --seed 42 --out ...` 再复制(createdAt 变化不算 diff, 直接 checkout 丢弃)。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| 1a88da3 | feat(protocol/core): 能量块布局可配置——观测 Debuffs 列表与数量上限 |
+| (第二批) | feat(godot): 布局编辑器能量块数量可调与增益/减益切换 |
+| 023c582 | docs(godot): 布局编辑 README 补能量块按键与数量上限 |
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 推送/PR 待用户确认; 桌面验收待用户自启(E 进编辑器试 B/K/Del)
+- RL 侧不重训: gym_env 不读新 debuffs 字段, obs 空间不变
