@@ -334,4 +334,89 @@ public class LayoutDraftTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => draft.SaveTo(path));
         Assert.False(File.Exists(path));
     }
+
+    // ---------- block add / remove / kind toggle (2026-10-04) ----------
+
+    [Fact]
+    public void AddBlock_PlacesFreeSpot_AwayFromBlocksAndStarts()
+    {
+        var draft = new LayoutDraft(OfficialBase());
+        var index = draft.AddBlock(BlockKind.Buff);
+        Assert.Equal(3, index);
+
+        var added = draft.State.Blocks[index];
+        Assert.Equal(BlockKind.Buff, added.Kind);
+        Assert.NotNull(added.X);
+        Assert.NotNull(added.Y);
+        Assert.InRange(added.X!.Value, 0.30, 3.8 - 0.30);
+        Assert.InRange(added.Y!.Value, 0.30, 3.8 - 0.30);
+        foreach (var b in draft.State.Blocks.Take(3))
+        {
+            Assert.True(Math.Abs(Math.Sqrt(
+                    Math.Pow(added.X.Value - b.X!.Value, 2) + Math.Pow(added.Y.Value - b.Y!.Value, 2))) >= 0.35,
+                "new block must keep 0.35 m from every existing block");
+        }
+        foreach (var s in draft.State.Starts.Values)
+        {
+            Assert.True(Math.Sqrt(
+                    Math.Pow(added.X.Value - s.X, 2) + Math.Pow(added.Y.Value - s.Y, 2)) >= 0.5,
+                "new block must keep 0.5 m from both robot starts");
+        }
+        Assert.True(draft.CanApply);
+    }
+
+    [Fact]
+    public void AddBlock_StopsAtMaxBlocks_AndLeavesDraftUntouched()
+    {
+        var draft = new LayoutDraft(OfficialBase());
+        var added = 0;
+        while (draft.AddBlock(BlockKind.Buff) >= 0)
+        {
+            added++;
+        }
+
+        Assert.True(added > 0, "auto-placement must place at least one block");
+        Assert.True(draft.State.Blocks.Count <= Scenario.MaxBlocks);
+        var before = draft.State.Blocks.ToList();
+        Assert.Equal(-1, draft.AddBlock(BlockKind.Debuff));
+        Assert.Equal(before.Count, draft.State.Blocks.Count);
+        Assert.Equal(ProtocolJson.Serialize(before), ProtocolJson.Serialize(draft.State.Blocks));
+    }
+
+    [Fact]
+    public void AddToggleRemove_AreUndoable_AndSaveRoundTrip()
+    {
+        var draft = new LayoutDraft(OfficialBase());
+        var index = draft.AddBlock(BlockKind.Debuff);
+        Assert.Equal(4, draft.State.Blocks.Count);
+        draft.Undo();
+        Assert.Equal(3, draft.State.Blocks.Count);
+        draft.Redo();
+        Assert.Equal(4, draft.State.Blocks.Count);
+
+        Assert.Equal(BlockKind.Debuff, draft.State.Blocks[index].Kind);
+        Assert.Equal(BlockKind.Buff, draft.ToggleBlockKind(index));
+        Assert.Equal(BlockKind.Buff, draft.State.Blocks[index].Kind);
+        draft.Undo();
+        Assert.Equal(BlockKind.Debuff, draft.State.Blocks[index].Kind);
+
+        Assert.True(draft.RemoveBlock(index));
+        Assert.Equal(3, draft.State.Blocks.Count);
+        draft.Undo();
+        Assert.Equal(4, draft.State.Blocks.Count);
+        Assert.Equal(BlockKind.Debuff, draft.State.Blocks[index].Kind);
+
+        // saved canonical JSON carries the mixed-kind layout back intact
+        draft.RemoveBlock(index);
+        draft.AddBlock(BlockKind.Debuff);
+        var path = TempPath("blocks-layout.json");
+        var saved = draft.SaveTo(path);
+        Assert.Equal(4, saved.Blocks.Count);
+        Assert.Equal(2, saved.Blocks.Count(b => b.Kind == BlockKind.Buff));
+        Assert.Equal(2, saved.Blocks.Count(b => b.Kind == BlockKind.Debuff));
+        var reloaded = new LayoutDraft(LayoutDraft.ReadScenario(path));
+        Assert.Equal(
+            draft.State.Blocks.Select(b => (b.Kind, b.X, b.Y)),
+            reloaded.State.Blocks.Select(b => (b.Kind, b.X, b.Y)));
+    }
 }

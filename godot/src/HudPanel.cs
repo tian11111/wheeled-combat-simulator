@@ -299,7 +299,7 @@ public partial class HudPanel : Control
         _editorInfo = AddLabel(vbox, "LAYOUT EDITOR  /  未选择对象", 14, TextPrimary);
         _editorInfo.ClipText = true;
 
-        _editorStatus = AddLabel(vbox, "拖动选择对象 · [ ] 旋转场地 · ←→↑↓ 微调", 12, AccentYellow);
+        _editorStatus = AddLabel(vbox, "拖动选择对象 · [ ] 旋转场地 · B 加能量块 · K 切增益/减益 · Del 删块", 12, AccentYellow);
         _editorStatus.ClipText = true;
 
         var hbox = new HBoxContainer();

@@ -173,6 +173,98 @@ public sealed class LayoutDraft
         Apply(State with { Blocks = blocks });
     }
 
+    /// <summary>
+    /// Adds a block of <paramref name="kind"/> at the first free spot — 0.25 m
+    /// grid rings expanding from the field centre, at least 0.30 m from every
+    /// edge, 0.35 m from every fixed block and 0.5 m from both robot starts
+    /// (matching the seeded referee placement's spawn-avoidance intent).
+    /// Returns the new block index, or -1 when the layout is saturated
+    /// (<see cref="Scenario.MaxBlocks"/>) or no free spot exists; the draft is
+    /// untouched in that case. Goes through <see cref="Apply"/>, so undo works.
+    /// </summary>
+    public int AddBlock(BlockKind kind)
+    {
+        if (State.Blocks.Count >= Scenario.MaxBlocks)
+        {
+            return -1;
+        }
+        var field = _base.Field;
+        var size = field.FieldSize;
+        const double step = 0.25;
+        const double edgeMargin = 0.30;
+        const double blockSpacing = 0.35;
+        const double spawnSpacing = 0.5;
+        var fixedBlocks = State.Blocks.Where(b => b.X is { } bx && b.Y is { } by).ToList();
+        var starts = State.Starts.Values.Where(s => s is not null).ToList();
+
+        bool Free(double x, double y) => x >= edgeMargin && y >= edgeMargin
+            && x <= size - edgeMargin && y <= size - edgeMargin
+            && fixedBlocks.All(b => Dist(x, y, b.X!.Value, b.Y!.Value) >= blockSpacing)
+            && starts.All(s => Dist(x, y, s.X, s.Y) >= spawnSpacing);
+
+        for (var ring = 0; ring * step <= size; ring++)
+        {
+            var half = ring * step;
+            for (var o = -ring; o <= ring; o++)
+            {
+                // Perimeter of the ring square, centre-only for ring 0; the
+                // corners appear twice for o=±ring — harmless (first hit wins).
+                Span<(double X, double Y)> cells = ring == 0
+                    ? [(size / 2, size / 2)]
+                    : [(size / 2 + o * step, size / 2 - half),
+                       (size / 2 + o * step, size / 2 + half),
+                       (size / 2 - half, size / 2 + o * step),
+                       (size / 2 + half, size / 2 + o * step)];
+                foreach (var (x, y) in cells)
+                {
+                    if (!Free(x, y))
+                    {
+                        continue;
+                    }
+                    var blocks = State.Blocks.ToList();
+                    blocks.Add(new BlockSpec { Kind = kind, X = x, Y = y });
+                    Apply(State with { Blocks = blocks });
+                    return blocks.Count - 1;
+                }
+            }
+        }
+        return -1;
+
+        static double Dist(double ax, double ay, double bx, double by)
+            => Math.Sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by));
+    }
+
+    /// <summary>Removes the block at <paramref name="index"/>; false when the index is out of range.</summary>
+    public bool RemoveBlock(int index)
+    {
+        if (index < 0 || index >= State.Blocks.Count)
+        {
+            return false;
+        }
+        var blocks = State.Blocks.ToList();
+        blocks.RemoveAt(index);
+        Apply(State with { Blocks = blocks });
+        return true;
+    }
+
+    /// <summary>
+    /// Flips the selected block between buff and debuff; returns the new kind,
+    /// or null when the index is out of range.
+    /// </summary>
+    public BlockKind? ToggleBlockKind(int index)
+    {
+        if (index < 0 || index >= State.Blocks.Count)
+        {
+            return null;
+        }
+        var blocks = State.Blocks.ToList();
+        var spec = blocks[index];
+        var kind = spec.Kind == BlockKind.Buff ? BlockKind.Debuff : BlockKind.Buff;
+        blocks[index] = spec with { Kind = kind };
+        Apply(State with { Blocks = blocks });
+        return kind;
+    }
+
     // ---------- history / lifecycle ----------
 
     /// <summary>

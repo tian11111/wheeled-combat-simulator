@@ -829,6 +829,28 @@ public partial class Main : Node
         Check(Near(blockNow.X!.Value, block.X.Value - 0.04) && Near(blockNow.Y!.Value, block.Y.Value - 0.03),
             "select block + drag fixes new position");
 
+        // ---------- block layout editing: add (B) / toggle kind (K) / remove (Del) ----------
+        // All three walk the key-action path and land in the undo stack; the
+        // sequence nets out to zero change so later sections keep this baseline.
+        var blocksBeforeBlockOps = draft.State.Blocks.ToList();
+        InjectAction("editor_block_add");
+        await WaitFrames(2);
+        Check(draft.State.Blocks.Count == blocksBeforeBlockOps.Count + 1, "B adds one block");
+        Check(_editor.SelectedLabel.Contains("增益"), "added buff block is selected");
+        InjectAction("editor_block_kind");
+        await WaitFrames(2);
+        Check(draft.State.Blocks[^1].Kind == BlockKind.Debuff, "K toggles the new block to debuff");
+        InjectAction("editor_block_remove");
+        await WaitFrames(2);
+        Check(draft.State.Blocks.Count == blocksBeforeBlockOps.Count, "Del removes the selected block");
+        _editor.RequestUndo();
+        Check(draft.State.Blocks.Count == blocksBeforeBlockOps.Count + 1
+            && draft.State.Blocks[^1].Kind == BlockKind.Debuff, "undo restores the removed block");
+        _editor.RequestRedo();
+        Check(draft.State.Blocks.Count == blocksBeforeBlockOps.Count
+            && draft.State.Blocks.Select((b, i) => b.Equals(blocksBeforeBlockOps[i])).All(ok => ok),
+            "redo re-removes; original blocks untouched");
+
         // ---------- entity picking: drag a vehicle through the real input pipeline ----------
         // The injected left-drag walks the exact press/motion/release path the
         // mouse uses: entity pick (analytic proxy at the vehicle body) → ground
@@ -1797,7 +1819,7 @@ public partial class Main : Node
             return;
         }
         _editor.Enter(_session.ScenarioWithResolvedBlocks());
-        GD.Print("[editor] 进入布局编辑: 点击选择, 拖动移动, [ ] 旋转, S 吸附, Ctrl+Z/Y 撤销/重做, Enter 应用, E 退出");
+        GD.Print("[editor] 进入布局编辑: 点击选择, 拖动移动, [ ] 旋转, S 吸附, B 添加能量块, K 切换增益/减益, Del 删除块, Ctrl+Z/Y 撤销/重做, Enter 应用, E 退出");
     }
 
     private void ApplyLayoutScenario(Scenario scenario)
