@@ -135,8 +135,8 @@ public partial class SettingsPanel : Control
         if (_pendingNote is not null)
         {
             _pendingNote.Text = pendingSimulationChanges
-                ? "已有仿真/控制器/视觉修改待下一场生效 · F5 可立即重置并应用"
-                : "显示设置立即生效 · 仿真/控制器/视觉设置在下一场或 F5 重置后生效";
+                ? "已有修改待下一场生效（回放/编辑布局中不自动重置）· F5 可立即重置并应用"
+                : "显示设置立即生效 · 仿真/控制器/视觉/能量块设置保存后自动重置生效（回放/编辑布局中为下一场生效）";
         }
         ClearError();
         Visible = true;
@@ -221,7 +221,7 @@ public partial class SettingsPanel : Control
         tabs.SetTabTitle(5, "能量块");
 
         _pendingNote = AddLabel(root,
-            "显示设置立即生效 · 仿真/控制器/视觉/能量块设置在下一场或 F5 重置后生效",
+            "显示设置立即生效 · 仿真/控制器/视觉/能量块设置保存后自动重置生效（回放/编辑布局中为下一场生效）",
             11, Yellow);
         _pendingNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 

@@ -1072,8 +1072,18 @@ public partial class Main : Node
         PublishControllerWiring();
         if (matchChanged)
         {
-            _pendingMatchSettings = true;
-            GD.Print("[settings] 仿真参数/控制器/视觉设置已保存，将在下一场或 F5 重置后生效");
+            // 2026-10-04 用户拍板"保存后自动重置生效": 实况中(含待命/进行中/已结束)
+            // 保存即重建会话, 省一次手动 F5。两个安全例外维持"下一场生效": 回放中
+            // (重置会踢出回放)与布局编辑中(重置会丢弃未应用草稿)。
+            if (_session.Mode == SessionMode.Live && !_editor.Active)
+            {
+                ResetLiveSession("[settings] 已保存并自动重置生效");
+            }
+            else
+            {
+                _pendingMatchSettings = true;
+                GD.Print("[settings] 设置已保存，将在下一场或 F5 重置后生效");
+            }
         }
         else
         {
@@ -1331,7 +1341,13 @@ public partial class Main : Node
         => DictionaryEqual(left.SimulationParameters, right.SimulationParameters)
             && ControllerEqual(left.UsController, right.UsController)
             && ControllerEqual(left.ThemController, right.ThemController)
-            && VisionEqual(left.Vision, right.Vision);
+            && VisionEqual(left.Vision, right.Vision)
+            && BlockLayoutEqual(left.BlockLayout, right.BlockLayout);
+
+    private static bool BlockLayoutEqual(BlockLayoutSettings? left, BlockLayoutSettings? right)
+        => left?.BuffCount == right?.BuffCount
+            && left?.DebuffCount == right?.DebuffCount
+            && left?.RandomPositions == right?.RandomPositions;
 
     private static bool VisionEqual(VisionSettings? left, VisionSettings? right)
         => left?.Source == right?.Source
