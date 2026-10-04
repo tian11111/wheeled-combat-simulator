@@ -537,13 +537,15 @@ internal sealed class MujocoPhysicsBackend : IPhysicsBackend
                 [RoleNames.Them] = PoseAt(qpos, 11),
             },
             Buffs = [],
+            Debuffs = [],
         };
         for (var i = 0; i < _context.Blocks.Count; i++)
         {
             var pose = PoseAt(qpos, 22 + i * 7);
             if (_context.Blocks[i].Kind == BlockKind.Buff) poses.Buffs.Add(pose);
-            else poses = poses with { Debuff = pose };
+            else poses.Debuffs.Add(pose);
         }
+        poses = poses with { Debuff = poses.Debuffs.FirstOrDefault() };
         return poses;
     }
 

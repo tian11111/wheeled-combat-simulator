@@ -307,7 +307,8 @@ public sealed record Scenario : IProtocolMessage
     };
 
     /// <summary>
-    /// Block layout: 2026 rules use two buff blocks and one debuff block.
+    /// Block layout: 2026 rules use two buff blocks and one debuff block, but
+    /// any mix in [0, <see cref="MaxBlocks"/>] is configurable (editor and JSON).
     /// </summary>
     public List<BlockSpec> Blocks { get; init; } =
     [
@@ -315,6 +316,9 @@ public sealed record Scenario : IProtocolMessage
         new() { Kind = BlockKind.Buff },
         new() { Kind = BlockKind.Debuff },
     ];
+
+    /// <summary>Upper bound on blocks per scenario (performance guard, 2026-10-04).</summary>
+    public const int MaxBlocks = 12;
 
     /// <summary>Optional simulation parameters (noise levels, thresholds, ...), keyed by name.</summary>
     public Dictionary<string, double>? Parameters { get; init; }
@@ -385,6 +389,12 @@ public sealed record Scenario : IProtocolMessage
 
         if (Blocks is not null)
         {
+            // 性能护栏: MuJoCo qpos/接触对随块数线性增长, 编辑器加块也走这条校验反馈。
+            // 0 块合法 (纯对抗); 上限见 MaxBlocks。
+            if (Blocks.Count > MaxBlocks)
+            {
+                yield return $"scenario: blocks: at most {MaxBlocks} blocks are supported (got {Blocks.Count}).";
+            }
             foreach (var block in Blocks)
             {
                 if (block is null)
