@@ -1733,3 +1733,32 @@ legacy 接触默认翻转——L1+L2+L3 全开（用户拍板"都开"）
 
 - 推送/PR 待用户确认; 桌面验收待用户自启(E 进编辑器试 B/K/Del)
 - RL 侧不重训: gym_env 不读新 debuffs 字段, obs 空间不变
+
+---
+
+## 2026-10-04 (续) — 能量块设置页 + 自动重置 + 幽灵块修复
+
+### What We Did
+
+1. 用户反馈编辑器键位不顺手 → 设置台新增「能量块」页(第 6 页签): 自定义开关 + 增益/减益数量旋钮 + 落位方式(官方坐标优先/全随机), DesktopSettings.BlockLayout 覆盖 + ApplyBlocks, 缺省跟随场景逐位不变。
+2. 用户拍板"保存后自动重置生效": 实况中保存即重建会话; 回放/编辑布局中维持下一场生效(踢出回放/丢草稿保护); MatchSettingsEqual 纳入 BlockLayout。
+3. 用户报"改成 1+1 仍显示 6 块且 F5 无效" → 排查(实例日志+探针+截图时间线)定位真因: ArenaVisualizer.ShowFrame 只增长块节点池从不隐藏多余节点, 布局缩小后旧块以旧位置永远可见(幽灵块)。修复: 尾部多余节点 Visible=false。引擎/设置/重置链路自始至终正确。
+4. 顺手修复设置台四个隐形 note 标签(空建后设文本不参与布局: 车辆/传感器基底/视觉页蓝色说明一直没显示过)。
+
+### Key Learnings
+
+- godot 无头/窗口双构建: 冒烟前 build -c Debug(Godot 默认加载 Debug), 已在记忆。
+- **快照驱动的节点池必须处理"收缩"**: EnsureXxxNodes(count) 只增不减的渲染池, 上游布局变小时会产生幽灵实体 —— 这类 bug 的表象(改了没效果/F5 无效)会误导去查逻辑层, 实际在渲染层。
+- 排查桌面问题优先读实例 stdout 日志(后台启动自带输出文件) + 截图文件 mtime 对时间线; 用探针调 ApplyDesktopSettings 会写用户真实设置文件(全局 appuserdata), 排查完要告知用户重设。
+
+### Commits
+
+| Hash | Message |
+|------|---------|
+| 16d5dd4 | feat(godot): 设置台新增「能量块」页 |
+| ab481ee | feat(godot): 设置保存后自动重置生效 |
+| 25267db | fix(godot): 缩小能量块布局后幽灵块残留场上 |
+
+### Status
+
+[OK] **Completed** — 待推送 PR
