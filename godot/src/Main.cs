@@ -1198,7 +1198,9 @@ public partial class Main : Node
     /// </summary>
     private Scenario ApplyDesktopSettings(Scenario template)
         => _settings.ApplyControllerSelection(
-            _settings.ApplyVehicleOverrides(_settings.ApplySimulationParameters(template)));
+            _settings.ApplyVehicleOverrides(
+            _settings.ApplyBlocks(
+            _settings.ApplySimulationParameters(template))));
 
     // 响亮回退(同视觉源预检先例): 场景文件读不到时给指路报错并回退官方布局,
     // 不留一个没建起场景的空窗口。

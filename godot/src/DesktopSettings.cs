@@ -5,6 +5,7 @@
 using Sim.Core;
 using Sim.Protocol;
 using Sim.VisionReplay;
+using System.Text.Json.Serialization;
 
 namespace Sim.GodotShell;
 
@@ -125,6 +126,29 @@ public sealed record VisionSettings
     public double MaxAgeMs { get; init; } = LiveVisionBridge.DefaultMaxAgeMs;
 }
 
+/// <summary>
+/// 桌面能量块布局覆盖(2026-10-04 设置页)。两个数量都为 null = 跟随场景(不改,
+/// 既有回放/比赛逐位不变)。落位: 默认"官方坐标优先"——前两个增益/第一个减益用
+/// OfficialLayout 冻结坐标, 多出的块 X/Y=null 交给引擎裁判按 seed 确定性放置
+/// (RespawnBlock 禁区: 避台沿 0.35m/避两车 0.8m/避中央 0.6m/块间 0.5m);
+/// RandomPositions 则全部 null。合计超过 Scenario.MaxBlocks 时按 增益优先 截断。
+/// </summary>
+public sealed record BlockLayoutSettings
+{
+    /// <summary>增益块数量; null = 跟随场景。</summary>
+    public int? BuffCount { get; init; }
+
+    /// <summary>减益块数量; null = 跟随场景。</summary>
+    public int? DebuffCount { get; init; }
+
+    /// <summary>true = 全部由裁判按种子随机放置(忽略官方坐标)。</summary>
+    public bool RandomPositions { get; init; }
+
+    /// <summary>两个数量都为 null 时为"跟随场景"覆盖(等价于无覆盖)。</summary>
+    [JsonIgnore]
+    public bool IsFollowScenario => BuffCount is null && DebuffCount is null;
+}
+
 public sealed record DesktopSettings
 {
     public const int CurrentSchemaVersion = 1;
@@ -138,6 +162,9 @@ public sealed record DesktopSettings
     public Dictionary<string, double> SimulationParameters { get; init; } = new();
 
     public VehicleSettings Vehicle { get; init; } = new();
+
+    /// <summary>能量块布局覆盖; null = 跟随场景(不改, 逐位不变)。</summary>
+    public BlockLayoutSettings? BlockLayout { get; init; }
 
     public VisionSettings Vision { get; init; } = new();
 
@@ -364,6 +391,42 @@ public sealed record DesktopSettings
             }
         }
         return scenario with { Vehicles = vehicles };
+    }
+
+    /// <summary>
+    /// <summary>
+    /// 应用能量块布局覆盖(设置页"能量块"): 数量/类型可调, 落位默认官方坐标优先。
+    /// 无覆盖(IsFollowScenario)时原样返回同一场景 —— 既有回放/比赛逐位不变。
+    /// 合计超过 MaxBlocks 时增益优先截断(与设置页提示一致)。
+    /// </summary>
+    public Scenario ApplyBlocks(Scenario scenario)
+    {
+        ArgumentNullException.ThrowIfNull(scenario);
+        var layout = BlockLayout;
+        if (layout is null || layout.IsFollowScenario)
+        {
+            return scenario;
+        }
+        var buffCount = Math.Clamp(layout.BuffCount ?? 0, 0, Scenario.MaxBlocks);
+        var debuffCount = Math.Clamp(layout.DebuffCount ?? 0, 0, Scenario.MaxBlocks - buffCount);
+        var officialBuffs = OfficialLayout.Blocks.Where(b => b.Kind == BlockKind.Buff).ToList();
+        var officialDebuffs = OfficialLayout.Blocks.Where(b => b.Kind == BlockKind.Debuff).ToList();
+
+        BlockSpec Spec(BlockKind kind, int index, IReadOnlyList<BlockSpec> official)
+            => layout.RandomPositions || index >= official.Count
+                ? new BlockSpec { Kind = kind }
+                : new BlockSpec { Kind = kind, X = official[index].X, Y = official[index].Y };
+
+        var blocks = new List<BlockSpec>();
+        for (var i = 0; i < buffCount; i++)
+        {
+            blocks.Add(Spec(BlockKind.Buff, i, officialBuffs));
+        }
+        for (var i = 0; i < debuffCount; i++)
+        {
+            blocks.Add(Spec(BlockKind.Debuff, i, officialDebuffs));
+        }
+        return scenario with { Blocks = blocks };
     }
 
     /// <summary>
