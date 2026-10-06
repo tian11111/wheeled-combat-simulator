@@ -40,13 +40,13 @@ C:/Users/Neco/AppData/Local/Programs/robot-simulator-dotnet/dotnet.exe test
 
 ## 批3：交互统一
 
-- [ ] 3.1 `MatchSettingsEqual` 补 Vehicle 深比较 + 日志分支修复（design 批3 表 R3.1）
-- [ ] 3.2 `RebuildSensorChannelRows` 改"当前控件回填"（同名保留/异名取基底）+ 单测
-- [ ] 3.3 能量块自定义开启检测 layoutVersion → 确认弹窗（Main 传入场景状态）
-- [ ] 3.4 `LocalizeValidationError` 中文映射表 + 覆盖已知消息模板的单测
-- [ ] 3.5 每页页脚生效时机 note（文案常量）；`RestoreDefaults` 含外观区
-- [ ] 3.6 验证：`dotnet test`；手工用例：仅改小车参数→自动重置且日志正确；切预设编辑不丢；开启自定义块→弹窗→取消→布局编辑器结果保持
-- [ ] 3.7 提交（回滚点：批3）
+- [x] 3.1 `MatchSettingsEqual` 补 Vehicle 深比较 + 日志分支修复（design 批3 表 R3.1）
+- [x] 3.2 `RebuildSensorChannelRows` 改"当前控件回填"（同名保留/异名取基底）+ 单测
+- [x] 3.3 能量块自定义开启检测 layoutVersion → 确认弹窗（Main 传入场景状态）
+- [x] 3.4 `LocalizeValidationError` 中文映射表 + 覆盖已知消息模板的单测
+- [x] 3.5 每页页脚生效时机 note（文案常量）；`RestoreDefaults` 含外观区
+- [x] 3.6 验证：`dotnet test`；手工用例：仅改小车参数→自动重置且日志正确；切预设编辑不丢；开启自定义块→弹窗→取消→布局编辑器结果保持
+- [x] 3.7 提交（回滚点：批3）
 
 ## 批4：打磨
 
