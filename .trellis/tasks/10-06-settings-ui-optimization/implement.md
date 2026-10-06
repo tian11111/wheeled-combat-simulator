@@ -50,13 +50,24 @@ C:/Users/Neco/AppData/Local/Programs/robot-simulator-dotnet/dotnet.exe test
 
 ## 批4：打磨
 
-- [ ] 4.1 `SimulationParameterCatalog` 加中文 `Description`；tooltip 全面替换（B3/B4 清单）；删重复单位 `SettingsPanel.cs:504`
-- [ ] 4.2 `MakePathInput` + "浏览…"（目录/文件两种模式），替换视觉三路径与外观路径
-- [ ] 4.3 `_dialog` 自适应尺寸 + 外层 ScrollContainer；`--settings-smoke --capture` 全 6 页 + uiScale 1.4 目检（对照 `research/settings-ui-audit.md` §D 清单逐项销项）
-- [ ] 4.4 `MakeOption` id 化（Meta 映射 + 4 处读取端替换 + 单测先行）
-- [ ] 4.5 低优先级项：全屏禁宽高、视觉路径框灰字说明、硬编码文案集中常量区
-- [ ] 4.6 验证：`dotnet test`；目检销项表全过；trellis-check 全量终检（含 `get_context.py --mode packages` 各包 Quality Check）
+- [x] 4.1 `SimulationParameterCatalog` 加中文 `Description`；tooltip 全面替换（B3/B4 清单）；删重复单位（保留 SpinBox `Suffix`）
+- [x] 4.2 `MakePathRow` + "浏览…"（面板级共享 FileDialog，目录/文件两种模式），替换场景/视觉两路径与外观模型两路径；相对路径基准写入 tooltip（行为不改）
+- [x] 4.3 `_dialog` 自适应尺寸 + 外层 ScrollContainer；全 7 页 1280×720 + uiScale 1.4 截图目检（对照 `research/settings-ui-audit.md` §D 逐项销项）；WordSmart 0 高度坑全局修复（`AddNoteLabel`：autowrap 关闭 ClipText）；README 生效时机文案更正
+- [x] 4.4 `MakeOption` id 化（Meta 映射 + 全部读取端 `GetSelectedId` + 单测先行 + 调用点 id 唯一源扫描）
+- [x] 4.5 低优先级项：全屏禁宽高、视觉路径框灰字"（当前来源不使用）"、硬编码文案/示例路径集中 `SettingsText`、删死代码 `SensorChannelEdit.Offset`、合并拼接校验字面量
+- [x] 4.6 验证：`dotnet test` 811 通过/1 已知跳过；`dotnet build godot/GodotSim.csproj` 0 警告 0 错误；目检销项表全过（证据 `godot/docs/qa-10-06/b4-*.png`）。注：`trellis-check` 全量终检由主会话执行
 - [ ] 4.7 提交（回滚点：批4）
+
+### 批4 遗留 / 待手工项（如实记录，不静默丢）
+
+- **传感器 6 列网格在极窄窗口**：页内滚动横轴 Disabled，640×360 + uiScale 1.4 一类窗口下网格列会被挤压（b4-08 已证标签区/页脚可见可操作，网格全列布局无自动断言，留待实机按需处理）。
+- **预检真实时序**：审计 §D4（预检结果/控制器状态在真实外部进程下的时序观感）依赖实机子进程，自动化不可覆盖；本轮只做代码路径核查，未做实机时序目检。
+- **"恢复默认"视觉确认**：R3.6 外观模型区清空的代码路径已核查（`ResetRobotModelControls`），实际视觉状态（审计 §D6/B7）需实机点按确认，未纳入截图证据。
+- **B11**：外观模型每次"应用设置"仍无条件重写 `robot-models.json`（低优先级，本轮保持原行为未优化）。
+- **B14**：控制器页标题已改常量"外部小车控制器"（`SettingsText.ControllerTitle`），但标签页名"小车控制器"与"小车"仍易混；其余硬编码文案已集中 `SettingsText`，页名未改。
+- **B15**：24 项仿真参数 + 最多 14 路传感器仍无搜索/折叠/过滤（仅新增"高级/开发者"折叠区），不做。
+- **回放 × L1/L2/L3 缺口**（前批遗留，主会话拍板项）：`MatchEngineHost.CreateForReplay` 不接受 `ContactResolveOptions`，非默认接触开关下录制的 legacy 回放无法按同组合复现；开发者折叠区警示文案已原样披露该限制，机制未做。
+- **比赛时长上界**（主会话拍板项）：UI SpinBox 上限 3600 s，`Validate()` 只要求 > 0 有限值；手改设置文件可绕过 UI 上限。
 
 ## 收尾
 
