@@ -51,6 +51,12 @@ public partial class HudPanel : Control
     private Button? _editorApply;
     private bool _editorActive;
 
+    // 瞬时提示 (被拒绝的快捷键等): 只影响状态卡底行的显示, 不参与任何规则/状态计算。
+    private string? _notice;
+    private ulong _noticeUntilMs;
+    private int _noticeSeq;
+    private int _lastNoticeSeq;
+
     public override void _Ready()
     {
         SetAnchorsPreset(LayoutPreset.FullRect);
@@ -595,6 +601,19 @@ public partial class HudPanel : Control
         SetAnchoredRect(_events, 0, 1, 0, 1, 16, topOffset, 472, -86);
     }
 
+    /// <summary>
+    /// Shows a transient message on the status card's bottom line. Used when a
+    /// shortcut is rejected (e.g. pressing E while the match is already running),
+    /// so the reason is visible in the window instead of only in the log file.
+    /// Display-only: it changes no rule, phase or engine state.
+    /// </summary>
+    public void ShowNotice(string text, double seconds = 5.0)
+    {
+        _notice = text;
+        _noticeUntilMs = Time.GetTicksMsec() + (ulong)(Math.Max(0.1, seconds) * 1000.0);
+        _noticeSeq++;
+    }
+
     /// <summary>Refreshes all HUD content from the latest render frame + shell state.</summary>
     public void UpdateFrame(RenderFrame frame, SessionMode mode, long replayTick, long replayTotal,
         bool replayPlaying, CameraMode camera, float cameraYawDeg = 0f)
@@ -602,13 +621,19 @@ public partial class HudPanel : Control
         var hud = frame.Hud;
         // 同一快照被连续呈现多帧 (60fps 渲染 vs 50Hz 仿真): 内容不变则跳过重建。
         var yawKey = (int)MathF.Round(cameraYawDeg);
+        if (_notice is not null && Time.GetTicksMsec() >= _noticeUntilMs)
+        {
+            _notice = null;
+            _noticeSeq++; // 过期也要重绘一次, 把底行还给常规状态文本
+        }
         if (hud.Tick == _lastTick && mode == _lastMode && replayTick == _lastReplayTick
-            && replayPlaying == _lastPlaying && camera == _lastCamera && yawKey == _lastYaw)
+            && replayPlaying == _lastPlaying && camera == _lastCamera && yawKey == _lastYaw
+            && _noticeSeq == _lastNoticeSeq)
         {
             return;
         }
-        (_lastTick, _lastMode, _lastReplayTick, _lastPlaying, _lastCamera, _lastYaw) =
-            (hud.Tick, mode, replayTick, replayPlaying, camera, yawKey);
+        (_lastTick, _lastMode, _lastReplayTick, _lastPlaying, _lastCamera, _lastYaw, _lastNoticeSeq) =
+            (hud.Tick, mode, replayTick, replayPlaying, camera, yawKey, _noticeSeq);
 
         var phaseName = hud.Done ? "比赛结束"
             : hud.Paused ? "暂停"
@@ -625,13 +650,15 @@ public partial class HudPanel : Control
         _statusScore!.Text = $"{hud.ScoreUs:0.#}  :  {hud.ScoreThem:0.#}";
         _statusPenalty!.Text = $"重启判罚  我方 {hud.RestartPenaltyUs:0.#}  /  对手 {hud.RestartPenaltyThem:0.#}";
         _statusBreakdown!.Text = $"明细  我方 {BreakdownLine(hud.BreakdownUs)}  /  对手 {BreakdownLine(hud.BreakdownThem)}";
-        _statusEnd!.Text = hud.Done
-            ? $"终局 · {WinnerText(hud)} · {hud.DoneReason}"
-            : hud.ScoreClockPhase is not null
-                ? ScoreClockText(hud)
-                : hud.Paused ? "比赛暂停 · 等待裁判指令" : "裁判台在线 · 状态同步中";
-        _statusEnd.AddThemeColorOverride("font_color",
-            hud.Done ? AccentRed : hud.ScoreClockPhase is not null ? AccentYellow : phaseColor);
+        _statusEnd!.Text = _notice
+            ?? (hud.Done
+                ? $"终局 · {WinnerText(hud)} · {hud.DoneReason}"
+                : hud.ScoreClockPhase is not null
+                    ? ScoreClockText(hud)
+                    : hud.Paused ? "比赛暂停 · 等待裁判指令" : "裁判台在线 · 状态同步中");
+        _statusEnd.AddThemeColorOverride("font_color", _notice is not null
+            ? AccentYellow
+            : hud.Done ? AccentRed : hud.ScoreClockPhase is not null ? AccentYellow : phaseColor);
 
         _usStatus!.Text = $"{StateChip(us, "我")}\n{us.Action ?? "待命"}";
         _themStatus!.Text = $"{StateChip(them, "对")}\n{them.Action ?? "待命"}";
@@ -654,6 +681,7 @@ public partial class HudPanel : Control
                     ? "\nR/T 仅实况有效"
                     : "\nR 我方重启 · T 对手重启 (+3, 仅实况)")
             + (_editorActive ? "\nE 退出编辑" : "\nF5 重置同 seed · L 打开回放")
+            + (_editorActive || mode == SessionMode.Replay ? "" : "\nE 进入布局编辑")
             + (mode == SessionMode.Replay && !_editorActive
                 ? "\n空格 播放/暂停 · ←→ 单步 · Home/End 首尾"
                 : "")
