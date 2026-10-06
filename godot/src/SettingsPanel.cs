@@ -50,6 +50,11 @@ public partial class SettingsPanel : Control
     private SpinBox? _blockDebuffCount;
     private OptionButton? _blockPlacement;
     private Label? _blockNote;
+    // R3.3: 当前场景是否带 layoutVersion (布局编辑器产物; Open 时由 Main 传入),
+    // 以及"自定义能量块布局"覆盖确认弹窗的未决标记。
+    private bool _scenarioHasLayoutVersion;
+    private ConfirmationDialog? _blockLayoutConfirm;
+    private bool _blockLayoutConfirmPending;
     private readonly List<(string ChannelId, CheckButton Enabled, SpinBox Dx, SpinBox Dy, SpinBox Dz, SpinBox Yaw)> _sensorChannelRows = new();
     private Label? _sensorBaseNote;
     private readonly Dictionary<string, LineEdit> _modelPathInputs = new(StringComparer.Ordinal);
@@ -197,18 +202,27 @@ public partial class SettingsPanel : Control
         UpdatePivot();
     }
 
+    /// <param name="scenarioHasLayoutVersion">
+    /// 当前场景是否带 layoutVersion (布局编辑器/布局文件产物)。批3 R3.3: 能量块页
+    /// "自定义能量块布局"开启前据此弹确认, 避免静默覆盖编辑器的摆位。
+    /// </param>
     public void Open(DesktopSettings settings, bool pendingSimulationChanges,
-        IReadOnlyDictionary<string, RobotModelConfig>? robotModels = null)
+        IReadOnlyDictionary<string, RobotModelConfig>? robotModels = null,
+        bool scenarioHasLayoutVersion = false)
     {
         SyncViewportRect();
         _settings = settings;
         _robotModels = robotModels ?? new Dictionary<string, RobotModelConfig>();
+        _scenarioHasLayoutVersion = scenarioHasLayoutVersion;
+        // 重新打开 = 上一次的未决确认作废 (视为取消), 免得残留标记把下次开关误判成已确认。
+        CloseBlockLayoutConfirm(cancelEdits: true);
+        UpdateBlockCustomTooltip();
         LoadControls(settings);
         if (_pendingNote is not null)
         {
             _pendingNote.Text = pendingSimulationChanges
-                ? "已有修改待下一场生效（回放/编辑布局中不自动重置）· F5 可立即重置并应用"
-                : "显示设置立即生效 · 仿真/控制器/视觉/能量块设置保存后自动重置生效（回放/编辑布局中为下一场生效）";
+                ? SettingsText.PendingChangesNote
+                : SettingsText.NoPendingChangesNote;
         }
         ClearError();
         Visible = true;
@@ -223,6 +237,11 @@ public partial class SettingsPanel : Control
         }
         if (key.Keycode == Key.Escape)
         {
+            if (_blockLayoutConfirm?.Visible == true)
+            {
+                // Esc 由确认弹窗自己处理 (等同"取消", 由 Canceled 回弹开关), 不关闭设置面板。
+                return;
+            }
             Cancel();
             GetViewport().SetInputAsHandled();
         }
@@ -279,24 +298,16 @@ public partial class SettingsPanel : Control
         };
         root.AddChild(tabs);
         _tabs = tabs;
-        tabs.AddChild(BuildDisplayPage());
-        tabs.SetTabTitle(0, "显示与窗口");
-        tabs.AddChild(BuildSimulationPage());
-        tabs.SetTabTitle(1, "仿真参数");
-        tabs.AddChild(BuildControllerPage());
-        tabs.SetTabTitle(2, "小车控制器");
-        tabs.AddChild(BuildVehiclePage());
-        tabs.SetTabTitle(3, "小车");
-        tabs.AddChild(BuildVisionPage());
-        tabs.SetTabTitle(4, "视觉");
-        tabs.AddChild(BuildBlocksPage());
-        tabs.SetTabTitle(5, "能量块");
-        tabs.AddChild(BuildMatchPage());
-        tabs.SetTabTitle(6, "比赛/场景");
+        // 每页 = 内容 + 页脚生效时机 note (批3 R3.5, 文案常量在 SettingsText)。
+        AddSettingsTab(tabs, BuildDisplayPage(), "显示与窗口", SettingsText.DisplayApplyFooter);
+        AddSettingsTab(tabs, BuildSimulationPage(), "仿真参数", SettingsText.AutoReloadApplyFooter);
+        AddSettingsTab(tabs, BuildControllerPage(), "小车控制器", SettingsText.AutoReloadApplyFooter);
+        AddSettingsTab(tabs, BuildVehiclePage(), "小车", SettingsText.AutoReloadApplyFooter);
+        AddSettingsTab(tabs, BuildVisionPage(), "视觉", SettingsText.AutoReloadApplyFooter);
+        AddSettingsTab(tabs, BuildBlocksPage(), "能量块", SettingsText.AutoReloadApplyFooter);
+        AddSettingsTab(tabs, BuildMatchPage(), "比赛/场景", SettingsText.AutoReloadApplyFooter);
 
-        _pendingNote = AddLabel(root,
-            "显示设置立即生效 · 仿真/控制器/视觉/能量块设置保存后自动重置生效（回放/编辑布局中为下一场生效）",
-            11, Yellow);
+        _pendingNote = AddLabel(root, SettingsText.NoPendingChangesNote, 11, Yellow);
         _pendingNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 
         var footer = new HBoxContainer();
@@ -330,6 +341,46 @@ public partial class SettingsPanel : Control
 
         BuildBundleDialogs();
         BuildScenarioDialog();
+        BuildBlockLayoutConfirmDialog();
+    }
+
+    /// <summary>
+    /// 把一个标签页内容包成"内容(占满) + 页脚生效时机 note" (批3 R3.5): note 固定在
+    /// 标签页底部, 不随页内滚动跑掉。note 带最小高度 —— WordSmart 自动换行 Label 在本
+    /// 项目 Godot 4.7 组合下不给高度会以 0 高度参与布局 (批2 已发现的既有坑, 全局修复
+    /// 属批4, 这里只按 _matchNote/_blockNote 的既有做法规避)。
+    /// </summary>
+    private static void AddSettingsTab(TabContainer tabs, Control content, string title, string footerNote)
+    {
+        var page = new VBoxContainer();
+        page.AddThemeConstantOverride("separation", 6);
+        content.SizeFlagsVertical = SizeFlags.ExpandFill;
+        page.AddChild(content);
+        var note = AddLabel(page, footerNote, 11, Secondary, new Vector2(0, 22));
+        note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        tabs.AddChild(page);
+        tabs.SetTabTitle(tabs.GetTabCount() - 1, title);
+    }
+
+    /// <summary>
+    /// R3.3: 当前场景带 layoutVersion (布局编辑器产物) 时, 开启"自定义能量块布局"会
+    /// 整体替换 scenario.Blocks, 覆盖编辑器摆位 —— 用 Godot 原生 ConfirmationDialog
+    /// 显式确认。Exclusive = 弹窗期间面板不接收输入 (防重复触发/切标签), 取消 = 回弹开关。
+    /// </summary>
+    private void BuildBlockLayoutConfirmDialog()
+    {
+        _blockLayoutConfirm = new ConfirmationDialog
+        {
+            Title = "覆盖布局编辑器结果？",
+            DialogText = "自定义能量块布局将覆盖布局编辑器的摆位：应用设置后按下面的数量与落位方式"
+                + "重建双方能量块，编辑器保存/冻结的块坐标不会保留。\n\n继续开启自定义布局？",
+            OkButtonText = "继续开启",
+            CancelButtonText = "取消",
+            Exclusive = true,
+        };
+        _blockLayoutConfirm.Confirmed += OnBlockLayoutConfirmAccepted;
+        _blockLayoutConfirm.Canceled += OnBlockLayoutConfirmDeclined;
+        AddChild(_blockLayoutConfirm);
     }
 
     /// <summary>
@@ -803,7 +854,9 @@ public partial class SettingsPanel : Control
         var blocks = settings.BlockLayout;
         if (_blockCustom is not null)
         {
-            _blockCustom.ButtonPressed = blocks is not null && !blocks.IsFollowScenario;
+            // SetPressedNoSignal: 回填不是用户操作, 不得触发 R3.3 的覆盖确认弹窗
+            // (UpdateBlockInputs 紧跟其后显式刷新)。
+            _blockCustom.SetPressedNoSignal(blocks is not null && !blocks.IsFollowScenario);
         }
         if (_blockBuffCount is not null)
         {
@@ -827,7 +880,8 @@ public partial class SettingsPanel : Control
                 : presetId == SensorProfiles.Legacy14.Id ? 2
                 : 0);
         }
-        RebuildSensorChannelRows();
+        // 打开面板/恢复默认: 从设置回填, 不带任何未应用的旧编辑 (preserveEdits: false)。
+        RebuildSensorChannelRows(preserveEdits: false);
 
         foreach (var role in new[] { RoleNames.Us, RoleNames.Them })
         {
@@ -962,6 +1016,8 @@ public partial class SettingsPanel : Control
 
     private void ApplyDraft()
     {
+        // 未决的覆盖确认等同取消 (R3.3): 不把未经确认的自定义布局带进本次草稿。
+        CloseBlockLayoutConfirm(cancelEdits: true);
         var values = new Dictionary<string, double>(StringComparer.Ordinal);
         foreach (var definition in SimulationParameterCatalog.All)
         {
@@ -1028,7 +1084,8 @@ public partial class SettingsPanel : Control
         var errors = draft.Validate().ToArray();
         if (errors.Length > 0)
         {
-            ShowError(string.Join("\n", errors));
+            // R3.4: 校验消息本体保持结构化英文 (DesktopSettings.Validate 不动), 显示层中文化。
+            ShowError(string.Join("\n", errors.Select(LocalizeValidationError)));
             return;
         }
         _settings = draft;
@@ -1099,8 +1156,9 @@ public partial class SettingsPanel : Control
         scroll.AddChild(page);
 
         AddLabel(page, "小车", 16, Primary);
+        // 批3 R3.1/R3.5: 小车设置已计入变更检测, 保存即自动重开当前对局 —— 不再写"下一场或 F5"。
         AddLabel(page,
-            "比赛双方同款真车的物理规格；应用于 v2 真车几何场景，下一场或 F5 重置后生效。",
+            "比赛双方同款真车的物理规格；应用于 v2 真车几何场景。改动保存后自动重开当前对局生效（回放/布局编辑中为下一场）。",
             11, Secondary);
 
         var grid = new GridContainer { Columns = 2 };
@@ -1136,7 +1194,8 @@ public partial class SettingsPanel : Control
         AddLabel(page, "传感器覆盖", 16, Primary);
         var sensorIntro = AddLabel(page,
             "以预设为基底克隆自定义 profile 写入双方车辆：整路禁用（读数恒为下限，FSM 门限不触发）"
-            + "或按车体系偏移挂点（实车“挪探头”标定语义，dx=前向 / dy=横向 / dz=高度 / dyaw=朝向）。下一场生效。",
+            + "或按车体系偏移挂点（实车“挪探头”标定语义，dx=前向 / dy=横向 / dz=高度 / dyaw=朝向）。"
+            + "切换预设会保留当前未应用的通道编辑（同名通道保留编辑，其余回上次保存值或基底默认）。",
             11, Secondary);
         sensorIntro.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 
@@ -1149,7 +1208,8 @@ public partial class SettingsPanel : Control
             ("真车 11 路（wheeledCombat11）", SensorProfiles.WheeledCombat11.Id),
             ("兼容 14 路（legacy14）", SensorProfiles.Legacy14.Id));
         presetRow.AddChild(_sensorProfile);
-        _sensorProfile.ItemSelected += _ => RebuildSensorChannelRows();
+        // 切换预设: 保留当前控件上未应用的通道编辑 (批3 R3.2)。
+        _sensorProfile.ItemSelected += _ => RebuildSensorChannelRows(preserveEdits: true);
 
         _sensorBaseNote = AddLabel(page, "", 11, Blue, new Vector2(0, 22));
         _sensorBaseNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -1211,10 +1271,15 @@ public partial class SettingsPanel : Control
     };
 
     /// <summary>
-    /// 按当前预设选择重建通道行 (启用勾选 + dx/dy/dz/dyaw 偏移), 值回填自 vehicle 覆盖。
+    /// 按当前预设选择重建通道行 (启用勾选 + dx/dy/dz/dyaw 偏移)。
+    /// preserveEdits=true (用户切换预设): 保存档打底、当前控件上的未应用编辑覆盖其上,
+    /// 同名通道保留编辑值 —— 不再静默丢掉刚敲的偏移/禁用; 合成规则在
+    /// SensorChannelEdits.Merge (纯逻辑, Sim.Tests 回归)。保存档打底保证"切到别的基底
+    /// 再切回来"仍回上次保存值, 而不是被清成基底默认。
+    /// preserveEdits=false (打开面板/恢复默认): 只用保存档 (_settings.Vehicle)。
     /// “跟随场景”的基底随场景自带 profile, UI 按 legacy14 展示通道清单 (与解析端 fallback 一致)。
     /// </summary>
-    private void RebuildSensorChannelRows()
+    private void RebuildSensorChannelRows(bool preserveEdits)
     {
         if (_sensorChannelGrid is null)
         {
@@ -1224,8 +1289,11 @@ public partial class SettingsPanel : Control
         var baseProfile = presetId == SensorProfiles.WheeledCombat11.Id
             ? SensorProfiles.WheeledCombat11
             : SensorProfiles.Legacy14;
-        var vehicle = _settings.Vehicle ?? new VehicleSettings();
-        var disabled = new HashSet<string>(vehicle.SensorDisabled);
+
+        var merged = SensorChannelEdits.Merge(
+            SavedChannelEdits(),
+            preserveEdits ? CurrentChannelRowEdits() : null,
+            baseProfile);
 
         foreach (var child in _sensorChannelGrid.GetChildren())
         {
@@ -1249,8 +1317,11 @@ public partial class SettingsPanel : Control
 
         foreach (var channel in baseProfile.Channels)
         {
+            var edit = merged.TryGetValue(channel.Id, out var kept)
+                ? kept
+                : SensorChannelEdit.Default;
             var enabled = new CheckButton { FocusMode = FocusModeEnum.None };
-            enabled.ButtonPressed = !disabled.Contains(channel.Id);
+            enabled.ButtonPressed = edit.Enabled;
             ApplyCheckButtonTheme(enabled);
             _sensorChannelGrid.AddChild(enabled);
 
@@ -1258,21 +1329,51 @@ public partial class SettingsPanel : Control
             name.TooltipText = channel.Id;
             name.ClipText = true;
 
-            vehicle.SensorOffsets.TryGetValue(channel.Id, out var off);
-            var dx = MakeOffsetSpin(_sensorChannelGrid, off, o => o.Dx, -0.5, 0.5, 0.001, "m");
-            var dy = MakeOffsetSpin(_sensorChannelGrid, off, o => o.Dy, -0.5, 0.5, 0.001, "m");
-            var dz = MakeOffsetSpin(_sensorChannelGrid, off, o => o.Dz, -0.2, 0.2, 0.001, "m");
-            var dyaw = MakeOffsetSpin(_sensorChannelGrid, off, o => o.Yaw, -Math.PI, Math.PI, 0.01, "rad");
+            var dx = MakeOffsetSpin(_sensorChannelGrid, edit.Dx, -0.5, 0.5, 0.001, "m");
+            var dy = MakeOffsetSpin(_sensorChannelGrid, edit.Dy, -0.5, 0.5, 0.001, "m");
+            var dz = MakeOffsetSpin(_sensorChannelGrid, edit.Dz, -0.2, 0.2, 0.001, "m");
+            var dyaw = MakeOffsetSpin(_sensorChannelGrid, edit.Yaw, -Math.PI, Math.PI, 0.01, "rad");
             _sensorChannelRows.Add((channel.Id, enabled, dx, dy, dz, dyaw));
         }
     }
 
-    private static SpinBox MakeOffsetSpin(GridContainer grid, SensorOffset? offset,
-        Func<SensorOffset, double> pick, double min, double max, double step, string suffix)
+    /// <summary>当前设置里已保存的通道禁用/偏移 (未覆盖的通道不进表 = 基底默认)。</summary>
+    private Dictionary<string, SensorChannelEdit> SavedChannelEdits()
+    {
+        var edited = new Dictionary<string, SensorChannelEdit>(StringComparer.Ordinal);
+        var vehicle = _settings.Vehicle ?? new VehicleSettings();
+        var disabledIds = vehicle.SensorDisabled ?? new List<string>();
+        var disabled = new HashSet<string>(disabledIds, StringComparer.Ordinal);
+        foreach (var (channelId, offset) in vehicle.SensorOffsets ?? new Dictionary<string, SensorOffset>())
+        {
+            edited[channelId] = new SensorChannelEdit(!disabled.Contains(channelId),
+                offset.Dx, offset.Dy, offset.Dz, offset.Yaw);
+        }
+        foreach (var channelId in disabledIds)
+        {
+            edited.TryAdd(channelId, new SensorChannelEdit(false, 0, 0, 0, 0));
+        }
+        return edited;
+    }
+
+    /// <summary>当前通道行控件上的值 (切换预设时的"未应用编辑"来源)。</summary>
+    private Dictionary<string, SensorChannelEdit> CurrentChannelRowEdits()
+    {
+        var edited = new Dictionary<string, SensorChannelEdit>(StringComparer.Ordinal);
+        foreach (var row in _sensorChannelRows)
+        {
+            edited[row.ChannelId] = new SensorChannelEdit(row.Enabled.ButtonPressed,
+                row.Dx.Value, row.Dy.Value, row.Dz.Value, row.Yaw.Value);
+        }
+        return edited;
+    }
+
+    private static SpinBox MakeOffsetSpin(GridContainer grid, double value,
+        double min, double max, double step, string suffix)
     {
         var spin = MakeSpin(min, max, step, suffix);
         spin.CustomMinimumSize = new Vector2(110, 30);
-        spin.Value = offset is null ? 0 : pick(offset);
+        spin.Value = value;
         grid.AddChild(spin);
         return spin;
     }
@@ -1332,7 +1433,8 @@ public partial class SettingsPanel : Control
 
     /// <summary>
     /// 能量块设置页(2026-10-04): 自定义开关关闭 = 跟随场景(逐位不变); 开启后可调
-    /// 增益/减益数量与落位方式。应用写入 DesktopSettings.BlockLayout, 下一场生效。
+    /// 增益/减益数量与落位方式。应用写入 DesktopSettings.BlockLayout, 应用后自动重开
+    /// 当前对局生效; 当前场景带 layoutVersion 时开启前先确认覆盖 (批3 R3.3)。
     /// </summary>
     private Control BuildBlocksPage()
     {
@@ -1351,12 +1453,13 @@ public partial class SettingsPanel : Control
         AddLabel(page, "能量块布局", 16, Primary);
         AddLabel(page,
             "自定义比赛的能量块数量与类型：增益块被推上台我方 +3，减益块被推上台对方 +6。"
-            + "关闭自定义 = 跟随场景/官方布局（2 增益 + 1 减益，行为逐位不变）。下一场或 F5 重置后生效。",
+            + "关闭自定义 = 跟随场景/官方布局（2 增益 + 1 减益，行为逐位不变）。改动保存后自动重开当前对局生效。",
             11, Secondary);
 
         _blockCustom = new CheckButton { Text = "自定义能量块布局", FocusMode = FocusModeEnum.None };
         ApplyCheckButtonTheme(_blockCustom);
-        _blockCustom.Toggled += _ => UpdateBlockInputs();
+        UpdateBlockCustomTooltip();
+        _blockCustom.Toggled += OnBlockCustomToggled;
         page.AddChild(_blockCustom);
 
         var grid = new GridContainer { Columns = 2 };
@@ -1386,6 +1489,64 @@ public partial class SettingsPanel : Control
 
         page.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
         return scroll;
+    }
+
+    /// <summary>
+    /// R3.3: "自定义能量块布局"开关的行为。当前场景带 layoutVersion (布局编辑器产物)
+    /// 且是往"开启"方向切换 → 先弹确认; 取消则回弹开关 (SetPressedNoSignal, 不递归)。
+    /// 弹窗未决期间再触发只保持开关状态, 不叠加第二个弹窗。
+    /// </summary>
+    private void OnBlockCustomToggled(bool pressed)
+    {
+        if (pressed && _scenarioHasLayoutVersion && !_blockLayoutConfirmPending
+            && _blockLayoutConfirm is not null)
+        {
+            _blockLayoutConfirmPending = true;
+            _blockLayoutConfirm.PopupCentered(new Vector2I(600, 240));
+        }
+        UpdateBlockInputs();
+    }
+
+    private void OnBlockLayoutConfirmAccepted()
+    {
+        _blockLayoutConfirmPending = false;
+        UpdateBlockInputs();
+    }
+
+    private void OnBlockLayoutConfirmDeclined()
+    {
+        CloseBlockLayoutConfirm(cancelEdits: true);
+    }
+
+    /// <summary>
+    /// 收掉未决的覆盖确认弹窗。cancelEdits=true = 取消语义 (用户点取消 / 面板关闭 /
+    /// 重新打开面板 / 应用或恢复默认): 回弹开关, 不把未确认的覆盖静默带进草稿。
+    /// </summary>
+    private void CloseBlockLayoutConfirm(bool cancelEdits)
+    {
+        _blockLayoutConfirm?.Hide();
+        if (!_blockLayoutConfirmPending)
+        {
+            return;
+        }
+        _blockLayoutConfirmPending = false;
+        if (cancelEdits)
+        {
+            _blockCustom?.SetPressedNoSignal(false);
+            UpdateBlockInputs();
+        }
+    }
+
+    /// <summary>R3.3: 开关 tooltip 随当前场景来源更新 (Build 时还未收到场景状态)。</summary>
+    private void UpdateBlockCustomTooltip()
+    {
+        if (_blockCustom is null)
+        {
+            return;
+        }
+        _blockCustom.TooltipText = _scenarioHasLayoutVersion
+            ? "当前场景来自布局编辑器：开启前会确认是否覆盖编辑器的摆位"
+            : "关闭时跟随场景/官方布局；开启后自定义数量与落位（应用后自动重开当前对局生效）";
     }
 
     /// <summary>自定义开关只控制数量/落位输入的可用性；关闭 = 跟随场景(不改布局)。</summary>
@@ -1623,7 +1784,7 @@ public partial class SettingsPanel : Control
         AddLabel(page, "视觉源", 16, Primary);
         AddLabel(page,
             "四选一：默认识别率模型不注入外部源（行为与既有比赛逐位一致）；证据包回放与实时 CSV 桥读取本机文件；"
-            + "外部推理进程每场启动子进程消费 stdout JSONL。下一场或 F5 重置后生效。",
+            + "外部推理进程每场启动子进程消费 stdout JSONL。改动保存后自动重开当前对局生效。",
             11, Secondary);
 
         var grid = new GridContainer { Columns = 2, CustomMinimumSize = new Vector2(0, 210) };
@@ -1733,19 +1894,50 @@ public partial class SettingsPanel : Control
         _ => VisionSources.ClassifyRate,
     };
 
+    /// <summary>
+    /// "恢复默认": 主设置回 <see cref="DesktopSettings.Default"/> 之外, 外观模型区控件
+    /// 同时归零 (路径空 / scale 1 / 偏移 0, 批3 R3.6) —— 只改草稿标记, 落盘仍走"应用设置"
+    /// (那时 ReadRobotModelsDraft 为空 = 清除外观绑定)。
+    /// </summary>
     private void RestoreDefaults()
     {
+        CloseBlockLayoutConfirm(cancelEdits: true);
         _settings = DesktopSettings.Default;
         LoadControls(_settings);
+        ResetRobotModelControls();
         ClearError();
+    }
+
+    /// <summary>外观模型区控件归零 (R3.6; 实际清除要等"应用设置"写 robot-models.json)。</summary>
+    private void ResetRobotModelControls()
+    {
+        foreach (var input in _modelPathInputs.Values)
+        {
+            input.Text = "";
+        }
+        foreach (var transforms in _modelTransformInputs.Values)
+        {
+            transforms[0].Value = 1.0;
+            transforms[1].Value = 0;
+            transforms[2].Value = 0;
+        }
     }
 
     private void Cancel()
     {
+        // 面板关闭时未决的覆盖确认等同取消 (R3.3), 弹窗不得残留在已关闭的面板下。
+        CloseBlockLayoutConfirm(cancelEdits: true);
         Visible = false;
         ClearError();
         Cancelled?.Invoke();
     }
+
+    /// <summary>
+    /// 校验错误显示层中文化 (批3 R3.4): 映射表在 SettingsValidationMessages (无 Godot
+    /// 依赖, Sim.Tests 逐条断言 + 源扫描漏项报警)。未识别消息原文兜底。
+    /// </summary>
+    private static string LocalizeValidationError(string error)
+        => SettingsValidationMessages.Localize(error);
 
     private void ShowError(string message)
     {

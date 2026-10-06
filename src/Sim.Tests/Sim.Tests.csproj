@@ -47,6 +47,12 @@
     <Compile Include="..\..\godot\src\ControllerWiring.cs" Link="godot\ControllerWiring.cs" />
     <!-- 布局编辑入口判定（Prep/Ready 均视为尚未发令）：纯逻辑，无 Godot。 -->
     <Compile Include="..\..\godot\src\EditorGate.cs" Link="godot\EditorGate.cs" />
+    <!-- 批3 R3.1 应用设置是否自动重置的判定（含 Vehicle 深比较）：纯逻辑，无 Godot。 -->
+    <Compile Include="..\..\godot\src\DesktopSettingsDiff.cs" Link="godot\DesktopSettingsDiff.cs" />
+    <!-- 批3 R3.2 传感器预设切换的通道编辑合并：同名保留 / 异名回基底默认。 -->
+    <Compile Include="..\..\godot\src\SensorChannelEdits.cs" Link="godot\SensorChannelEdits.cs" />
+    <!-- 批3 R3.4/R3.5 设置页文案常量与校验错误中文映射（源扫描漏项测试依赖本文件可读）。 -->
+    <Compile Include="..\..\godot\src\SettingsUiText.cs" Link="godot\SettingsUiText.cs" />
   </ItemGroup>
 
   <ItemGroup>

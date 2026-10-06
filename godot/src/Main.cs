@@ -1076,7 +1076,9 @@ public partial class Main : Node
 
     private void ApplyDesktopSettings(DesktopSettings settings)
     {
-        var matchChanged = !MatchSettingsEqual(_settings, settings);
+        // 批3 R3.1: 比较逻辑抽到 DesktopSettingsDiff (纯逻辑, Sim.Tests 回归), Vehicle
+        // (含传感器覆盖) 已计入 —— 只改小车参数同样触发自动重开当前对局。
+        var matchChanged = !DesktopSettingsDiff.MatchRelevantEqual(_settings, settings);
         _settings = settings;
         try
         {
@@ -1099,14 +1101,17 @@ public partial class Main : Node
             // 2026-10-04 用户拍板"保存后自动重置生效": 实况中(含待命/进行中/已结束)
             // 保存即重建会话, 省一次手动 F5。两个安全例外维持"下一场生效": 回放中
             // (重置会踢出回放)与布局编辑中(重置会丢弃未应用草稿)。
+            // 批3 R3.1: 小车设置在 matchChanged 内, 日志不再出现"只改小车却谎报显示设置"。
             ReloadSessionForScenarioTemplate(
                 scenarioChanged && !matchChanged
                     ? "[settings] 比赛/场景设置已应用: 已按所选场景重建当前对局"
-                    : "[settings] 已保存并自动重置生效",
+                    : "[settings] 比赛相关设置已应用并重置: 已重建当前对局",
                 "[settings] 设置已保存，将在下一场或 F5 重置后生效");
         }
         else
         {
+            // 对局相关字段无变化 (只改显示项, 或连显示项都没改的空应用): 显示设置即时
+            // 应用, 不重置对局。日志文案沿用既有口径 (只改小车参数的谎报已由 R3.1 修掉)。
             GD.Print("[settings] 显示设置已应用");
         }
     }
@@ -1311,8 +1316,15 @@ public partial class Main : Node
         {
             return;
         }
-        _settingsPanel.Open(_settings, _pendingMatchSettings, _robotModels);
+        _settingsPanel.Open(_settings, _pendingMatchSettings, _robotModels, ScenarioHasLayoutVersion());
     }
+
+    /// <summary>
+    /// 当前场景模板是否带 layoutVersion (布局编辑器/布局文件产物) —— 批3 R3.3:
+    /// 能量块页"自定义能量块布局"开启前要据此警告"将覆盖布局编辑器的摆位"。
+    /// </summary>
+    private bool ScenarioHasLayoutVersion()
+        => _scenarioTemplate is { LayoutVersion: ProtocolVersion.ArenaLayoutV1 };
 
     private Scenario BuildScenario()
     {
@@ -1530,58 +1542,6 @@ public partial class Main : Node
 
     private bool LivePaused
         => _liveDriver?.Status.Paused ?? _session.Engine.Paused;
-
-    private static bool MatchSettingsEqual(DesktopSettings left, DesktopSettings right)
-        => DictionaryEqual(left.SimulationParameters, right.SimulationParameters)
-            && ControllerEqual(left.UsController, right.UsController)
-            && ControllerEqual(left.ThemController, right.ThemController)
-            && VisionEqual(left.Vision, right.Vision)
-            && BlockLayoutEqual(left.BlockLayout, right.BlockLayout)
-            // 批2 新增字段: 比赛/场景覆盖与 legacy 接触开关都改对局结果, 必须触发自动
-            // 重置; 缺省档两边相等 = 老配置行为不变。
-            && MatchOverridesEqual(left.MatchOverrides, right.MatchOverrides)
-            && DevContactEqual(left.DevContact, right.DevContact);
-
-    private static bool MatchOverridesEqual(MatchOverrides? left, MatchOverrides? right)
-        => (left?.PhysicsBackendOverride ?? "") == (right?.PhysicsBackendOverride ?? "")
-            && (left?.ScenarioPath ?? "") == (right?.ScenarioPath ?? "")
-            && left?.MatchDuration == right?.MatchDuration
-            && left?.Seed == right?.Seed;
-
-    private static bool DevContactEqual(DevContact? left, DevContact? right)
-        => (left?.L1VehicleVehicleObb ?? true) == (right?.L1VehicleVehicleObb ?? true)
-            && (left?.L2VehicleBlockObb ?? true) == (right?.L2VehicleBlockObb ?? true)
-            && (left?.L3BlockWallBlock ?? true) == (right?.L3BlockWallBlock ?? true);
-
-    private static bool BlockLayoutEqual(BlockLayoutSettings? left, BlockLayoutSettings? right)
-        => left?.BuffCount == right?.BuffCount
-            && left?.DebuffCount == right?.DebuffCount
-            && left?.RandomPositions == right?.RandomPositions;
-
-    private static bool VisionEqual(VisionSettings? left, VisionSettings? right)
-        => left?.Source == right?.Source
-            && left?.EvidencePath == right?.EvidencePath
-            && left?.CsvPath == right?.CsvPath
-            && left?.MaxAgeMs == right?.MaxAgeMs;
-
-    private static bool DictionaryEqual(IReadOnlyDictionary<string, double>? left,
-        IReadOnlyDictionary<string, double>? right)
-    {
-        if (ReferenceEquals(left, right))
-        {
-            return true;
-        }
-        if (left is null || right is null || left.Count != right.Count)
-        {
-            return false;
-        }
-        return left.All(pair => right.TryGetValue(pair.Key, out var value) && value == pair.Value);
-    }
-
-    private static bool ControllerEqual(ControllerProfile? left, ControllerProfile? right)
-        => left?.Mode == right?.Mode
-            && left?.Command == right?.Command
-            && left?.TimeoutMs == right?.TimeoutMs;
 
     private static string DisplaySettingsLine(DesktopSettings settings)
     {
@@ -1886,7 +1846,7 @@ public partial class Main : Node
         // 导入前的值, 随后的"应用设置"会把旧值写回、静默回退本次导入。
         if (_settingsPanel.IsOpen)
         {
-            _settingsPanel.Open(_settings, _pendingMatchSettings, _robotModels);
+            _settingsPanel.Open(_settings, _pendingMatchSettings, _robotModels, ScenarioHasLayoutVersion());
         }
 
         var message = "配置包导入完成:\n" + string.Join("\n", notes.Select(note => "· " + note));
