@@ -39,7 +39,10 @@
   - 三者走既有 `Apply(State with {...})` 撤销栈。
 - `LayoutEditor`：
   - 新输入动作（project.godot）：`editor_block_add`=B(66)、`editor_block_kind`=K(75)、
-    `editor_block_remove`=Delete(4194322)；检查无键位冲突（现只占 E/Ctrl+Z/Y/[/]/S/方向键）。
+    `editor_block_remove`=Delete(4194312)；检查无键位冲突（现只占 E/Ctrl+Z/Y/[/]/S/方向键）。
+    <!-- 2026-10-06 修订：原文写作 4194322，那是 KEY_DOWN 而非 KEY_DELETE(4194312)；
+         该笔误使删除功能实际绑在 ↓ 上（与 ui_down 微调冲突），已修复并由
+         src/Sim.Tests/GodotInputMapTests.cs 守卫。 -->
   - `_Process` 里处理三个动作：add 默认增益；kind/remove 作用于选中块，未选中给提示。
   - `SelectedLabel` 带块类型（"能量块 #2 (增益)"）；操作后 StatusLine 提示数量。
 - `Main.cs` 编辑器进入提示行(:1800)追加 "B 添加块 · K 切换类型 · Del 删除块"。
