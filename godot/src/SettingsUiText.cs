@@ -25,6 +25,76 @@ public static class SettingsText
     /// <summary>面板顶部: 已有修改挂在待生效 (回放/布局编辑中应用过设置)。</summary>
     public const string PendingChangesNote =
         "已有修改待下一场生效（回放/布局编辑中不自动重置）· F5 可立即重置并应用";
+
+    // ---------- 批4 打磨: 控件文案/示例路径集中区 ----------
+    // 说明 (R4.6): 用户可见的固定文案一律引用这里, 面板里不再散落字面量;
+    // 动态文案 (随取值/状态变化的 note) 用下面的方法生成。
+
+    /// <summary>控制器页标题。</summary>
+    public const string ControllerTitle = "外部小车控制器";
+
+    /// <summary>我方 (RL 展演) 命令行占位示例。</summary>
+    public const string ControllerCommandPlaceholderUs =
+        "例如：py -3.12 -X utf8 ../tools/rl-bridge/rl_desktop_runner.py --checkpoint <zip>";
+
+    /// <summary>对手命令行占位示例。</summary>
+    public const string ControllerCommandPlaceholderThem = "例如：python my_controller.py";
+
+    /// <summary>外观模型路径占位示例 (按角色区分文件名)。</summary>
+    public static string ModelPathPlaceholder(string role)
+        => $"例如：C:/models/{role}.glb 或 res://models/{role}.glb（留空 = primitive 分件）";
+
+    /// <summary>文件对话框过滤器: 外观模型。</summary>
+    public const string ModelFilter = "*.glb,*.gltf ; 机器人外观模型 (glTF)";
+
+    /// <summary>文件对话框过滤器: 场景 JSON。</summary>
+    public const string ScenarioFilter = "*.json ; 场景 (Scenario)";
+
+    /// <summary>文件对话框过滤器: 真车 CSV。</summary>
+    public const string CsvFilter = "*.csv ; 真车检测流 (MBri 方言)";
+
+    /// <summary>能量块页说明 (R4.6 集中的硬编码文案)。</summary>
+    public const string BlocksIntro =
+        "自定义比赛的能量块数量与类型：增益块被推上台我方 +3，减益块被推上台对方 +6。"
+        + "关闭自定义 = 跟随场景/官方布局（2 增益 + 1 减益，行为逐位不变）。改动保存后自动重开当前对局生效。";
+
+    /// <summary>能量块页: 跟随场景档的实时说明。</summary>
+    public const string BlocksFollowNote = "跟随场景：使用场景文件/官方布局的能量块（行为逐位不变）。";
+
+    /// <summary>落位方式 (官方坐标优先) 的实时说明。</summary>
+    public const string BlockPlacementOfficialText = "前两个增益块与第一个减益块用官方坐标，多出的块由裁判确定性放置";
+
+    /// <summary>落位方式 (全部随机) 的实时说明。</summary>
+    public const string BlockPlacementRandomText =
+        "全部块由裁判按种子确定性放置（禁区：避台沿 0.35m / 避两车 0.8m / 避中央 0.6m / 块间 0.5m）";
+
+    /// <summary>小车页实时派生提示 (转速/轮径 → 轮端极速 → 登台/恢复时限)。</summary>
+    public static string VehicleNote(double rpm, double maxSpeed)
+        => $"默认配套：博创尚和 2342 开环电机（12V，减速后 {rpm:0} RPM）。"
+            + $"轮端极速 ≈ {maxSpeed:0.000} m/s；登台/恢复时限随极速自动缩放；"
+            + "扭矩当前仅存档（仿真为速度伺服）。";
+
+    /// <summary>视觉页: 证据包目录字段标题。</summary>
+    public const string VisionEvidenceTitle = "证据包目录";
+
+    /// <summary>视觉页: 证据包目录占位示例。</summary>
+    public const string VisionEvidencePlaceholder = "例如：vision/evidence-mini（含 frames.jsonl + import-report.json）";
+
+    /// <summary>视觉页: 真车 CSV 字段标题。</summary>
+    public const string VisionCsvTitle = "真车 CSV 路径";
+
+    /// <summary>视觉页: 真车 CSV 占位示例。</summary>
+    public const string VisionCsvPlaceholder = "例如：vision/hunt_drive_20260817_095205.csv（MBri 73 列方言）";
+
+    /// <summary>视觉页: 推理进程命令行字段标题。</summary>
+    public const string VisionProcessTitle = "推理进程命令行";
+
+    /// <summary>视觉页: 推理进程命令行占位示例。</summary>
+    public const string VisionProcessPlaceholder =
+        "例如：py tools/yolo-bridge/mbri_yolo_bridge.py --stub vision/stub.csv（stdout 逐帧 JSONL）";
+
+    /// <summary>视觉页: 当前来源不使用的输入, 标题后缀灰字说明 (R4.6)。</summary>
+    public const string NotUsedByCurrentSource = "（当前来源不使用）";
 }
 
 /// <summary>
@@ -90,7 +160,8 @@ public static class SettingsValidationMessages
                 return "随机种子必须在 0–4096 之间。";
         }
 
-        // 源码里这条消息是两段字面量拼接的 (前半段单独扫描到时也要能映射)。
+        // 批4 起源码里是完整单字面量; 仍按前缀匹配 (后缀参数组合的展示不敏感),
+        // 源扫描测试同时保证该字面量以句号收尾、不被拼接截断。
         const string backendHead = "matchOverrides.physicsBackendOverride must be null (follow scenario), ";
         if (body.StartsWith(backendHead, StringComparison.Ordinal))
         {

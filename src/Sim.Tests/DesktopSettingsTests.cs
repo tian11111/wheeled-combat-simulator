@@ -213,6 +213,9 @@ public class DesktopSettingsTests : IDisposable
             Assert.False(string.IsNullOrWhiteSpace(definition.Key));
             Assert.False(string.IsNullOrWhiteSpace(definition.Unit));
             Assert.True(definition.Minimum <= definition.Maximum);
+            // R4.1: tooltip 用中文说明且必须带上单位 (影响方向写在句子里)。
+            Assert.False(string.IsNullOrWhiteSpace(definition.Description));
+            Assert.Contains(definition.Unit, definition.Description, StringComparison.Ordinal);
         });
     }
 

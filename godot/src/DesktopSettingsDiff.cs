@@ -68,6 +68,9 @@ public static class DesktopSettingsDiff
         => left?.Source == right?.Source
             && left?.EvidencePath == right?.EvidencePath
             && left?.CsvPath == right?.CsvPath
+            // liveProcess 档改命令行也必须算对局相关变更 (每次会话按 ProcessCommand
+            // 新建子进程): 漏比会让"只改命令"不触发自动重开且日志谎报显示设置已应用。
+            && left?.ProcessCommand == right?.ProcessCommand
             && left?.MaxAgeMs == right?.MaxAgeMs;
 
     private static bool DictionaryEqual(IReadOnlyDictionary<string, double>? left,

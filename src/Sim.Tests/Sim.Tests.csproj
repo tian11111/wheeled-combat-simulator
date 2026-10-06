@@ -53,6 +53,8 @@
     <Compile Include="..\..\godot\src\SensorChannelEdits.cs" Link="godot\SensorChannelEdits.cs" />
     <!-- 批3 R3.4/R3.5 设置页文案常量与校验错误中文映射（源扫描漏项测试依赖本文件可读）。 -->
     <Compile Include="..\..\godot\src\SettingsUiText.cs" Link="godot\SettingsUiText.cs" />
+    <!-- 批4 R4.5 MakeOption 的 id 取义规则：下标只表示 UI 顺序，语义按 id 映射（纯逻辑）。 -->
+    <Compile Include="..\..\godot\src\SettingsOptionIds.cs" Link="godot\SettingsOptionIds.cs" />
   </ItemGroup>
 
   <ItemGroup>

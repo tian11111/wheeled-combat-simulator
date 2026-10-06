@@ -14,9 +14,6 @@ public readonly record struct SensorChannelEdit(bool Enabled, double Dx, double 
 {
     /// <summary>基底默认: 启用 + 零偏移 (未编辑通道回落到这里)。</summary>
     public static SensorChannelEdit Default => new(true, 0, 0, 0, 0);
-
-    /// <summary>当前编辑对应的偏移值 (未编辑 = 全 0)。</summary>
-    public SensorOffset Offset => new(Dx, Dy, Dz, Yaw);
 }
 
 /// <summary>

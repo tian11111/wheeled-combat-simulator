@@ -117,6 +117,16 @@ public sealed class SettingsInteractionTests
         {
             Vision = left.Vision with { Source = VisionSources.VisionReplay, EvidencePath = "x" },
         }));
+        // liveProcess 档只改命令行同样算对局相关变更 (每场子进程按 ProcessCommand 新建;
+        // 漏比会让"只改命令"不重开且日志谎报显示设置已应用)。
+        var liveProcess = left with
+        {
+            Vision = left.Vision with { Source = VisionSources.LiveProcess, ProcessCommand = "py a.py" },
+        };
+        Assert.False(DesktopSettingsDiff.MatchRelevantEqual(liveProcess, liveProcess with
+        {
+            Vision = liveProcess.Vision with { ProcessCommand = "py b.py" },
+        }));
         Assert.False(DesktopSettingsDiff.MatchRelevantEqual(left, left with
         {
             UsController = left.UsController with { TimeoutMs = 250 },
@@ -338,6 +348,7 @@ public sealed class SettingsInteractionTests
     /// 源扫描 (对照清单): godot/src/DesktopSettings.cs 两个 Validate 区域里的每个
     /// "settings: " 消息字面量都必须能被映射中文化; 模板数量与 <see cref="ValidateTemplateCount"/>
     /// 不符 (新增/删除模板) 也要红 —— 逼着改映射表时同步清单。
+    /// 字面量还必须是完整消息 (批4: 拼接片段只被正则吃到第一段, 会被这里抓住)。
     /// </summary>
     [Fact]
     public void ValidateSource_EverySettingsMessageLiteral_Localizes()
@@ -347,6 +358,10 @@ public sealed class SettingsInteractionTests
 
         foreach (var literal in literals)
         {
+            // 完整消息以句号收尾 (插值模板以占位符收尾); 以逗号/空格结尾 = 被字符串
+            // 拼接截断的片段 —— 只扫到片段时映射规则与覆盖清单都会失真。
+            Assert.True(literal.EndsWith('.') || literal.EndsWith('}'),
+                $"Validate 消息字面量疑似被字符串拼接截断 (正则只扫到片段): {literal}");
             var sample = SubstitutePlaceholders(literal);
             var localized = SettingsValidationMessages.Localize(sample);
             Assert.False(localized.StartsWith("settings:", StringComparison.Ordinal), $"未本地化: {literal}");
@@ -408,5 +423,110 @@ public sealed class SettingsInteractionTests
         }
         Assert.NotNull(dir);
         return Path.Combine(dir!.FullName, relative);
+    }
+
+    // ---------- R4.5 MakeOption 按 id 取义 ----------
+
+    /// <summary>MakeOption 登记到 Meta 的 id 表语义 (下标只表示 UI 顺序)。</summary>
+    [Fact]
+    public void OptionIds_IndexToId_FollowsUiOrderAndFallsBack()
+    {
+        string[] ids = [DisplayModes.Windowed, DisplayModes.Fullscreen];
+
+        Assert.Equal(DisplayModes.Windowed, SettingsOptionIds.IdAt(ids, 0, "fallback"));
+        Assert.Equal(DisplayModes.Fullscreen, SettingsOptionIds.IdAt(ids, 1, "fallback"));
+        // 越界/空表 = 控件未建好或表丢失: 退回既有默认档语义 (不臆造档位)。
+        Assert.Equal("fallback", SettingsOptionIds.IdAt(ids, 2, "fallback"));
+        Assert.Equal("fallback", SettingsOptionIds.IdAt(ids, -1, "fallback"));
+        Assert.Equal("fallback", SettingsOptionIds.IdAt(null, 0, "fallback"));
+        Assert.Equal("fallback", SettingsOptionIds.IdAt([], 0, "fallback"));
+    }
+
+    [Fact]
+    public void OptionIds_IdToIndex_UnknownOrNullLandsOnFirstSlot()
+    {
+        string[] visionIds =
+        [
+            VisionSources.ClassifyRate, VisionSources.VisionReplay,
+            VisionSources.LiveBridge, VisionSources.LiveProcess,
+        ];
+
+        Assert.Equal(0, SettingsOptionIds.IndexOf(visionIds, VisionSources.ClassifyRate));
+        Assert.Equal(2, SettingsOptionIds.IndexOf(visionIds, VisionSources.LiveBridge));
+        // 未收录/缺省 = 首档 (跟随场景/窗口化/内置 FSM 这类"行为不变"的默认档)。
+        Assert.Equal(0, SettingsOptionIds.IndexOf(visionIds, "telepathy"));
+        Assert.Equal(0, SettingsOptionIds.IndexOf(visionIds, null));
+        Assert.Equal(0, SettingsOptionIds.IndexOf(null, VisionSources.LiveBridge));
+
+        // 传感器预设的"跟随场景"档 id 是空串, 必须能精确定位到它。
+        string[] profileIds = ["", SensorProfiles.WheeledCombat11.Id, SensorProfiles.Legacy14.Id];
+        Assert.Equal(0, SettingsOptionIds.IndexOf(profileIds, ""));
+        Assert.Equal(1, SettingsOptionIds.IndexOf(profileIds, SensorProfiles.WheeledCombat11.Id));
+
+        // 能量块落位 (R4.5 档位常量) 往返。
+        string[] placementIds = [BlockPlacementModes.Official, BlockPlacementModes.Random];
+        Assert.Equal(1, SettingsOptionIds.IndexOf(placementIds, BlockPlacementModes.Random));
+    }
+
+    /// <summary>
+    /// 源扫描: SettingsPanel 的读取端不得再对下标取义 (R4.5), 且每个 MakeOption 调用点
+    /// 的 (label,id) 表内 id 唯一 (重复 id 会让 id→下标映射静默落到首档)。
+    /// </summary>
+    [Fact]
+    public void MakeOptionCallSites_RegisterUniqueIds_AndReadersUseIdMapping()
+    {
+        var text = File.ReadAllText(FindRepoFile("godot/src/SettingsPanel.cs"));
+
+        // 读取端一律走 GetSelectedId (下标仅表示 UI 顺序)。
+        Assert.DoesNotContain(".Selected == ", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Selected switch", text, StringComparison.Ordinal);
+
+        var callSites = ScanCalls(text, "MakeOption").Where(call => call.Contains('"')).ToList();
+        // 当前实况 6 处 (窗口模式/能量块落位/传感器预设/比赛后端/视觉来源/控制器来源)。
+        Assert.True(callSites.Count >= 6, $"MakeOption 调用点数量异常: {callSites.Count}");
+        foreach (var call in callSites)
+        {
+            var ids = Regex.Matches(call,
+                    "\\(\\s*\"[^\"]*\"\\s*,\\s*(?<id>[A-Za-z_][A-Za-z0-9_.]*|\"[^\"]*\")\\s*\\)")
+                .Select(match => match.Groups["id"].Value)
+                .ToList();
+            Assert.True(ids.Count >= 2, $"MakeOption 调用缺少 (label,id) 元组: {call}");
+            Assert.Equal(ids.Count, ids.Distinct(StringComparer.Ordinal).Count());
+        }
+    }
+
+    /// <summary>扫出源码里所有 <paramref name="name"/>+(...) 调用 (括号配平), 含嵌套参数。</summary>
+    private static List<string> ScanCalls(string text, string name)
+    {
+        var calls = new List<string>();
+        var search = 0;
+        while (true)
+        {
+            var start = text.IndexOf(name + "(", search, StringComparison.Ordinal);
+            if (start < 0)
+            {
+                return calls;
+            }
+            var depth = 0;
+            var end = text.Length;
+            for (var i = start + name.Length; i < text.Length; i++)
+            {
+                if (text[i] == '(')
+                {
+                    depth++;
+                }
+                else if (text[i] == ')')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        end = i + 1;
+                        break;
+                    }
+                }
+            }
+            calls.Add(text[start..end]);
+            search = end;
+        }
     }
 }
