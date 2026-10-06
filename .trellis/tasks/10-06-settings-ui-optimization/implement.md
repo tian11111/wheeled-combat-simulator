@@ -15,24 +15,28 @@ C:/Users/Neco/AppData/Local/Programs/robot-simulator-dotnet/dotnet.exe test
 
 ## 批1：复现基座
 
-- [ ] 1.1 `train.py` 加 `--config`（design §1c）：snake_case schema、显式 CLI 覆盖、未知键报错；无 `--config` 时逐位等价现状
-- [ ] 1.2 新建 `godot/src/SettingsBundle.cs`（bundle schema + ProtocolJson 序列化/反序列化 + 原子写）
-- [ ] 1.3 `Main` 增加 `ExportSettingsBundle/ImportSettingsBundle`（版本校验拒绝 + 确认弹窗 + 四类内容落点，design §1b）；IO 走 `ResolveUserPath` 语义
-- [ ] 1.4 `SettingsPanel` 页脚两按钮 + 共享 `FileDialog`（参照 `LayoutEditor.cs:101-118`）；导出时可选挂载 train-config 文件
-- [ ] 1.5 单测：bundle 往返、版本不匹配拒绝、无 `--config` 等价性断言
-- [ ] 1.6 验证：`dotnet test` 全绿；实机导出→删改→导入还原 手工用例；`--settings-smoke --capture` 截图确认按钮不溢出页脚
-- [ ] 1.7 提交（回滚点：批1）
+- [x] 1.1 `train.py` 加 `--config`（design §1c）：snake_case schema、显式 CLI 覆盖、未知键报错；无 `--config` 时逐位等价现状
+- [x] 1.2 新建 `godot/src/SettingsBundle.cs`（bundle schema + ProtocolJson 序列化/反序列化 + 原子写）
+- [x] 1.3 `Main` 增加 `ExportSettingsBundle/ImportSettingsBundle`（版本校验拒绝 + 确认弹窗 + 四类内容落点，design §1b）；IO 走 `ResolveUserPath` 语义
+- [x] 1.4 `SettingsPanel` 页脚两按钮 + 共享 `FileDialog`（参照 `LayoutEditor.cs:101-118`）；导出时可选挂载 train-config 文件
+- [x] 1.5 单测：bundle 往返、版本不匹配拒绝、无 `--config` 等价性断言
+- [x] 1.6 验证：`dotnet test` 全绿；实机导出→删改→导入还原 手工用例；`--settings-smoke --capture` 截图确认按钮不溢出页脚
+- [x] 1.7 提交（回滚点：批1）
 
 ## 批2：比赛/场景页 + 高级折叠区
 
-- [ ] 2.1 **Spike**：验证 `ResetLiveSession` 重建链是否重新选物理后端（design §2b 风险项）；结论写回本文件，不通过则按降级方案实施
-- [ ] 2.2 `DesktopSettings` 加 `MatchOverrides` + `DevContact`（design §2a）+ `Validate()` 增补 + 默认值回归测试（老配置无新字段行为不变）
-- [ ] 2.3 `Main` 装配链插入 `ApplyMatchOverrides`（最先）；`Seed` 运行时可写 + "换种子重开"；`DevContact` 注入 `MatchEngine` 构造点
-- [ ] 2.4 运行时场景重载入口（导入/场景选择共用；参考 `ApplyLayoutScenario` `Main.cs:1868-1876`）
-- [ ] 2.5 `SettingsPanel` 新"比赛/场景"页（design §2c）+ 仿真参数页"高级/开发者"折叠区（L1/L2/L3）
-- [ ] 2.6 单测：backendOverride 覆盖语义、seed 重开一致性（同 seed 同布局轨迹一致）、默认值钉死
-- [ ] 2.7 验证：`dotnet test`；实机切 legacy↔mujoco v2 观察下一场生效与提示；`--settings-smoke --settings-tab match --capture`（tab 名以实现为准）
-- [ ] 2.8 提交（回滚点：批2）
+- [x] 2.1 **Spike 结论（2026-10-06，实施代理）：支持热切 —— backend 每次会话构造时按 `scenario.physics` 重新装配，不存在启动期一次性选定。**
+  - 证据链（行号为实施当日代码）：`Main.ResetLiveSession`（Main.cs:1273-1282）→ `BuildLiveScenarioFromTemplate`（:1255-1259，`ApplyDesktopSettings` 链重建场景值）→ `ReplaceSession`（:1266-1271，`new MatchSession(scenario, _visionFactory)`）；`MatchSession` ctor（MatchSession.cs:61-66）与 `ResetToLive`（:174-188）都调 `MatchEngineHost.Create`。
+  - `MatchEngineHost.Create`（src/Sim.Hosting/MatchEngineHost.cs:35-43）**每次调用**按 `scenario.Physics?.Backend` 二选一分派（mujoco → 注入 `MujocoPhysicsBackendFactory.Instance`，否则 legacy）；`MatchEngine` ctor（src/Sim.Core/MatchEngine.cs:146-165）据此构造 `_physics`。
+  - `MujocoPhysicsBackendFactory.Create`（src/Sim.Mujoco/MujocoPhysicsBackendFactory.cs:22-34）无缓存/无进程级模型池，每次 `new MujocoPhysicsBackend`；`ReplaceSession` 先建新会话再 `previous.Dispose()`（旧 backend 原生句柄随引擎释放）。
+  - 结论：走"覆盖字段 → 应用后自动重开当前对局生效"（不做"下一场/F5 生效"降级）；UI tooltip 按热切语义写。唯一残留启动期方是"场景文件 JSON 解析"（`--scenario-path`/覆盖路径），与 backend 选择无关。
+- [x] 2.2 `DesktopSettings` 加 `MatchOverrides` + `DevContact`（design §2a）+ `Validate()` 增补 + 默认值回归测试（老配置无新字段行为不变）
+- [x] 2.3 `Main` 装配链插入 `ApplyMatchOverrides`（最先）；`Seed` 运行时可写 + "换种子重开"；`DevContact` 注入 `MatchEngine` 构造点
+- [x] 2.4 运行时场景重载入口（导入/场景选择共用；参考 `ApplyLayoutScenario` `Main.cs:1868-1876`）
+- [x] 2.5 `SettingsPanel` 新"比赛/场景"页（design §2c）+ 仿真参数页"高级/开发者"折叠区（L1/L2/L3）
+- [x] 2.6 单测：backendOverride 覆盖语义、seed 重开一致性（同 seed 同布局轨迹一致）、默认值钉死
+- [x] 2.7 验证：`dotnet test`；实机切 legacy↔mujoco v2 观察下一场生效与提示；`--settings-smoke --settings-tab match --capture`（tab 名以实现为准）
+- [x] 2.8 提交（回滚点：批2）
 
 ## 批3：交互统一
 
