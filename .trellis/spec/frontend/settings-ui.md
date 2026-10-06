@@ -53,7 +53,11 @@ id would silently fall back to the first option).
 **What**: Path/command rows use `MakePathRow` with a "浏览…" button; the panel
 owns a single `FileDialog` parameterized for directory vs file mode (bundle
 save/open dialogs stay separate instances because they need SaveFile/
-CurrentFile semantics).
+CurrentFile semantics). All file dialogs set `UseNativeDialog = true`
+(acceptance decision 2026-10-06): the OS-native dialog is the product look,
+so don't re-theme the built-in one — note this also means dialog appearances
+won't show up in `--capture` screenshots (they are OS windows, not viewport
+content).
 
 **Why**: Five dialogs used to show Godot's built-in English titles ("Save a
 File"): **`FileDialog.FileMode` setter overwrites `Title`**, so `Title` must
