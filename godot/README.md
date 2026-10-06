@@ -12,8 +12,8 @@
 - ✅ 桌面可运行：实况、回放、布局编辑三种模式在 1280×720 / 1920×1080 窗口冒烟通过
   （证据截图见 `docs/*.png`：标准场地、旋转/平移场地、glTF 模型导入、坏模型回退、回放）。
 - ✅ 跨端一致性：`--parity-check` 与 `Sim.Cli replay-check` 语义一致；对
-  `replays/godot-parity-seed42.json` 得到最终比分、结束原因、末帧 2400、752 条事件指纹逐位一致；
-  对旋转/平移后的场地回放 `replays/rotated-seed42.json`（340 事件）两端同样逐位一致。
+  `replays/godot-parity-seed42.json` 得到最终比分、结束原因、末帧 2400、302 条事件指纹逐位一致；
+  对旋转/平移后的场地回放 `replays/rotated-seed42.json`（13:6 / 278 事件）两端同样逐位一致。
 - ✅ 场地几何单一来源：`ArenaVisualizer`/`MatchCamera`/`SnapshotView` 全部从 `Scenario` 读取
   尺寸与位姿（无第二份官方常量）；台面灰度纹理由内核同一 `FieldGray` 手绘模型生成。
 - ✅ 布局编辑 + glTF 外观导入已交付（见下文“布局编辑模式”“外观模型导入”）。
@@ -152,10 +152,11 @@ godot/
 日志输出 `[settings]` 诊断。窗口宽高、窗口化/全屏和 UI 缩放即时生效；仿真参数与控制器来源
 只在下一场比赛或按 F5 重置后生效，当前比赛不会被静默改写。
 
-仿真页展示 `Sim.Core` 当前登记的全部 25 个可覆盖键，按“常用/高级”分组，带单位、范围、默认值
+仿真页展示 `Sim.Core` 当前登记的全部 24 个可覆盖键，按“常用/高级”分组，带单位、范围、默认值
 和实验性标记；“自动”表示省略覆盖并沿用内核默认值。设置不会写入场景、回放或 `fidelity.json`。
 
-控制器页可分别为我方/对手选择“内置 FSM”或“外部命令”，例如：
+控制器页可分别为我方/对手选择“内置 FSM”“内置 MBri”或“外部命令”（内置 MBri 仅在显式
+选择时写入本场场景的 `vehicles[].controller`，省略即内置 FSM、行为逐位不变），例如：
 
 ```text
 python controllers/example_controller.py

@@ -61,8 +61,10 @@ Godot 物理仅用于可视摆放与可选诊断，**不参与判分**。
 - 2026-09-25 登台修复（任务 09-25）：轮驱动力上限 0.3→3.0（铰链力矩 N·m/轮，
   原值无法绕台沿 pivot 爬上 6 cm 台沿）；台沿 20° 倒角（刚体圆柱轮咬不住直角
   台沿：低速打滑、高速轮抬抛体，与扭矩无关）；底盘离地 +2 cm（原腹部与台面
-  齐平会被台沿卡住）；执行器边界镜像 legacy 的一阶驱动加速（AccelK 只滤 v）
-  并把速度伺服 kv 降至 0.25（避免指令阶跃变扭矩阶跃导致整车弹跳）。内置 FSM
+  齐平会被台沿卡住）；执行器边界镜像 legacy 的一阶驱动加速（AccelK 只滤 v）。
+  当时的 ±3.0 N·m / kv 0.25 工程值已于 2026-09-30 批 2 被真车电机真值取代：
+  τ_stall = 1.72 N·m/轮、空载 12.566 rad/s、伺服 kv = τ_stall/ω_noload ≈ 0.1369
+  （详见 `.trellis/spec/sim/index.md` 电机建模节）。内置 FSM
   零改动即从官方出生点完成倒车登台（`NativeMode_FsmMountsFromOfficialSpawn`）。
   已知后续边界：新模式 SEARCH 索敌尚不收敛（反复发现目标→丢失，未进入推块，
   比分仍 0:0），为独立后续工作。
@@ -87,15 +89,15 @@ Godot 物理仅用于可视摆放与可选诊断，**不参与判分**。
 
 | 手段 | 命令 | 说明 |
 | --- | --- | --- |
-| 内核回归 | `dotnet test` | 265 个测试：规则、确定性、回放复现、跨端校验、视图适配、场地布局、标定闭环、视觉证据分线 |
+| 内核回归 | `dotnet test` | 746 个测试（745 通过 / 1 跳过，2026-10-06 实测）：规则、确定性、回放复现、跨端校验、视图适配、场地布局、标定闭环、视觉证据分线、MuJoCo 后端、MBri 控制器、批量仿真、块布局配置、桌面壳纯逻辑 |
 | 无头复现 | `dotnet run --project src/Sim.Cli -- replay-check <file>` | 用记录的动作流逐位重放并比对 |
 | 跨端一致 | `godot --headless --path godot -- --parity-check <file>` | Godot 壳按 CLI `replay-check` 语义比对最终比分/结束原因/末帧/事件指纹（无 Godot 时由 `CrossEndTests` 回归同一代码路径） |
 | 视图适配 | `SnapshotViewTests` | 快照→渲染帧投影/插值不失真 |
 | 布局一致 | `ArenaLayoutFlowTests` + 身份/旋转变换回归 | 编辑保存的 `arena-layout-v1` 场景在 CLI/Godot 驱动同一几何；identity 位姿逐位复现旧基线 |
 
 Godot↔CLI 的同种子一致性已闭环：`godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.json`
-返回 PASS（比分 4:49、结束原因、末帧 2400、752 条事件指纹逐位一致）；旋转/平移后的场地回放
-（`replays/rotated-seed42.json`，340 事件 2400 ticks）两端同样逐位一致 PASS。另见 `godot/README.md` 与 `src/Sim.Tests/CrossEndTests.cs`。
+返回 PASS（比分 5:10、结束原因、末帧 2400、302 条事件指纹逐位一致）；旋转/平移后的场地回放
+（`replays/rotated-seed42.json`，13:6 / 278 事件 / 2400 ticks）两端同样逐位一致 PASS。另见 `godot/README.md` 与 `src/Sim.Tests/CrossEndTests.cs`。
 
 ## 场地与位姿（arena-layout-v1）
 
