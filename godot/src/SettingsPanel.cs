@@ -65,6 +65,10 @@ public partial class SettingsPanel : Control
     private Button? _themPreflight;
     private Label? _themPreflightResult;
     private Button? _restore;
+    private FileDialog? _bundleSaveDialog;
+    private FileDialog? _bundleOpenDialog;
+    private FileDialog? _trainConfigDialog;
+    private string? _pendingBundleExportPath;
     private DesktopSettings _settings = DesktopSettings.Default;
     private IReadOnlyDictionary<string, RobotModelConfig> _robotModels =
         new Dictionary<string, RobotModelConfig>();
@@ -74,6 +78,12 @@ public partial class SettingsPanel : Control
 
     /// <summary>Raised on apply with the edited render-only appearance bindings; Main persists robot-models.json.</summary>
     public event Action<IReadOnlyDictionary<string, RobotModelConfig>>? RobotModelsApplied;
+
+    /// <summary>导出配置包请求 (bundle 落点 + 可选训练配置文件路径; 内容收集/落盘在 Main)。</summary>
+    public event Action<string, string?>? ExportBundleRequested;
+
+    /// <summary>导入配置包请求 (bundle 路径; 版本校验/确认/应用在 Main)。</summary>
+    public event Action<string>? ImportBundleRequested;
 
     public event Action? Cancelled;
 
@@ -233,6 +243,16 @@ public partial class SettingsPanel : Control
         _error.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _error.CustomMinimumSize = new Vector2(0, 36);
 
+        // 配置包两按钮 (批1 R1.1): 只负责选文件与转发请求, bundle 内容由 Main 收集/落盘。
+        var exportBundle = MakeButton("导出配置包…", Blue, new Vector2(116, 38));
+        exportBundle.TooltipText = "把主设置 / 外观模型 / 当前场景（+可选训练配置）导出为单个 JSON 配置包";
+        exportBundle.Pressed += RequestExportBundle;
+        footer.AddChild(exportBundle);
+        var importBundle = MakeButton("导入配置包…", Blue, new Vector2(116, 38));
+        importBundle.TooltipText = "导入配置包：版本不匹配或内容无效会被拒绝；确认后覆盖主设置 / 外观模型 / 场景 / 训练配置";
+        importBundle.Pressed += RequestImportBundle;
+        footer.AddChild(importBundle);
+
         _restore = MakeButton("恢复默认", Secondary, new Vector2(108, 38));
         _restore.Pressed += RestoreDefaults;
         footer.AddChild(_restore);
@@ -243,6 +263,83 @@ public partial class SettingsPanel : Control
         _apply.FocusMode = FocusModeEnum.All;
         _apply.Pressed += ApplyDraft;
         footer.AddChild(_apply);
+
+        BuildBundleDialogs();
+    }
+
+    /// <summary>
+    /// 页脚"导出/导入配置包"的文件对话框 (Access/Filters 用法参照 LayoutEditor.Bind)。
+    /// 导出成功选落点后再弹一次训练配置文件选择, 取消该步 = 不附带训练配置。
+    /// </summary>
+    private void BuildBundleDialogs()
+    {
+        _bundleSaveDialog = new FileDialog
+        {
+            Title = "导出配置包",
+            Access = FileDialog.AccessEnum.Filesystem,
+            FileMode = FileDialog.FileModeEnum.SaveFile,
+            Filters = new[] { "*.json ; 配置包 (Settings Bundle)" },
+            CurrentFile = SettingsBundleStore.DefaultFileName,
+        };
+        _bundleOpenDialog = new FileDialog
+        {
+            Title = "导入配置包",
+            Access = FileDialog.AccessEnum.Filesystem,
+            FileMode = FileDialog.FileModeEnum.OpenFile,
+            Filters = new[] { "*.json ; 配置包 (Settings Bundle)" },
+        };
+        _trainConfigDialog = new FileDialog
+        {
+            Title = "附带训练配置文件（取消 = 不附带）",
+            Access = FileDialog.AccessEnum.Filesystem,
+            FileMode = FileDialog.FileModeEnum.OpenFile,
+            Filters = new[] { "*.json ; 训练配置 (train.py --config)" },
+        };
+        _bundleSaveDialog.FileSelected += OnBundleExportPathSelected;
+        _bundleOpenDialog.FileSelected += path => ImportBundleRequested?.Invoke(path);
+        _trainConfigDialog.FileSelected += OnTrainConfigSelected;
+        _trainConfigDialog.Canceled += OnTrainConfigSkipped;
+        AddChild(_bundleSaveDialog);
+        AddChild(_bundleOpenDialog);
+        AddChild(_trainConfigDialog);
+    }
+
+    private void RequestExportBundle()
+    {
+        ClearError();
+        _bundleSaveDialog?.PopupCentered(new Vector2I(860, 620));
+    }
+
+    private void RequestImportBundle()
+    {
+        ClearError();
+        _bundleOpenDialog?.PopupCentered(new Vector2I(860, 620));
+    }
+
+    private void OnBundleExportPathSelected(string path)
+    {
+        _pendingBundleExportPath = path;
+        _trainConfigDialog?.PopupCentered(new Vector2I(860, 620));
+    }
+
+    private void OnTrainConfigSelected(string path)
+    {
+        var bundlePath = _pendingBundleExportPath;
+        _pendingBundleExportPath = null;
+        if (bundlePath is not null)
+        {
+            ExportBundleRequested?.Invoke(bundlePath, path);
+        }
+    }
+
+    private void OnTrainConfigSkipped()
+    {
+        var bundlePath = _pendingBundleExportPath;
+        _pendingBundleExportPath = null;
+        if (bundlePath is not null)
+        {
+            ExportBundleRequested?.Invoke(bundlePath, null);
+        }
     }
 
     private Control BuildDisplayPage()

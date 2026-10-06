@@ -38,6 +38,9 @@
     <Compile Include="..\..\godot\src\LayoutDraft.cs" Link="godot\LayoutDraft.cs" />
     <Compile Include="..\..\godot\src\FieldGrayTextureMap.cs" Link="godot\FieldGrayTextureMap.cs" />
     <Compile Include="..\..\godot\src\DesktopSettings.cs" Link="godot\DesktopSettings.cs" />
+    <!-- 配置包 bundle（无 Godot 依赖）与外观模型记录：导出/导入序列化 + 版本校验回归。 -->
+    <Compile Include="..\..\godot\src\SettingsBundle.cs" Link="godot\SettingsBundle.cs" />
+    <Compile Include="..\..\godot\src\RobotModelConfig.cs" Link="godot\RobotModelConfig.cs" />
     <Compile Include="..\..\godot\src\DesktopLiveDriver.cs" Link="godot\DesktopLiveDriver.cs" />
     <Compile Include="..\..\godot\src\ControllerPreflight.cs" Link="godot\ControllerPreflight.cs" />
     <!-- 控制器来源装配决策（我方 external 展演门控/预检回退/命令解析）：纯逻辑，无 Godot。 -->

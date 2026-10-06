@@ -128,6 +128,9 @@ public partial class Main : Node
         _settingsPanel.SetUiScale(_settings.UiScale);
         _settingsPanel.Applied += ApplyDesktopSettings;
         _settingsPanel.RobotModelsApplied += SaveRobotModels;
+        // 配置包 (批1): 面板只选文件, 内容收集/校验/落盘都在壳层。
+        _settingsPanel.ExportBundleRequested += ExportSettingsBundle;
+        _settingsPanel.ImportBundleRequested += ImportSettingsBundle;
         _settingsPanel.PreflightCompleted += (role, ok, message)
             => _hud.ShowPreflightNotice(role, ok, message);
         _hud.ConfigureSettings(OpenSettings);
@@ -1459,6 +1462,281 @@ public partial class Main : Node
         }
     }
 
+    // ---------- 配置包导出/导入 (批1 复现基座) ----------
+
+    /// <summary>导入落点 user://imported/ —— 用户文件不写仓库目录 (res://robot-models.json 是既有先例)。</summary>
+    private const string ImportedDirectoryRelative = "user://imported";
+    private const string ImportedTrainConfigName = "train-config.json";
+
+    /// <summary>
+    /// 导出配置包 (R1.2): 主设置 + 外观模型 + 当前场景文件原文 + 可选训练配置。
+    /// 面板只用文件对话框选落点, 内容收集与落盘都在壳层 (与设置落盘同一条链)。
+    /// </summary>
+    public void ExportSettingsBundle(string path, string? trainConfigPath = null)
+    {
+        path = ResolveUserPath(path);
+        try
+        {
+            var trainConfig = string.IsNullOrWhiteSpace(trainConfigPath)
+                ? (System.Text.Json.JsonElement?)null
+                : SettingsBundleStore.ReadTrainConfigObject(ResolveUserPath(trainConfigPath));
+            var bundle = SettingsBundle.Create(_settings, _robotModels, CaptureScenarioFile(), trainConfig);
+            new SettingsBundleStore(path).Save(bundle);
+            var summary = $"配置包已导出: {path}"
+                + $" (外观模型 {(bundle.RobotModels?.Count ?? 0)} 条, 场景 {bundle.ScenarioFile?.FileName ?? "无"},"
+                + $" 训练配置 {(bundle.TrainConfig is null ? "无" : "已附带")})";
+            GD.Print($"[bundle] {summary}");
+            _hud?.ShowNotice(summary, ok: true);
+        }
+        catch (Exception error)
+        {
+            GD.PrintErr($"[bundle] 配置包导出失败: {error.Message}");
+            _hud?.ShowNotice($"配置包导出失败: {error.Message}", ok: false);
+        }
+    }
+
+    /// <summary>
+    /// 当前场景的内嵌来源: --scenario-path 的磁盘原文 (逐字内嵌, 不重新序列化);
+    /// 布局编辑器应用过的 arena-layout-v1 模板; 官方内置布局 → null (bundle 可空字段)。
+    /// </summary>
+    private SettingsBundleFile? CaptureScenarioFile()
+    {
+        if (!string.IsNullOrEmpty(ScenarioPath) && System.IO.File.Exists(ScenarioPath))
+        {
+            var content = System.IO.File.ReadAllText(ScenarioPath);
+            return new SettingsBundleFile
+            {
+                FileName = System.IO.Path.GetFileName(ScenarioPath),
+                Content = content,
+                IsLayout = IsLayoutFileContent(content),
+            };
+        }
+        if (_scenarioTemplate is { LayoutVersion: ProtocolVersion.ArenaLayoutV1 } template)
+        {
+            return new SettingsBundleFile
+            {
+                FileName = "arena-layout.json",
+                Content = ProtocolJson.Serialize(template),
+                IsLayout = true,
+            };
+        }
+        return null;
+    }
+
+    /// <summary>场景原文是否布局产物 (仅用于 bundle 元数据; 识别失败按普通场景导出)。</summary>
+    private static bool IsLayoutFileContent(string content)
+    {
+        try
+        {
+            return ProtocolJson.Deserialize<Scenario>(content).LayoutVersion == ProtocolVersion.ArenaLayoutV1;
+        }
+        catch (Exception error)
+        {
+            GD.PrintErr($"[bundle] 场景文件识别失败（按普通场景导出）: {error.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 导入配置包 (R1.3): 读文件 → 版本校验 (≠1 → 中文原因拒绝) → 结构校验 →
+    /// 确认弹窗列出覆盖范围 → 四类内容落地, 完成弹窗列各落点。
+    /// </summary>
+    public void ImportSettingsBundle(string path)
+    {
+        path = ResolveUserPath(path);
+        SettingsBundle bundle;
+        try
+        {
+            bundle = new SettingsBundleStore(path).Load();
+        }
+        catch (Exception error)
+        {
+            ReportBundleImportFailure($"配置包读取失败: {error.Message}");
+            return;
+        }
+        if (SettingsBundle.RejectUnsupportedVersion(bundle.BundleSchemaVersion) is { } versionError)
+        {
+            // R1.3: 版本不匹配明确拒绝, 不做自动迁移。
+            ReportBundleImportFailure(versionError);
+            return;
+        }
+        var errors = bundle.Validate().ToArray();
+        if (errors.Length > 0)
+        {
+            ReportBundleImportFailure("配置包内容无效" + System.Environment.NewLine
+                + string.Join(System.Environment.NewLine, errors.Select(error => "· " + error)));
+            return;
+        }
+
+        var lines = new List<string> { "导入将覆盖以下内容:" };
+        lines.Add("· 主设置（窗口 / 仿真参数 / 控制器 / 小车 / 视觉 / 能量块）");
+        if (bundle.RobotModels is not null)
+        {
+            lines.Add($"· 外观模型 {bundle.RobotModels.Count} 条 → {_robotModelsPath ?? "res://robot-models.json"}");
+        }
+        if (bundle.ScenarioFile is { } file)
+        {
+            lines.Add($"· 场景文件 {file.FileName}{(file.IsLayout ? "（布局产物）" : "")} → user://imported/");
+        }
+        if (bundle.TrainConfig is not null)
+        {
+            lines.Add($"· 训练配置 → user://imported/{ImportedTrainConfigName}");
+        }
+        lines.Add("主设置保存后自动重开当前对局；回放/布局编辑中则下一场或 F5 生效。");
+
+        var confirm = new ConfirmationDialog
+        {
+            Title = "导入配置包",
+            DialogText = string.Join("\n", lines),
+            OkButtonText = "导入",
+            CancelButtonText = "取消",
+        };
+        confirm.Confirmed += () =>
+        {
+            confirm.QueueFree();
+            try
+            {
+                ApplyImportedBundle(bundle);
+            }
+            catch (Exception error)
+            {
+                // 落盘/重载是文件系统边界 (权限、磁盘满、目标被目录占用): 失败必须
+                // 响亮报出, 不把异常抛回 Godot 信号回调。
+                ReportBundleImportFailure($"配置包应用失败: {error.Message}");
+            }
+        };
+        confirm.Canceled += () => confirm.QueueFree();
+        AddChild(confirm);
+        confirm.PopupCentered(new Vector2I(600, 300));
+    }
+
+    private void ApplyImportedBundle(SettingsBundle bundle)
+    {
+        var notes = new List<string>();
+
+        // 场景先落盘并作为模板挂上; ApplyDesktopSettings(DesktopSettings) 随后的自动重置
+        // 会从新模板重建, 于是无论比赛设置是否变化最终会话都包含新场景。
+        if (bundle.ScenarioFile is { } file)
+        {
+            var target = ImportedScenarioPath(file.FileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            WriteFileAtomic(target, file.Content);
+            notes.Add(TryImportScenario(target)
+                ? $"场景 → {target}（已重载；回放/布局编辑中为下一场或 F5 生效）"
+                : $"场景 → {target}（载入失败，已保留当前场景）");
+        }
+
+        // 主设置走既有应用链: 保存 + 显示/视觉/控制器 + 比赛设置自动重置/挂起。
+        if (bundle.Settings is { } settings)
+        {
+            ApplyDesktopSettings(settings);
+            notes.Add($"主设置 → {ProjectSettings.GlobalizePath($"user://{SettingsStore.DefaultFileName}")}");
+        }
+
+        // 外观模型复用 SaveRobotModels (写读入时解析的同一文件, 默认 res://robot-models.json, 已 gitignore) + 立即重挂。
+        if (bundle.RobotModels is { } models)
+        {
+            SaveRobotModels(models);
+            notes.Add($"外观模型 → {_robotModelsPath ?? "res://robot-models.json"}");
+        }
+
+        // 训练配置只是落盘给 train.py --config 用, 桌面不解析其字段 (schema 在 train_config.py)。
+        if (bundle.TrainConfig is { } trainConfig)
+        {
+            var target = Path.Combine(ProjectSettings.GlobalizePath(ImportedDirectoryRelative), ImportedTrainConfigName);
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            WriteFileAtomic(target, ProtocolJson.Serialize(trainConfig));
+            notes.Add($"训练配置 → {target}");
+        }
+
+        // 面板仍开着 (导入从面板触发): 从导入后的设置重载草稿控件, 否则控件停留在
+        // 导入前的值, 随后的"应用设置"会把旧值写回、静默回退本次导入。
+        if (_settingsPanel.IsOpen)
+        {
+            _settingsPanel.Open(_settings, _pendingMatchSettings, _robotModels);
+        }
+
+        var message = "配置包导入完成:\n" + string.Join("\n", notes.Select(note => "· " + note));
+        GD.Print($"[bundle] {message.Replace("\n", " | ")}");
+        _hud?.ShowNotice("配置包已导入", ok: true);
+        var done = new AcceptDialog { Title = "导入配置包", DialogText = message };
+        done.Confirmed += () => done.QueueFree();
+        done.Canceled += () => done.QueueFree();
+        AddChild(done);
+        done.PopupCentered(new Vector2I(640, 320));
+    }
+
+    /// <summary>
+    /// 运行时场景重载 (批1 导入; 批2"比赛/场景"页选择场景共用入口, 参考 ApplyLayoutScenario):
+    /// 解析 + 场景校验通过才写入模板; 实况且非布局编辑中立即重建会话, 否则挂为待生效
+    /// (与 ApplyDesktopSettings 的回放/编辑安全例外同规则, 不把用户踢出回放)。
+    /// </summary>
+    private bool TryImportScenario(string path)
+    {
+        Scenario scenario;
+        try
+        {
+            scenario = ProtocolJson.Deserialize<Scenario>(System.IO.File.ReadAllText(path));
+            var errors = scenario.Validate().ToArray();
+            if (errors.Length > 0)
+            {
+                GD.PrintErr($"[bundle] 导入场景无效 ({path}): {string.Join(" | ", errors)}");
+                return false;
+            }
+        }
+        catch (Exception error)
+        {
+            GD.PrintErr($"[bundle] 导入场景载入失败 ({path}): {error.Message}");
+            return false;
+        }
+
+        ScenarioPath = path;
+        _scenarioTemplate = scenario;
+        if (_session.Mode == SessionMode.Live && !_editor.Active)
+        {
+            ResetLiveSession($"[bundle] 已按导入场景重载: {path}");
+        }
+        else
+        {
+            _pendingMatchSettings = true;
+            GD.Print($"[bundle] 导入场景已就绪，将在下一场或 F5 重置后生效: {path}");
+        }
+        return true;
+    }
+
+    private static string ImportedScenarioPath(string fileName)
+        => Path.Combine(ProjectSettings.GlobalizePath(ImportedDirectoryRelative), Path.GetFileName(fileName));
+
+    /// <summary>导入内容原子落盘 (.tmp + File.Move, 与 SettingsStore/SettingsBundleStore 同模式)。</summary>
+    private static void WriteFileAtomic(string path, string content)
+    {
+        var temporaryPath = path + ".tmp";
+        try
+        {
+            System.IO.File.WriteAllText(temporaryPath, content);
+            System.IO.File.Move(temporaryPath, path, overwrite: true);
+        }
+        finally
+        {
+            if (System.IO.File.Exists(temporaryPath))
+            {
+                System.IO.File.Delete(temporaryPath);
+            }
+        }
+    }
+
+    private void ReportBundleImportFailure(string message)
+    {
+        // 模态设置页可能挡住 HUD 通知, 失败原因同时进控制台 + 独立弹窗, 绝不静默。
+        GD.PrintErr($"[bundle] {message}");
+        _hud?.ShowNotice(message, ok: false);
+        var dialog = new AcceptDialog { Title = "导入配置包失败", DialogText = message };
+        dialog.Confirmed += () => dialog.QueueFree();
+        dialog.Canceled += () => dialog.QueueFree();
+        AddChild(dialog);
+        dialog.PopupCentered(new Vector2I(560, 240));
+    }
+
     /// <summary>本地外观偏好 (渲染层, 永不进入 Scenario/回放): --robot-models 参数或 res://robot-models.json。</summary>
     private void LoadRobotModelPreferences(string[] userArgs)
     {
@@ -1850,6 +2128,9 @@ public partial class Main : Node
             ? null
             : new Dictionary<string, double>(_scenarioTemplate.Parameters);
         _scenarioTemplate = scenario with { Parameters = templateParameters };
+        // 编辑器产物不再等于启动时 --scenario-path 指向的文件: 清掉旧来源, 否则
+        // F5/配置包导出会继续引用已过期的场景文件 (批1 导出按"当前场景"取内容)。
+        ScenarioPath = "";
         var applied = ApplyDesktopSettings(_scenarioTemplate);
         ReplaceSession(applied);
         _pendingMatchSettings = false;
