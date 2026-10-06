@@ -149,6 +149,78 @@ public sealed record BlockLayoutSettings
     public bool IsFollowScenario => BuffCount is null && DebuffCount is null;
 }
 
+/// <summary>
+/// 物理后端覆盖档位字符串 (DesktopSettings JSON 值, 批2 R2.1)。与
+/// <see cref="PhysicsSpec"/> 的 backend/modelVersion 组合一一对应; Follow = 不改场景
+/// 字段 (旧配置缺省即此档, 行为逐位不变)。
+/// </summary>
+public static class MatchBackendOverrides
+{
+    /// <summary>跟随场景 (默认, 与 null 等价)。</summary>
+    public const string Follow = "follow";
+
+    /// <summary>legacy 2D 物理 (覆盖后 modelVersion 必须为空)。</summary>
+    public const string Legacy = PhysicsSpec.Legacy;
+
+    /// <summary>MuJoCo 真车几何 v1 模型。</summary>
+    public const string MujocoV1 = "mujoco-v1";
+
+    /// <summary>MuJoCo 真车几何 v2 模型 (唯一支持小车页质量/转速/轮径/传感器覆盖的档)。</summary>
+    public const string MujocoV2 = "mujoco-v2";
+}
+
+/// <summary>
+/// "比赛/场景"页的运行时覆盖 (批2 R2.1): 全部字段缺省 = 跟随场景/启动值, 老配置
+/// 反序列化后自动落缺省档, 逐位不变。物理后端覆盖在每次会话重建时按场景字段重新
+/// 装配 (spike 2026-10-06: MatchEngineHost.Create 每次调用都按 scenario.physics 分派),
+/// 故"应用后自动重开当前对局"即热切生效。
+/// </summary>
+public sealed record MatchOverrides
+{
+    /// <summary>
+    /// null / "follow" = 跟随场景; 否则 "legacy" | "mujoco-v1" | "mujoco-v2"。
+    /// 覆盖时同时写 physics.backend 与 physics.modelVersion。
+    /// </summary>
+    public string? PhysicsBackendOverride { get; init; }
+
+    /// <summary>场景文件路径; 空 = 跟随启动场景 (--scenario-path 或官方布局)。</summary>
+    public string ScenarioPath { get; init; } = "";
+
+    /// <summary>比赛时长 (s); null = 跟随场景 field.matchDuration。</summary>
+    public double? MatchDuration { get; init; }
+
+    /// <summary>随机种子; null = 跟随启动/场景 seed。上限与 BatchCommand 种子上限一致。</summary>
+    public int? Seed { get; init; }
+
+    /// <summary>后端档为跟随 (null/空/"follow") 时为 true = 不覆盖场景物理字段。</summary>
+    [JsonIgnore]
+    public bool IsBackendFollow => PhysicsBackendOverride is null or "" || PhysicsBackendOverride == MatchBackendOverrides.Follow;
+
+    /// <summary>全部字段都缺省 = 无覆盖 (等价于未启用该页任何覆盖)。</summary>
+    [JsonIgnore]
+    public bool IsFollowScenario => IsBackendFollow
+        && string.IsNullOrWhiteSpace(ScenarioPath)
+        && MatchDuration is null
+        && Seed is null;
+}
+
+/// <summary>
+/// 高级/开发者折叠区的 legacy 接触求解开关 (批2 R2.2): 默认全 true = 现行为。
+/// 只被 legacy 后端消费 (PhysicsWorld 的 ContactResolveOptions); mujoco 后端不看。
+/// 改动影响碰撞判定, 开启态回放需以同开关构造引擎 —— UI 必须原样披露。
+/// </summary>
+public sealed record DevContact
+{
+    /// <summary>L1: 车车 OBB 稳态分离 + 台壁位移钳位。</summary>
+    public bool L1VehicleVehicleObb { get; init; } = true;
+
+    /// <summary>L2: 车块 OBB 分离 + 推块速度镜像。</summary>
+    public bool L2VehicleBlockObb { get; init; } = true;
+
+    /// <summary>L3: 块-台壁阻挡。</summary>
+    public bool L3BlockWallBlock { get; init; } = true;
+}
+
 public sealed record DesktopSettings
 {
     public const int CurrentSchemaVersion = 1;
@@ -165,6 +237,16 @@ public sealed record DesktopSettings
 
     /// <summary>能量块布局覆盖; null = 跟随场景(不改, 逐位不变)。</summary>
     public BlockLayoutSettings? BlockLayout { get; init; }
+
+    /// <summary>
+    /// 比赛/场景覆盖 (批2); null = 全部跟随场景/启动值 (老配置缺省, 不落盘不产生影响)。
+    /// </summary>
+    public MatchOverrides? MatchOverrides { get; init; }
+
+    /// <summary>
+    /// 高级/开发者 legacy 接触开关 (批2); null = 全开 = 现行为 (老配置缺省)。
+    /// </summary>
+    public DevContact? DevContact { get; init; }
 
     public VisionSettings Vision { get; init; } = new();
 
@@ -305,6 +387,26 @@ public sealed record DesktopSettings
                 yield return $"settings: {name}.timeoutMs must be between 1 and 5000.";
             }
         }
+
+        // 批2 比赛/场景覆盖: 全部可选; 缺省(null/空)通过 = 老配置逐位不变。
+        if (MatchOverrides is { } match)
+        {
+            if (!match.IsBackendFollow
+                && match.PhysicsBackendOverride is not (MatchBackendOverrides.Legacy
+                    or MatchBackendOverrides.MujocoV1 or MatchBackendOverrides.MujocoV2))
+            {
+                yield return "settings: matchOverrides.physicsBackendOverride must be null (follow scenario), "
+                    + "'follow', 'legacy', 'mujoco-v1' or 'mujoco-v2'.";
+            }
+            if (match.MatchDuration is { } duration && (!double.IsFinite(duration) || duration <= 0))
+            {
+                yield return "settings: matchOverrides.matchDuration must be a finite value greater than 0.";
+            }
+            if (match.Seed is { } seed && seed is < 0 or > 4096)
+            {
+                yield return "settings: matchOverrides.seed must be between 0 and 4096.";
+            }
+        }
     }
 
     public bool IsValid => !Validate().Any();
@@ -338,6 +440,71 @@ public sealed record DesktopSettings
             vehicles[role] = profile with { Controller = VehicleControllers.Mbri };
         }
         return scenario with { Vehicles = vehicles };
+    }
+
+    /// <summary>
+    /// 比赛/场景覆盖 (批2, 装配链最先): 仅非跟随档才写 physics.backend/
+    /// physics.modelVersion、field.matchDuration 与 seed; 无任何覆盖时原样返回同一
+    /// 场景 —— 老配置/旧 bundle 行为逐位不变。覆盖在后端字段上写出完整合法组合
+    /// (legacy 不带 modelVersion, mujoco 必带), 场景 Validate 不会因此产生新违规。
+    /// 场景文件路径 (ScenarioPath) 是"选模板"而不是字段覆盖, 由 Main 的加载入口处理。
+    /// </summary>
+    public Scenario ApplyMatchOverrides(Scenario scenario)
+    {
+        ArgumentNullException.ThrowIfNull(scenario);
+        var match = MatchOverrides ?? new MatchOverrides();
+        var result = scenario;
+        if (!match.IsBackendFollow)
+        {
+            result = match.PhysicsBackendOverride switch
+            {
+                MatchBackendOverrides.Legacy =>
+                    result with { Physics = new PhysicsSpec { Backend = PhysicsSpec.Legacy } },
+                MatchBackendOverrides.MujocoV1 =>
+                    result with
+                    {
+                        Physics = new PhysicsSpec
+                        {
+                            Backend = PhysicsSpec.Mujoco,
+                            ModelVersion = PhysicsSpec.MujocoModelV1,
+                        },
+                    },
+                MatchBackendOverrides.MujocoV2 =>
+                    result with
+                    {
+                        Physics = new PhysicsSpec
+                        {
+                            Backend = PhysicsSpec.Mujoco,
+                            ModelVersion = PhysicsSpec.MujocoModelV2,
+                        },
+                    },
+                _ => result,
+            };
+        }
+        if (match.MatchDuration is { } duration)
+        {
+            result = result with { Field = result.Field with { MatchDuration = duration } };
+        }
+        if (match.Seed is { } seed)
+        {
+            result = result with { Seed = seed };
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// 高级/开发者 legacy 接触开关 → MatchEngine 注入选项 (批2 R2.2)。缺省全开 =
+    /// 既有默认物理; 无覆盖时返回的对象与 <c>new ContactResolveOptions()</c> 逐位一致。
+    /// </summary>
+    public ContactResolveOptions CreateContactResolveOptions()
+    {
+        var dev = DevContact ?? new DevContact();
+        return new ContactResolveOptions
+        {
+            RobotPairObbSeparation = dev.L1VehicleVehicleObb,
+            RobotBlockObbSeparation = dev.L2VehicleBlockObb,
+            BlockStageWall = dev.L3BlockWallBlock,
+        };
     }
 
     /// <summary>

@@ -65,6 +65,20 @@ public partial class SettingsPanel : Control
     private Button? _themPreflight;
     private Label? _themPreflightResult;
     private Button? _restore;
+    private OptionButton? _matchBackend;
+    private LineEdit? _matchScenarioPath;
+    private CheckButton? _matchDurationOverride;
+    private SpinBox? _matchDuration;
+    private CheckButton? _matchSeedOverride;
+    private SpinBox? _matchSeed;
+    private Button? _matchRestartSeed;
+    private Label? _matchNote;
+    private Button? _devToggle;
+    private Control? _devSection;
+    private CheckButton? _devL1;
+    private CheckButton? _devL2;
+    private CheckButton? _devL3;
+    private FileDialog? _scenarioDialog;
     private FileDialog? _bundleSaveDialog;
     private FileDialog? _bundleOpenDialog;
     private FileDialog? _trainConfigDialog;
@@ -85,6 +99,12 @@ public partial class SettingsPanel : Control
     /// <summary>导入配置包请求 (bundle 路径; 版本校验/确认/应用在 Main)。</summary>
     public event Action<string>? ImportBundleRequested;
 
+    /// <summary>
+    /// "换种子重开"请求 (批2 R2.1): Main 把种子写进比赛覆盖并立即按 F5 语义重建会话
+    /// (回放/布局编辑中挂待生效)。面板不关闭, 其他未应用的草稿编辑保持不动。
+    /// </summary>
+    public event Action<int>? RestartWithSeedRequested;
+
     public event Action? Cancelled;
 
     /// <summary>Raised on the main thread when a role's preflight probe settles.</summary>
@@ -92,7 +112,49 @@ public partial class SettingsPanel : Control
 
     public bool IsOpen => Visible;
 
-    /// <summary>QA/冒烟用: 无交互切换到指定页 (0=显示 1=仿真 2=控制器 3=小车 4=视觉 5=能量块)。</summary>
+    // 标签页稳定键 (与 Build 里的注册顺序一一对应): --settings-tab 支持页名寻页,
+    // 新增页只追加在下标末尾, 旧下标仍指向原页。
+    private static readonly string[] TabKeys =
+        ["display", "simulation", "controller", "vehicle", "vision", "blocks", "match"];
+
+    /// <summary>
+    /// QA/冒烟用: 无交互切换到指定页。支持稳定页名 (display/simulation/controller/
+    /// vehicle/vision/blocks/match) 或中文页名, 也兼容旧的下标 (0=显示 1=仿真
+    /// 2=控制器 3=小车 4=视觉 5=能量块 6=比赛/场景)。
+    /// </summary>
+    public void SelectTab(string page)
+    {
+        if (string.IsNullOrWhiteSpace(page))
+        {
+            return;
+        }
+        if (int.TryParse(page, out var index))
+        {
+            SelectTab(index);
+            return;
+        }
+        if (_tabs is null)
+        {
+            return;
+        }
+        var keyIndex = Array.FindIndex(TabKeys, key => string.Equals(key, page, StringComparison.OrdinalIgnoreCase));
+        if (keyIndex >= 0)
+        {
+            SelectTab(keyIndex);
+            return;
+        }
+        for (var i = 0; i < _tabs.GetTabCount(); i++)
+        {
+            if (string.Equals(_tabs.GetTabTitle(i), page, StringComparison.Ordinal))
+            {
+                SelectTab(i);
+                return;
+            }
+        }
+        GD.PrintErr($"[settings-smoke] 未知标签页 '{page}'；可用: {string.Join('/', TabKeys)} 或下标 0-{TabKeys.Length - 1}");
+    }
+
+    /// <summary>按序号切页 (越界钳制); 新页只追加在末尾。</summary>
     public void SelectTab(int index)
     {
         if (_tabs is not null)
@@ -229,6 +291,8 @@ public partial class SettingsPanel : Control
         tabs.SetTabTitle(4, "视觉");
         tabs.AddChild(BuildBlocksPage());
         tabs.SetTabTitle(5, "能量块");
+        tabs.AddChild(BuildMatchPage());
+        tabs.SetTabTitle(6, "比赛/场景");
 
         _pendingNote = AddLabel(root,
             "显示设置立即生效 · 仿真/控制器/视觉/能量块设置保存后自动重置生效（回放/编辑布局中为下一场生效）",
@@ -265,6 +329,30 @@ public partial class SettingsPanel : Control
         footer.AddChild(_apply);
 
         BuildBundleDialogs();
+        BuildScenarioDialog();
+    }
+
+    /// <summary>
+    /// "比赛/场景"页的场景文件选择对话框 (OpenFile, *.json)。批4 会把它并进
+    /// MakePathInput 的通用选择器; 现在先按 LayoutEditor 的用法独立建一个。
+    /// </summary>
+    private void BuildScenarioDialog()
+    {
+        _scenarioDialog = new FileDialog
+        {
+            Title = "选择场景文件（*.json）",
+            Access = FileDialog.AccessEnum.Filesystem,
+            FileMode = FileDialog.FileModeEnum.OpenFile,
+            Filters = new[] { "*.json ; 场景 (Scenario)" },
+        };
+        _scenarioDialog.FileSelected += path =>
+        {
+            if (_matchScenarioPath is not null)
+            {
+                _matchScenarioPath.Text = path;
+            }
+        };
+        AddChild(_scenarioDialog);
     }
 
     /// <summary>
@@ -394,7 +482,59 @@ public partial class SettingsPanel : Control
         intro.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         AddParameterGroup(root, "常用", "比赛判定、传感器与恢复相关", Blue);
         AddParameterGroup(root, "高级", "堵转、摩擦、碰撞与登台门控", Yellow);
+        AddDevSection(root);
         return scroll;
+    }
+
+    /// <summary>
+    /// 高级/开发者折叠区 (批2 R2.2, 默认收起): L1/L2/L3 legacy 接触扩展开关。
+    /// 默认全开 = 现行为; 改动影响碰撞判定, 回放身份会失配 —— 必须原样披露 (同
+    /// ContactResolveOptions 注释: 开启态回放需以同开关构造引擎)。仅 legacy 后端消费。
+    /// </summary>
+    private void AddDevSection(VBoxContainer parent)
+    {
+        var section = new VBoxContainer { Visible = false };
+        section.AddThemeConstantOverride("separation", 6);
+        _devSection = section;
+
+        _devToggle = MakeButton("▸ 高级 / 开发者", Secondary, new Vector2(0, 34));
+        _devToggle.TooltipText = "legacy 物理接触求解扩展（L1/L2/L3）与开发者开关；默认全开 = 现行为";
+        _devToggle.Pressed += () =>
+        {
+            var visible = !section.Visible;
+            section.Visible = visible;
+            if (_devToggle is not null)
+            {
+                _devToggle.Text = visible ? "▾ 高级 / 开发者" : "▸ 高级 / 开发者";
+            }
+        };
+        parent.AddChild(_devToggle);
+        parent.AddChild(section);
+
+        var warning = AddLabel(section,
+            "改动影响碰撞判定，回放身份会失配：开启态录制的 legacy 回放只有在相同的 L1/L2/L3 组合下才可复现。"
+            + "默认全开 = 现行为；仅 legacy 后端消费这三个开关（mujoco 不看）。改动保存后自动重开当前对局。",
+            11, Yellow, new Vector2(0, 44));
+        warning.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _devL1 = MakeDevCheck(section, "L1 车-车 OBB 稳态分离 + 台壁位移钳位",
+            "顶牛互穿修复（0.120 → 0.001 m）；关闭 = 回到旧 legacy 接触路径");
+        _devL2 = MakeDevCheck(section, "L2 车-块 OBB 分离 + 推块速度镜像",
+            "推块/卡角互穿修复；关闭 = 回到旧 legacy 接触路径");
+        _devL3 = MakeDevCheck(section, "L3 块-台壁阻挡",
+            "块-台沿高速穿墙/压入封挡；关闭 = 回到旧 legacy 接触路径");
+    }
+
+    private static CheckButton MakeDevCheck(Container parent, string label, string tooltip)
+    {
+        var check = new CheckButton
+        {
+            Text = label,
+            TooltipText = tooltip,
+            FocusMode = FocusModeEnum.None,
+        };
+        ApplyCheckButtonTheme(check);
+        parent.AddChild(check);
+        return check;
     }
 
     private Control BuildControllerPage()
@@ -750,6 +890,53 @@ public partial class SettingsPanel : Control
         }
         LoadController(settings.UsController, _usMode, _usCommand, _usTimeout);
         LoadController(settings.ThemController, _themMode, _themCommand, _themTimeout);
+
+        // 批2 比赛/场景页 + 高级折叠区: 缺省档显示"跟随/全开", 不写新字段。
+        var match = settings.MatchOverrides ?? new MatchOverrides();
+        if (_matchBackend is not null)
+        {
+            _matchBackend.Select(match.PhysicsBackendOverride switch
+            {
+                MatchBackendOverrides.Legacy => 1,
+                MatchBackendOverrides.MujocoV1 => 2,
+                MatchBackendOverrides.MujocoV2 => 3,
+                _ => 0,
+            });
+        }
+        if (_matchScenarioPath is not null)
+        {
+            _matchScenarioPath.Text = match.ScenarioPath;
+        }
+        if (_matchDurationOverride is not null)
+        {
+            _matchDurationOverride.ButtonPressed = match.MatchDuration is not null;
+        }
+        if (_matchDuration is not null)
+        {
+            _matchDuration.Value = match.MatchDuration ?? 120;
+        }
+        if (_matchSeedOverride is not null)
+        {
+            _matchSeedOverride.ButtonPressed = match.Seed is not null;
+        }
+        if (_matchSeed is not null)
+        {
+            _matchSeed.Value = match.Seed ?? 42;
+        }
+        var dev = settings.DevContact ?? new DevContact();
+        if (_devL1 is not null)
+        {
+            _devL1.ButtonPressed = dev.L1VehicleVehicleObb;
+        }
+        if (_devL2 is not null)
+        {
+            _devL2.ButtonPressed = dev.L2VehicleBlockObb;
+        }
+        if (_devL3 is not null)
+        {
+            _devL3.ButtonPressed = dev.L3BlockWallBlock;
+        }
+        UpdateMatchInputs();
     }
 
     private static void LoadController(ControllerProfile? profile, OptionButton? mode,
@@ -834,6 +1021,9 @@ public partial class SettingsPanel : Control
             },
             UsController = ReadController(_usMode, _usCommand, _usTimeout),
             ThemController = ReadController(_themMode, _themCommand, _themTimeout),
+            // 批2: 全跟随/全开 = null (不落盘新字段, 与老配置逐位等价)。
+            MatchOverrides = ReadMatchOverridesDraft(),
+            DevContact = ReadDevContactDraft(),
         };
         var errors = draft.Validate().ToArray();
         if (errors.Length > 0)
@@ -859,6 +1049,39 @@ public partial class SettingsPanel : Control
             Command = command?.Text.Trim() ?? "",
             TimeoutMs = timeout?.Value ?? 100,
         };
+
+    /// <summary>
+    /// 比赛/场景覆盖 draft: 全跟随 = null (不落盘新字段, 老配置/旧 bundle 语义逐位不变)。
+    /// </summary>
+    private MatchOverrides? ReadMatchOverridesDraft()
+    {
+        var draft = new MatchOverrides
+        {
+            PhysicsBackendOverride = SelectedMatchBackend(),
+            ScenarioPath = _matchScenarioPath?.Text.Trim() ?? "",
+            MatchDuration = _matchDurationOverride is { ButtonPressed: true }
+                ? _matchDuration?.Value ?? 120
+                : null,
+            Seed = _matchSeedOverride is { ButtonPressed: true }
+                ? (int)Math.Round(_matchSeed?.Value ?? 42)
+                : null,
+        };
+        return draft.IsFollowScenario ? null : draft;
+    }
+
+    /// <summary>高级/开发者接触开关 draft: 全开 = null (等价 ContactResolveOptions 默认)。</summary>
+    private DevContact? ReadDevContactDraft()
+    {
+        var draft = new DevContact
+        {
+            L1VehicleVehicleObb = _devL1?.ButtonPressed ?? true,
+            L2VehicleBlockObb = _devL2?.ButtonPressed ?? true,
+            L3BlockWallBlock = _devL3?.ButtonPressed ?? true,
+        };
+        return draft.L1VehicleVehicleObb && draft.L2VehicleBlockObb && draft.L3BlockWallBlock
+            ? null
+            : draft;
+    }
 
     private Control BuildVehiclePage()
     {
@@ -1206,6 +1429,192 @@ public partial class SettingsPanel : Control
             ? $"（合计 {total} 超过上限 {Scenario.MaxBlocks}，应用时按增益优先截断）"
             : "";
         _blockNote.Text = $"增益 {buffs} + 减益 {debuffs} = {total} 块{clamp}；{placement}。0 块 = 纯对抗。";
+    }
+
+    /// <summary>
+    /// "比赛/场景"页 (批2 R2.1): 物理后端覆盖 / 场景文件 / 比赛时长 / 随机种子。
+    /// 全部控件缺省 = 跟随场景/启动值 (老配置不写新字段, 行为逐位不变); 显式覆盖后
+    /// 保存即自动重开当前对局生效 (回放/布局编辑中为下一场或 F5)。
+    /// 审计事实必须原样披露: 小车页的质量/转速/轮径/传感器覆盖只在 mujoco v2 生效
+    /// (DesktopSettings.ApplyVehicleOverrides), 覆盖成 legacy/v1 时它们静默无效。
+    /// </summary>
+    private Control BuildMatchPage()
+    {
+        var scroll = new ScrollContainer
+        {
+            Name = "MatchSettings",
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto,
+            SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        var page = new VBoxContainer();
+        page.AddThemeConstantOverride("separation", 10);
+        page.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.AddChild(page);
+
+        AddLabel(page, "比赛 / 场景", 16, Primary);
+        // 注: WordSmart 自动换行的 Label 在本项目 Godot 4.7 组合下若不给最小高度会以
+        // 0 高度参与布局 (全页多处说明文字同病, 批4 统一修); 本页说明是覆盖项唯一
+        // 文字披露, 先按 _matchNote/_blockNote 的既有做法给高度。
+        var intro = AddLabel(page,
+            "只在明确覆盖时改场景字段；跟随档与现状逐位一致。应用设置后自动重开当前对局生效（回放/布局编辑中为下一场或 F5）。",
+            11, Secondary, new Vector2(0, 30));
+        intro.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+
+        var grid = new GridContainer { Columns = 2 };
+        grid.AddThemeConstantOverride("h_separation", 18);
+        grid.AddThemeConstantOverride("v_separation", 10);
+        page.AddChild(grid);
+
+        AddLabel(grid, "物理后端", 12, Secondary);
+        _matchBackend = MakeOption(
+            ("跟随场景（不改）", MatchBackendOverrides.Follow),
+            ("legacy 2D（旧物理）", MatchBackendOverrides.Legacy),
+            ("MuJoCo v1（真车几何）", MatchBackendOverrides.MujocoV1),
+            ("MuJoCo v2（真车几何 + 小车参数）", MatchBackendOverrides.MujocoV2));
+        _matchBackend.TooltipText =
+            "覆盖场景 physics.backend/modelVersion。仅 mujoco v2 支持小车页的质量/转速/轮径/传感器覆盖；"
+            + "覆盖成 legacy/v1 时这些参数静默无效。应用后自动重开当前对局生效。";
+        _matchBackend.ItemSelected += _ => UpdateMatchInputs();
+        grid.AddChild(_matchBackend);
+
+        AddLabel(grid, "场景文件", 12, Secondary);
+        var scenarioRow = new HBoxContainer();
+        scenarioRow.AddThemeConstantOverride("separation", 8);
+        _matchScenarioPath = MakePathInput("留空 = 跟随启动场景");
+        _matchScenarioPath.TooltipText =
+            "场景 JSON 文件路径；留空 = 跟随启动场景。修改后应用设置即重载（回放/布局编辑中为下一场或 F5）。";
+        scenarioRow.AddChild(_matchScenarioPath);
+        var browse = MakeButton("浏览…", Blue, new Vector2(76, 34));
+        browse.TooltipText = "选择场景 JSON 文件";
+        browse.Pressed += () => _scenarioDialog?.PopupCentered(new Vector2I(860, 620));
+        scenarioRow.AddChild(browse);
+        grid.AddChild(scenarioRow);
+
+        AddLabel(grid, "比赛时长", 12, Secondary);
+        var durationRow = new HBoxContainer();
+        durationRow.AddThemeConstantOverride("separation", 8);
+        _matchDurationOverride = new CheckButton
+        {
+            Text = "覆盖",
+            TooltipText = "勾选后覆盖场景 field.matchDuration；不勾 = 跟随场景",
+            FocusMode = FocusModeEnum.None,
+        };
+        ApplyCheckButtonTheme(_matchDurationOverride);
+        durationRow.AddChild(_matchDurationOverride);
+        _matchDuration = MakeSpin(1, 3600, 1, "s");
+        _matchDuration.TooltipText = "比赛时长（秒），覆盖场景 field.matchDuration";
+        durationRow.AddChild(_matchDuration);
+        grid.AddChild(durationRow);
+
+        AddLabel(grid, "随机种子", 12, Secondary);
+        var seedRow = new HBoxContainer();
+        seedRow.AddThemeConstantOverride("separation", 8);
+        _matchSeedOverride = new CheckButton
+        {
+            Text = "覆盖",
+            TooltipText = "勾选后覆盖启动/场景种子；不勾 = 跟随启动 seed",
+            FocusMode = FocusModeEnum.None,
+        };
+        ApplyCheckButtonTheme(_matchSeedOverride);
+        seedRow.AddChild(_matchSeedOverride);
+        _matchSeed = MakeSpin(0, 4096, 1, "");
+        _matchSeed.TooltipText = "确定性种子（0-4096，与 batch 种子上限一致）；同 seed 同布局轨迹一致";
+        seedRow.AddChild(_matchSeed);
+        _matchRestartSeed = MakeButton("换种子重开", Green, new Vector2(112, 34));
+        _matchRestartSeed.TooltipText =
+            "把当前种子写进设置并立即按 F5 语义重开（回放/布局编辑中为下一场生效）；不关闭设置页";
+        _matchRestartSeed.Pressed += RequestRestartWithSeed;
+        seedRow.AddChild(_matchRestartSeed);
+        grid.AddChild(seedRow);
+
+        _matchDurationOverride.Toggled += _ => UpdateMatchInputs();
+        _matchSeedOverride.Toggled += _ => UpdateMatchInputs();
+        _matchScenarioPath.TextChanged += _ => UpdateMatchNote();
+
+        _matchNote = AddLabel(page, "", 12, Blue, new Vector2(0, 70));
+        _matchNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        UpdateMatchInputs();
+
+        page.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
+        return scroll;
+    }
+
+    /// <summary>覆盖勾选控制输入可用性；未勾选 = 跟随 (老配置/第一次打开即此态)。</summary>
+    private void UpdateMatchInputs()
+    {
+        if (_matchDuration is not null)
+        {
+            _matchDuration.Editable = _matchDurationOverride is { ButtonPressed: true };
+        }
+        if (_matchSeed is not null)
+        {
+            _matchSeed.Editable = _matchSeedOverride is { ButtonPressed: true };
+        }
+        UpdateMatchNote();
+    }
+
+    /// <summary>当前后端选择 (null = 跟随场景; 其余为 MatchBackendOverrides 档位串)。</summary>
+    private string? SelectedMatchBackend() => (_matchBackend?.Selected ?? 0) switch
+    {
+        1 => MatchBackendOverrides.Legacy,
+        2 => MatchBackendOverrides.MujocoV1,
+        3 => MatchBackendOverrides.MujocoV2,
+        _ => null,
+    };
+
+    /// <summary>
+    /// 实时说明: 各覆盖项当前取值 + 后端与小车页参数的生效关系 (审计已知事实)。
+    /// </summary>
+    private void UpdateMatchNote()
+    {
+        if (_matchNote is null)
+        {
+            return;
+        }
+        var backend = SelectedMatchBackend();
+        var backendText = backend switch
+        {
+            MatchBackendOverrides.Legacy => "物理后端：覆盖为 legacy 2D（旧物理）",
+            MatchBackendOverrides.MujocoV1 => "物理后端：覆盖为 MuJoCo v1（真车几何）",
+            MatchBackendOverrides.MujocoV2 => "物理后端：覆盖为 MuJoCo v2（真车几何 + 小车参数）",
+            _ => "物理后端：跟随场景（physics 字段不改）",
+        };
+        var duration = _matchDurationOverride is { ButtonPressed: true }
+            ? $"比赛时长：{(_matchDuration?.Value ?? 120):0} s（覆盖场景）"
+            : "比赛时长：跟随场景";
+        var seed = _matchSeedOverride is { ButtonPressed: true }
+            ? $"种子：{(_matchSeed?.Value ?? 42):0}（覆盖启动 seed）"
+            : "种子：跟随启动 seed";
+        var scenario = string.IsNullOrWhiteSpace(_matchScenarioPath?.Text)
+            ? "场景：跟随启动场景"
+            : $"场景：{_matchScenarioPath!.Text.Trim()}";
+        var disclosure = backend is MatchBackendOverrides.Legacy or MatchBackendOverrides.MujocoV1
+            ? " 注意：小车页的质量/转速/轮径/传感器覆盖只在 mujoco v2 生效，当前后端档下这些参数会静默无效。"
+            : "";
+        _matchNote.Text = $"{scenario}；{backendText}；{duration}；{seed}。{disclosure}";
+    }
+
+    /// <summary>
+    /// "换种子重开": 用种子框当前值写入覆盖 (面板本地状态与 Main 持久化同步), 然后请求
+    /// Main 立即重开。面板不关闭, 其他未应用的草稿编辑保持不变。
+    /// </summary>
+    private void RequestRestartWithSeed()
+    {
+        if (_matchSeed is null)
+        {
+            return;
+        }
+        var seed = (int)Math.Round(_matchSeed.Value);
+        if (_matchSeedOverride is not null)
+        {
+            _matchSeedOverride.ButtonPressed = true;
+        }
+        _matchSeed.Editable = true;
+        var match = _settings.MatchOverrides ?? new MatchOverrides();
+        _settings = _settings with { MatchOverrides = match with { Seed = seed } };
+        UpdateMatchInputs();
+        RestartWithSeedRequested?.Invoke(seed);
     }
 
     private Control BuildVisionPage()

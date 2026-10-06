@@ -47,6 +47,17 @@ public partial class Main : Node
     // 工厂新建适配器 —— 台账与 SimT 0 基准不跨场复用。
     private Func<IVisionAdapter?>? _visionFactory;
     private Scenario _scenarioTemplate = null!;
+    // 比赛/场景页的落点 (批2 R2.1):
+    // - _startupScenarioPath = 启动场景来源 (--scenario-path 或空=官方布局), "跟随启动
+    //   场景"档恢复时用; 运行时导入/布局编辑器只改 ScenarioPath, 不动这里。
+    // - _startupScenarioTemplate = 启动场景原始模板 (无桌面覆盖), 同上。
+    // - _appliedMatchScenarioPath = 设置里已生效的场景覆盖路径 (空 = 跟随), 用于区分
+    //   "用户改了场景文件"与"点了一次应用"。
+    private string _startupScenarioPath = "";
+    private Scenario? _startupScenarioTemplate;
+    private string _appliedMatchScenarioPath = "";
+    // 设置里的场景覆盖文件读坏/不存在: 本次运行内降级为启动场景, 不反复重试卡启动。
+    private bool _matchOverrideScenarioFailed;
     private DesktopLiveDriver? _liveDriver;
     private Snapshot? _driverSnapshot;
     // 控制器装配（我方 external = SCORE_BLOCK 展演）: 决策/解析在 ControllerWiring
@@ -95,6 +106,9 @@ public partial class Main : Node
         {
             ScenarioPath = ResolveUserPath(userArgs[spIndex + 1]);
         }
+        // 批2"比赛/场景"页的"跟随启动场景"档锚点 (后续导入/编辑器/覆盖都只改
+        // 运行时 ScenarioPath, 不动启动档)。
+        _startupScenarioPath = ScenarioPath;
 
         ApplyVisualQaOverrides(userArgs);
         ConfigureVisualFrameStats(userArgs);
@@ -131,6 +145,8 @@ public partial class Main : Node
         // 配置包 (批1): 面板只选文件, 内容收集/校验/落盘都在壳层。
         _settingsPanel.ExportBundleRequested += ExportSettingsBundle;
         _settingsPanel.ImportBundleRequested += ImportSettingsBundle;
+        // 批2 "换种子重开": 写种子覆盖 + 立即按 F5 语义重建 (回放/编辑中挂待生效)。
+        _settingsPanel.RestartWithSeedRequested += RestartWithSeed;
         _settingsPanel.PreflightCompleted += (role, ok, message)
             => _hud.ShowPreflightNotice(role, ok, message);
         _hud.ConfigureSettings(OpenSettings);
@@ -237,11 +253,13 @@ public partial class Main : Node
         if (settingsSmoke)
         {
             OpenSettings();
+            // --settings-tab 支持稳定页名与中文页名 (批2 新增"比赛/场景"页; 旧下标仍兼容):
+            // 例如 --settings-tab match / --settings-tab "比赛/场景" / --settings-tab 6。
+            // 中文按 TabContainer 标题全等匹配, 不认简称 (--settings-tab 比赛 会报未知页)。
             var tabIndex = Array.IndexOf(userArgs, "--settings-tab");
-            if (tabIndex >= 0 && tabIndex + 1 < userArgs.Length
-                && int.TryParse(userArgs[tabIndex + 1], out var tab))
+            if (tabIndex >= 0 && tabIndex + 1 < userArgs.Length)
             {
-                _settingsPanel.SelectTab(tab);
+                _settingsPanel.SelectTab(userArgs[tabIndex + 1]);
             }
             if (_capturePath.Length == 0)
             {
@@ -1071,27 +1089,127 @@ public partial class Main : Node
 
         ApplyDisplaySettings(settings);
         RebuildVisionFactory();
+        // 场景文件选择先落模板 (ApplyMatchScenarioSelection 内部只换模板/挂待生效),
+        // 再按新模板装配控制器与后续重置。
+        var scenarioChanged = ApplyMatchScenarioSelection(settings);
         _controllerAssignment = RebuildControllerWiring(BuildLiveScenarioFromTemplate(), probeExternal: true);
         PublishControllerWiring();
-        if (matchChanged)
+        if (matchChanged || scenarioChanged)
         {
             // 2026-10-04 用户拍板"保存后自动重置生效": 实况中(含待命/进行中/已结束)
             // 保存即重建会话, 省一次手动 F5。两个安全例外维持"下一场生效": 回放中
             // (重置会踢出回放)与布局编辑中(重置会丢弃未应用草稿)。
-            if (_session.Mode == SessionMode.Live && !_editor.Active)
-            {
-                ResetLiveSession("[settings] 已保存并自动重置生效");
-            }
-            else
-            {
-                _pendingMatchSettings = true;
-                GD.Print("[settings] 设置已保存，将在下一场或 F5 重置后生效");
-            }
+            ReloadSessionForScenarioTemplate(
+                scenarioChanged && !matchChanged
+                    ? "[settings] 比赛/场景设置已应用: 已按所选场景重建当前对局"
+                    : "[settings] 已保存并自动重置生效",
+                "[settings] 设置已保存，将在下一场或 F5 重置后生效");
         }
         else
         {
             GD.Print("[settings] 显示设置已应用");
         }
+    }
+
+    /// <summary>
+    /// 运行时会话模板已换后的统一生效入口 (批1 导入 / 批2 场景选择与换种子重开共用):
+    /// 实况且非布局编辑中立即重建会话; 回放/编辑中只挂待生效 —— 不把用户踢出回放、
+    /// 不丢未应用草稿 (与 ApplyDesktopSettings 自动重置同一安全例外, 规则维护在一处)。
+    /// 返回 true = 已重建会话。
+    /// </summary>
+    private bool ReloadSessionForScenarioTemplate(string reloadMessage, string pendingMessage)
+    {
+        if (_session.Mode == SessionMode.Live && !_editor.Active)
+        {
+            ResetLiveSession(reloadMessage);
+            return true;
+        }
+        _pendingMatchSettings = true;
+        GD.Print(pendingMessage);
+        return false;
+    }
+
+    /// <summary>
+    /// "比赛/场景"页的场景文件选择 (批2 R2.1)。非空且与已生效值不同 → 解析 (走
+    /// <see cref="ResolveUserPath"/> 语义) + Validate 通过才换模板; 空 → 回到启动场景
+    /// (--scenario-path / 官方布局)。文件缺失/无效 → 中文诊断 + 保留当前场景, 不改模板。
+    /// 返回 true = 模板已换, 调用方按"下一场或 F5"同规则触发重置/挂起 (回放与布局编辑
+    /// 中不重建会话 —— 与批1 导入入口 TryImportScenario 同一安全例外)。
+    /// </summary>
+    private bool ApplyMatchScenarioSelection(DesktopSettings settings)
+    {
+        var raw = settings.MatchOverrides?.ScenarioPath ?? "";
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            if (_appliedMatchScenarioPath.Length == 0)
+            {
+                return false;
+            }
+            _startupScenarioTemplate ??= LoadBaseScenarioTemplate();
+            _scenarioTemplate = _startupScenarioTemplate;
+            ScenarioPath = _startupScenarioPath;
+            _appliedMatchScenarioPath = "";
+            GD.Print($"[settings] 比赛/场景: 已回到启动场景 ({(_startupScenarioPath.Length == 0 ? "官方布局" : _startupScenarioPath)})");
+            return true;
+        }
+
+        var resolved = ResolveUserPath(raw);
+        if (!File.Exists(resolved))
+        {
+            GD.PrintErr($"[settings] 比赛/场景: 场景文件不存在, 保留当前场景: {raw} (解析为 {resolved})");
+            _hud?.ShowNotice($"场景文件不存在，已保留当前场景：{raw}", ok: false);
+            return false;
+        }
+        if (string.Equals(resolved, _appliedMatchScenarioPath, StringComparison.Ordinal))
+        {
+            return false;
+        }
+        Scenario scenario;
+        try
+        {
+            scenario = ProtocolJson.Deserialize<Scenario>(System.IO.File.ReadAllText(resolved));
+        }
+        catch (Exception error)
+        {
+            GD.PrintErr($"[settings] 比赛/场景: 场景文件载入失败, 保留当前场景: {resolved}: {error.Message}");
+            _hud?.ShowNotice($"场景文件载入失败，已保留当前场景：{error.Message}", ok: false);
+            return false;
+        }
+        var errors = scenario.Validate().ToArray();
+        if (errors.Length > 0)
+        {
+            GD.PrintErr($"[settings] 比赛/场景: 场景文件无效, 保留当前场景: {resolved}: {string.Join(" | ", errors)}");
+            _hud?.ShowNotice("场景文件无效，已保留当前场景", ok: false);
+            return false;
+        }
+        _scenarioTemplate = scenario;
+        ScenarioPath = resolved;
+        _appliedMatchScenarioPath = resolved;
+        GD.Print($"[settings] 比赛/场景: 已切换场景模板 {resolved}");
+        return true;
+    }
+
+    /// <summary>
+    /// "换种子重开" (批2 R2.1): 等价"写 seed + F5 重置"。种子写进比赛覆盖
+    /// (<see cref="MatchOverrides.Seed"/>, 随设置持久化), 实况且非布局编辑中立即重建;
+    /// 回放/编辑中只挂待生效 (不把用户踢出回放)。
+    /// </summary>
+    private void RestartWithSeed(int seed)
+    {
+        var match = _settings.MatchOverrides ?? new MatchOverrides();
+        _settings = _settings with { MatchOverrides = match with { Seed = seed } };
+        try
+        {
+            _settingsStore.Save(_settings);
+        }
+        catch (Exception error)
+        {
+            GD.PrintErr($"[settings] 配置保存失败: {error.Message}");
+        }
+        ReloadSessionForScenarioTemplate(
+            $"[settings] 已按新种子重开: seed={seed}",
+            $"[settings] 新种子 {seed} 已就绪，将在下一场或 F5 重置后生效");
+        _hud?.ShowNotice($"已按 seed {seed} 重开", ok: true);
     }
 
     /// <summary>
@@ -1198,22 +1316,83 @@ public partial class Main : Node
 
     private Scenario BuildScenario()
     {
-        _scenarioTemplate = string.IsNullOrEmpty(ScenarioPath)
+        // 启动模板 = 无桌面覆盖的原始场景值 (指向"跟随启动场景"档); 场景文件覆盖
+        // (设置里的"比赛/场景"页) 只在模板选择这一层生效, 之后才叠加桌面覆盖链。
+        _startupScenarioTemplate ??= LoadBaseScenarioTemplate();
+        var template = LoadMatchOverrideScenarioTemplate() ?? _startupScenarioTemplate;
+        _scenarioTemplate = template;
+        return ApplyDesktopSettings(template);
+    }
+
+    /// <summary>启动场景 (--scenario-path 文件或官方布局), 不含设置里的场景覆盖。</summary>
+    private Scenario LoadBaseScenarioTemplate()
+        => string.IsNullOrEmpty(ScenarioPath)
             ? new Scenario { Seed = Seed, Blocks = OfficialLayout.Blocks }
             : ProtocolJson.Deserialize<Scenario>(System.IO.File.ReadAllText(ScenarioPath));
-        return ApplyDesktopSettings(_scenarioTemplate);
+
+    /// <summary>
+    /// 设置里"比赛/场景"页选的场景文件 → 启动模板。空 = 跟随启动场景 (返回 null);
+    /// 文件缺失/解析失败/校验不过 → 响亮诊断 + 本次运行回退启动场景, 不崩启动。
+    /// </summary>
+    private Scenario? LoadMatchOverrideScenarioTemplate()
+    {
+        if (_matchOverrideScenarioFailed)
+        {
+            return null;
+        }
+        var raw = _settings.MatchOverrides?.ScenarioPath;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            _appliedMatchScenarioPath = "";
+            return null;
+        }
+        var resolved = ResolveUserPath(raw);
+        if (!File.Exists(resolved))
+        {
+            _matchOverrideScenarioFailed = true;
+            GD.PrintErr($"[scenario] 设置中的场景文件不存在: {raw} (解析为 {resolved}) —— 回退启动场景");
+            _hud?.ShowNotice($"设置中的场景文件不存在，已回退启动场景：{raw}", ok: false);
+            return null;
+        }
+        Scenario scenario;
+        try
+        {
+            scenario = ProtocolJson.Deserialize<Scenario>(System.IO.File.ReadAllText(resolved));
+        }
+        catch (Exception error)
+        {
+            _matchOverrideScenarioFailed = true;
+            GD.PrintErr($"[scenario] 设置中的场景文件读取失败: {resolved}: {error.Message} —— 回退启动场景");
+            _hud?.ShowNotice($"设置中的场景文件读取失败，已回退启动场景：{error.Message}", ok: false);
+            return null;
+        }
+        var errors = scenario.Validate().ToArray();
+        if (errors.Length > 0)
+        {
+            _matchOverrideScenarioFailed = true;
+            GD.PrintErr($"[scenario] 设置中的场景文件无效: {resolved}: {string.Join(" | ", errors)} —— 回退启动场景");
+            _hud?.ShowNotice("设置中的场景文件无效，已回退启动场景", ok: false);
+            return null;
+        }
+        ScenarioPath = resolved;
+        _appliedMatchScenarioPath = resolved;
+        GD.Print($"[settings] 比赛/场景: 启动加载场景覆盖 {resolved}");
+        return scenario;
     }
 
     /// <summary>
-    /// 显式桌面覆盖层 (参数 → 小车 → 控制器选择): 仅显式设置生效, 默认档不改
-    /// 场景/车辆字段。控制器选择最后叠加 —— MBri 档把 vehicles[].controller
+    /// 显式桌面覆盖层 (比赛/场景 → 参数 → 小车 → 控制器选择): 仅显式设置生效,
+    /// 默认档不改场景/车辆字段。比赛/场景覆盖最先 —— 物理后端/比赛时长/种子先落进
+    /// 场景, 之后 ApplyVehicleOverrides 才能按覆盖后的 backend=v2 决定是否生效。
+    /// 控制器选择最后叠加 —— MBri 档把 vehicles[].controller
     /// 写成 "mbri", builtin/external 保持场景原值 (external 走进程桥, 不占字段)。
     /// </summary>
     private Scenario ApplyDesktopSettings(Scenario template)
         => _settings.ApplyControllerSelection(
             _settings.ApplyVehicleOverrides(
             _settings.ApplyBlocks(
-            _settings.ApplySimulationParameters(template))));
+            _settings.ApplySimulationParameters(
+            _settings.ApplyMatchOverrides(template)))));
 
     // 响亮回退(同视觉源预检先例): 场景文件读不到时给指路报错并回退官方布局,
     // 不留一个没建起场景的空窗口。
@@ -1226,6 +1405,17 @@ public partial class Main : Node
         catch (Exception e)
         {
             GD.PushError($"[scenario] 场景加载失败 ({(ScenarioPath.Length == 0 ? "官方布局" : ScenarioPath)}): {e.Message} —— 回退官方布局");
+            // 归因: BuildScenario 先加载启动模板, 只有它成功 (非 null) 后才会走设置里的
+            // 场景覆盖 — 此时抛错只可能来自覆盖路径, 本次运行内不再重试; 启动模板自身
+            // 失败则清掉启动档 (跟随档也指向官方布局), 让重试仍能尝试设置里的覆盖。
+            if (_startupScenarioTemplate is null)
+            {
+                _startupScenarioPath = "";
+            }
+            else if (!string.IsNullOrWhiteSpace(_settings.MatchOverrides?.ScenarioPath))
+            {
+                _matchOverrideScenarioFailed = true;
+            }
             ScenarioPath = "";
             return BuildScenario();
         }
@@ -1266,7 +1456,8 @@ public partial class Main : Node
     private void ReplaceSession(Scenario scenario)
     {
         var previous = _session;
-        _session = new MatchSession(scenario, _visionFactory);
+        // legacy L1/L2/L3 开关 (批2 高级/开发者折叠区): 默认全开 = 现行为; mujoco 不消费。
+        _session = new MatchSession(scenario, _visionFactory, _settings.CreateContactResolveOptions());
         previous?.Dispose();
     }
 
@@ -1303,7 +1494,7 @@ public partial class Main : Node
         StopLiveDriver();
         _driverSnapshot = null;
         _liveDriver = new DesktopLiveDriver(scenario, assignment.Us, assignment.Them,
-            _visionFactory, assignment.Exhibition);
+            _visionFactory, assignment.Exhibition, _settings.CreateContactResolveOptions());
         _liveDriver.Start();
         GD.Print("[controller] 已启动桌面后台 driver；实况渲染线程不等待外部策略");
     }
@@ -1345,7 +1536,22 @@ public partial class Main : Node
             && ControllerEqual(left.UsController, right.UsController)
             && ControllerEqual(left.ThemController, right.ThemController)
             && VisionEqual(left.Vision, right.Vision)
-            && BlockLayoutEqual(left.BlockLayout, right.BlockLayout);
+            && BlockLayoutEqual(left.BlockLayout, right.BlockLayout)
+            // 批2 新增字段: 比赛/场景覆盖与 legacy 接触开关都改对局结果, 必须触发自动
+            // 重置; 缺省档两边相等 = 老配置行为不变。
+            && MatchOverridesEqual(left.MatchOverrides, right.MatchOverrides)
+            && DevContactEqual(left.DevContact, right.DevContact);
+
+    private static bool MatchOverridesEqual(MatchOverrides? left, MatchOverrides? right)
+        => (left?.PhysicsBackendOverride ?? "") == (right?.PhysicsBackendOverride ?? "")
+            && (left?.ScenarioPath ?? "") == (right?.ScenarioPath ?? "")
+            && left?.MatchDuration == right?.MatchDuration
+            && left?.Seed == right?.Seed;
+
+    private static bool DevContactEqual(DevContact? left, DevContact? right)
+        => (left?.L1VehicleVehicleObb ?? true) == (right?.L1VehicleVehicleObb ?? true)
+            && (left?.L2VehicleBlockObb ?? true) == (right?.L2VehicleBlockObb ?? true)
+            && (left?.L3BlockWallBlock ?? true) == (right?.L3BlockWallBlock ?? true);
 
     private static bool BlockLayoutEqual(BlockLayoutSettings? left, BlockLayoutSettings? right)
         => left?.BuffCount == right?.BuffCount
@@ -1613,6 +1819,8 @@ public partial class Main : Node
     private void ApplyImportedBundle(SettingsBundle bundle)
     {
         var notes = new List<string>();
+        // 导入场景的本地落点 (仅载入成功时非空): 主设置里的场景覆盖路径要改指到这里。
+        var importedScenarioTarget = "";
 
         // 场景先落盘并作为模板挂上; ApplyDesktopSettings(DesktopSettings) 随后的自动重置
         // 会从新模板重建, 于是无论比赛设置是否变化最终会话都包含新场景。
@@ -1621,7 +1829,18 @@ public partial class Main : Node
             var target = ImportedScenarioPath(file.FileName);
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             WriteFileAtomic(target, file.Content);
-            notes.Add(TryImportScenario(target)
+            // 批2 相互作用保护: 导入的设置若没带场景覆盖路径, 清掉"已生效覆盖路径"记忆,
+            // 否则同一流程里的 ApplyDesktopSettings 会按"回到启动场景"把刚导入的场景换回去。
+            if (string.IsNullOrWhiteSpace(bundle.Settings?.MatchOverrides?.ScenarioPath))
+            {
+                _appliedMatchScenarioPath = "";
+            }
+            var imported = TryImportScenario(target);
+            if (imported)
+            {
+                importedScenarioTarget = target;
+            }
+            notes.Add(imported
                 ? $"场景 → {target}（已重载；回放/布局编辑中为下一场或 F5 生效）"
                 : $"场景 → {target}（载入失败，已保留当前场景）");
         }
@@ -1629,6 +1848,20 @@ public partial class Main : Node
         // 主设置走既有应用链: 保存 + 显示/视觉/控制器 + 比赛设置自动重置/挂起。
         if (bundle.Settings is { } settings)
         {
+            // 批2 相互作用: 设置里的场景覆盖路径是导出机的路径引用, 跨机器可能解析到同名
+            // 不同内容的文件 (bundle 原文才是导出机的当前场景 —— 设计 §1a "内嵌内容而非
+            // 路径引用")。有内嵌场景时改指本地落点并记为已生效, 防止随后的
+            // ApplyDesktopSettings 按旧路径再换一次模板、把刚导入的场景换掉。
+            if (importedScenarioTarget.Length > 0
+                && settings.MatchOverrides is { } match
+                && !string.IsNullOrWhiteSpace(match.ScenarioPath))
+            {
+                settings = settings with
+                {
+                    MatchOverrides = match with { ScenarioPath = importedScenarioTarget },
+                };
+                _appliedMatchScenarioPath = importedScenarioTarget;
+            }
             ApplyDesktopSettings(settings);
             notes.Add($"主设置 → {ProjectSettings.GlobalizePath($"user://{SettingsStore.DefaultFileName}")}");
         }
@@ -1668,8 +1901,9 @@ public partial class Main : Node
 
     /// <summary>
     /// 运行时场景重载 (批1 导入; 批2"比赛/场景"页选择场景共用入口, 参考 ApplyLayoutScenario):
-    /// 解析 + 场景校验通过才写入模板; 实况且非布局编辑中立即重建会话, 否则挂为待生效
-    /// (与 ApplyDesktopSettings 的回放/编辑安全例外同规则, 不把用户踢出回放)。
+    /// 解析 + 场景校验通过才写入模板; 生效规则走统一入口
+    /// <see cref="ReloadSessionForScenarioTemplate"/> (实况且非布局编辑中立即重建, 否则
+    /// 挂为待生效, 不把用户踢出回放)。
     /// </summary>
     private bool TryImportScenario(string path)
     {
@@ -1692,15 +1926,9 @@ public partial class Main : Node
 
         ScenarioPath = path;
         _scenarioTemplate = scenario;
-        if (_session.Mode == SessionMode.Live && !_editor.Active)
-        {
-            ResetLiveSession($"[bundle] 已按导入场景重载: {path}");
-        }
-        else
-        {
-            _pendingMatchSettings = true;
-            GD.Print($"[bundle] 导入场景已就绪，将在下一场或 F5 重置后生效: {path}");
-        }
+        ReloadSessionForScenarioTemplate(
+            $"[bundle] 已按导入场景重载: {path}",
+            $"[bundle] 导入场景已就绪，将在下一场或 F5 重置后生效: {path}");
         return true;
     }
 
