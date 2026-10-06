@@ -32,7 +32,8 @@ public sealed record SettingsBundle
 {
     public const int CurrentBundleSchemaVersion = 1;
 
-    public int BundleSchemaVersion { get; init; } = CurrentBundleSchemaVersion;
+    /// <summary>缺省 0 = 反序列化时缺键; RejectUnsupportedVersion 会把它当"不是配置包"拒绝。</summary>
+    public int BundleSchemaVersion { get; init; }
 
     /// <summary>导出时间 (UTC ISO-8601, 仅供人读/审计)。</summary>
     public string ExportedAt { get; init; } = "";
@@ -72,12 +73,21 @@ public sealed record SettingsBundle
         };
 
     /// <summary>
-    /// 导入版本校验: 不匹配返回中文拒绝原因, 匹配返回 null (PRD R1.3, 无自动迁移)。
+    /// 导入版本校验: 匹配返回 null, 不匹配返回中文拒绝原因 (PRD R1.3, 无自动迁移)。
+    /// 0 = JSON 没有 bundleSchemaVersion 键 (属性缺省值) —— 说明根本不是配置包文件
+    /// (如 robot-models.json / 场景 json), 用明确措辞拒绝, 不走进"缺少主设置"这类
+    /// 结构校验错误让用户误以为导出坏了 (2026-10-06 验收实测踩坑)。
     /// </summary>
     public static string? RejectUnsupportedVersion(int bundleSchemaVersion)
-        => bundleSchemaVersion == CurrentBundleSchemaVersion
-            ? null
+    {
+        if (bundleSchemaVersion == CurrentBundleSchemaVersion)
+        {
+            return null;
+        }
+        return bundleSchemaVersion == 0
+            ? "该文件不是配置包（缺少 bundleSchemaVersion 标记）：请选择\"导出配置包\"生成的 .json 文件"
             : $"配置包版本不兼容（v{bundleSchemaVersion}，本程序支持 v{CurrentBundleSchemaVersion}），已拒绝导入";
+    }
 
     /// <summary>
     /// 结构校验 (先 Deserialize 再 Validate, type-safety 规范): 返回中文原因, 空 = 可导入。

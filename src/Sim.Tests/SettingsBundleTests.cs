@@ -244,6 +244,28 @@ public class SettingsBundleTests : IDisposable
     }
 
     [Fact]
+    public void Bundle_MissingSchemaVersionKey_IsRejectedAsNotABundle()
+    {
+        // 缺 bundleSchemaVersion 键 = 根本不是配置包 (如 robot-models.json)。
+        // 必须用"不是配置包"措辞明确拒绝, 不能走进"缺少主设置"结构校验误导用户
+        // (2026-10-06 验收实测: 导入选到外观模型文件, 报错让人以为是导出坏了)。
+        Assert.Equal(0, new SettingsBundle { Settings = DesktopSettings.Default }.BundleSchemaVersion);
+        var rejection = SettingsBundle.RejectUnsupportedVersion(0);
+        Assert.NotNull(rejection);
+        Assert.Contains("不是配置包", rejection);
+        Assert.DoesNotContain("缺少主设置", rejection);
+
+        // 端到端: 磁盘上没有 bundleSchemaVersion 键的 json, 版本门先行拒绝 ——
+        // 导入流程在结构校验之前就返回"不是配置包", 用户不会看到"缺少主设置"。
+        var work = NewTempDir();
+        var path = Path.Combine(work, "not-a-bundle.json");
+        File.WriteAllText(path, """{"us":{"path":"x.glb"}}""");
+        var loaded = new SettingsBundleStore(path).Load();
+        Assert.Equal(0, loaded.BundleSchemaVersion);
+        Assert.NotNull(SettingsBundle.RejectUnsupportedVersion(loaded.BundleSchemaVersion));
+    }
+
+    [Fact]
     public void TrainConfigReader_RequiresJsonObject()
     {
         var work = NewTempDir();

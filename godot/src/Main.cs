@@ -1710,6 +1710,7 @@ public partial class Main : Node
     public void ImportSettingsBundle(string path)
     {
         path = ResolveUserPath(path);
+        GD.Print($"[bundle] 导入尝试: {path}");
         SettingsBundle bundle;
         try
         {
@@ -1729,8 +1730,21 @@ public partial class Main : Node
         var errors = bundle.Validate().ToArray();
         if (errors.Length > 0)
         {
+            // 诊断: 结构校验失败 = 读到的 JSON 与预期不符。打出实读文件的路径/大小/首段,
+            // 让"导出的文件自己导不回去"这类问题可以从日志直接定位, 不靠猜。
+            try
+            {
+                var content = File.ReadAllText(path);
+                var head = content.Length <= 160 ? content : content[..160];
+                GD.PrintErr($"[bundle] 导入诊断 {path} (size={content.Length}) head={head}");
+            }
+            catch (Exception readError)
+            {
+                GD.PrintErr($"[bundle] 导入诊断 {path}: 二次读取失败 {readError.Message}");
+            }
             ReportBundleImportFailure("配置包内容无效" + System.Environment.NewLine
-                + string.Join(System.Environment.NewLine, errors.Select(error => "· " + error)));
+                + string.Join(System.Environment.NewLine, errors.Select(error => "· " + error))
+                + System.Environment.NewLine + $"（文件: {path}）");
             return;
         }
 

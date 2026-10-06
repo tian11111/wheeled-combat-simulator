@@ -102,6 +102,13 @@ public partial class SettingsPanel : Control
     private FileDialog? _bundleOpenDialog;
     private FileDialog? _trainConfigDialog;
     private string? _pendingBundleExportPath;
+
+    /// <summary>
+    /// 上次导出配置包的目录: 导入/再次导出的对话框跟随它打开。缺省时 Godot 文件
+    /// 对话框会停在 godot/ —— robot-models.json 就在那里, 验收时被误选成配置包
+    /// (2026-10-06 实测)。
+    /// </summary>
+    private string? _lastBundleDirectory;
     private DesktopSettings _settings = DesktopSettings.Default;
     private IReadOnlyDictionary<string, RobotModelConfig> _robotModels =
         new Dictionary<string, RobotModelConfig>();
@@ -554,18 +561,30 @@ public partial class SettingsPanel : Control
     private void RequestExportBundle()
     {
         ClearError();
+        FollowLastBundleDirectory(_bundleSaveDialog);
         _bundleSaveDialog?.PopupCentered(new Vector2I(860, 620));
     }
 
     private void RequestImportBundle()
     {
         ClearError();
+        FollowLastBundleDirectory(_bundleOpenDialog);
         _bundleOpenDialog?.PopupCentered(new Vector2I(860, 620));
+    }
+
+    /// <summary>对话框从上次导出目录打开 (目录仍在磁盘上才跟随)。</summary>
+    private void FollowLastBundleDirectory(FileDialog? dialog)
+    {
+        if (dialog is not null && _lastBundleDirectory is not null && Directory.Exists(_lastBundleDirectory))
+        {
+            dialog.CurrentDir = _lastBundleDirectory;
+        }
     }
 
     private void OnBundleExportPathSelected(string path)
     {
         _pendingBundleExportPath = path;
+        _lastBundleDirectory = Path.GetDirectoryName(path);
         _trainConfigDialog?.PopupCentered(new Vector2I(860, 620));
     }
 
