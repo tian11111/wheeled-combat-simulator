@@ -11,7 +11,7 @@ namespace Sim.Tests;
 /// invalid input path produces either no report (hard validation errors) or
 /// a report that marks the affected family non-candidate.
 /// </summary>
-public class SensorCalibrationImportTests
+public class SensorCalibrationImportTests : IDisposable
 {
     private const string MiniFixtureDir = "src/Sim.Tests/fixtures/mbri-mini";
     private readonly List<string> _tempDirs = [];

@@ -55,7 +55,7 @@ split v3 的单次盲验**未通过**：PPO 取得 2 次锁定目标真实 `Bloc
 SDK 为 `Godot.NET.Sdk/4.7.2`）。启动窗口版：
 
 ```bash
-godot --path godot                          # 实况: Enter 发令, P 暂停, R/T 真实重启 (对手 +4)
+godot --path godot                          # 实况: Enter 发令, P 暂停, R/T 真实重启 (对手 +3)
 godot --path godot -- --replay-path ../replays/godot-parity-seed42.json   # 打开回放
 godot --path godot -- --scenario-path scenarios/wushu-ring-2026.json      # 加载指定布局场景
 ```

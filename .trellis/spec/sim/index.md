@@ -52,17 +52,17 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
 - **选择契约（协议加法）**：场景 `vehicles[us|them].controller` 取值 `builtin`（省略默认）
   或 `mbri`（`src/Sim.Protocol/Profiles.cs:224-245`，null 不序列化、既有 wire 不加宽）；
   桌面设置页"来源"同档位（内置 FSM / 内置 MBri / 外部命令），仅显式选择 MBri 时把字段
-  写进本场场景（`godot/src/DesktopSettings.cs:287-312`）。外部进程控制器继续走
+  写进本场场景（`godot/src/DesktopSettings.cs:318-341`）。外部进程控制器继续走
   `--controller-us/--controller-them` 与桌面进程桥，不占用该字段，外部动作优先于场景选择。
   省略/显式 builtin 的场景行为逐位不变（`src/Sim.Tests/MbriSelectionTests.cs` 指纹相等 +
   replay-check seed-42 + 官方场景 vs 缺省副本 diff）。
 - **实现边界**：`Sim.Core.MbriFsmController`（+ `MbriPatrol` / `MbriReentry`）是纯内置控制器，
   零 IO/时钟/随机（真车 wall-clock 统一经 `MbriUnits.SecondsToTicks` 换算为 tick）；
-  `MatchEngine` 只按场景选择构造与逐 tick 派发（`src/Sim.Core/MatchEngine.cs:135-136,687-692`），
+  `MatchEngine` 只按场景选择构造与逐 tick 派发（`src/Sim.Core/MatchEngine.cs:142-143,706`），
   不触碰物理/裁判/传感器采样。新桥接/新偏差必须在 `MbriFsm.cs` 头注释逐项披露。
 - **单位与标定层（数值合同）**：轮速 `WheelToMs = unit×0.000896`（真车 400×0.6 s=21.5 cm
   实测锚点）；差速 `w=(r−l)/(2·TrackWidth)·k` 的 TrackWidth 取**真车实测 0.229 m**
-  （`src/Sim.Core/MbriUnits.cs:14-17`；来源 `src/Sim.Mujoco/MujocoModel.cs:95-97` 轮心实测与
+  （`src/Sim.Core/MbriUnits.cs:27`；来源 `src/Sim.Mujoco/MujocoModel.cs:94-99` 轮心实测与
   v2 场景同值；旧桥猜测 0.18 已弃用，偏差 21.4% < 30% 停线阈值）。灰度 0–1000 → 真车 ADC
   的逐通道仿射（`SimToAdc`/`SimToAdcWhite`）是"结构忠实、数值近似"层：真车非线性/噪声
   不建模；**A1 重标（2026-10-02）**：巡台 zone 的 anchor 0/1 端点已从 g=0/1000 重锚到
@@ -71,7 +71,7 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   走道 ≈−1.03，early-front/near-edge/FAST_ZONE 阈值距台沿语义见
   `MbriGrayCalibrationTests.OfficialField_ZoneSemantics`（纯常量断言，改锚必跑）；
   白域仍结构性不可达（`WhiteEnter_UnreachableOnOfficialField`）。掉台判定另走 fall-domain
-  采样（走道 g<150 → ADC 0，`src/Sim.Core/MbriGrayCalibration.cs:70-97`）。
+  采样（走道 g<150 → ADC 0，`src/Sim.Core/MbriGrayCalibration.cs:123-149`）。
   改这些常量/公式会改变 mbri 轨迹，必须重跑 `--filter "FullyQualifiedName~Mbri"` 与
   11-seed 行为对照。
 - **能力边界（按 2026-10-02 能力修复轮修订；不得超出证据宣称）**：
@@ -83,7 +83,7 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   **默认控制器未切换**（决策包与切换风险含 RL 对手分布漂移，见
   `.trellis/tasks/10-01-mbri-fsm-port/report-capability.md` §4）。残余披露：A2 REMOUNT
   显式"回台成功"出口在 33 场中 0 次触发（回台实际经 REVERSE 结束灰度恢复分流，
-  `MbriReentry.cs:347-363` / IR_WAIT `!Fall` 出口 `:428-429`）；P2 hunt/probe 已移植
+  `MbriReentry.cs:389` / IR_WAIT `!Fall` 出口 `:427-429`）；P2 hunt/probe 已移植
   （视觉=ObjectSet 真值投影的特权观测，`MbriFsm.cs:43-49` 头注释+事件流双披露），
   真车铲子红外守卫仍为 no-op；mbri+MuJoCo 已验证不崩溃且确定性，但回台 seed 相关
   （走道滞留可达 120 s）、MuJoCo 场地灰度域未按 A1 流程单独校准。完整对照见
@@ -219,6 +219,12 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   世界坐标修正只在边界处经 `FieldTransform` 进出。
 - 编辑器/草稿只产 `Scenario` 数据并重建会话；任何编辑路径都不得触碰运行中的
   `MatchEngine`（比赛/回放进行中编辑必须被禁用）。
+  **入口判定是纯函数 `godot/src/EditorGate.cs`（链进 `Sim.Tests`，矩阵回归
+  `EditorGateTests`）**：`Prep` 与 `Ready` 都算"尚未发令"、都放行 —— 快照把两者同样
+  报成 `MatchPhase.Prep`（界面显示"发令准备"），而内核在发令准备倒计时(60 s)走完后会
+  **自行**从 `Prep` 转 `Ready`；只认 `Prep` 会让静置一分钟后的编辑器静默失效
+  （2026-10-06 修复）。被拒绝时必须同时写日志与 HUD 提示（`HudPanel.ShowNotice`）：
+  窗口版没有可见控制台，只写日志等于"按了没反应"。
 - 渲染层（含 `.glb/.gltf` 外观模型、本地偏好文件、台面灰度纹理）永不进入
   `Scenario`/`Snapshot`/回放指纹。
 - 运行时 `GltfDocument` 导入**不会**像编辑器导入器那样自动合成法线——缺 NORMAL 属性

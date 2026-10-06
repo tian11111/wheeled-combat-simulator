@@ -81,6 +81,31 @@ dotnet run --project src/Sim.Cli -- match --seed 42 \
 - 交接后我方进入 Manual 语义（FSM 不再产生决策事件）；策略故障按超时/坏行统一零动作 + faults。
 - 展演不是门禁证据：不得据此晋升 `fidelity.json`、不得写入 v4 盲集索引。
 
+## rl-env — 强化学习训练环境（JSONL stdio 持久进程）
+
+`controllers/score_block_rl/train.py` 的引擎侧入口：一个 CLI 会话就是一个持久环境进程，
+stdin 逐行收 `reset` / `step` 请求，stdout 逐行回同类型响应（**固定 UTF-8**，不依赖 Windows
+控制台代码页）。仅 `physics.backend=mujoco` 场景可用；对手恒为内置 FSM，只有我方交给策略。
+
+```bash
+dotnet run --project src/Sim.Cli -- rl-env \
+  --scenario scenarios/wushu-ring-2026-mujoco.json --reward v4
+```
+
+| 选项 | 默认 | 说明 |
+| --- | --- | --- |
+| `--scenario <path>` | `scenarios/wushu-ring-2026-mujoco.json` | 训练场景（须为 MuJoCo 后端） |
+| `--reward <variant>` | `v4` | `v4`（逐位不变基线）/ `aggression-v1` / `aggression-v2` / `aggression-v3`；未知取值报错、退出 2 |
+| `--duration <s>` | `120` | 单 episode 比赛时长 |
+
+- 每个 episode 新建 `MatchEngine` 与 `mjData`；只读 `mjModel` 可按模型内容哈希跨 episode
+  复用（普通比赛仍每场独立模型与数据）。
+- 观测前 9 项顺序冻结，末尾为我方相对平台中心、按半边长归一化的 x/y；**改维度后旧 PPO
+  模型必须重训**，不得静默加载。
+- 奖励变体只改训练信号：不写回放、不晋升 `fidelity.json`。split 与门禁契约见
+  `.trellis/spec/sim/rl-split-contract.md`，训练/评测命令见
+  [controllers/score_block_rl/README.md](../controllers/score_block_rl/README.md)。
+
 ## batch — AI agent 无头并行批量仿真 (JSONL)
 
 面向 AI agent / 脚本的批量入口：**不启动 Godot、不依赖任何桌面组件**，多个独立
@@ -169,7 +194,20 @@ dotnet run --project src/Sim.Cli -- calibrate --input telemetry/data/robot-01.js
 ```
 
 消费 `telemetry-v1` 契约（见 `telemetry/README.md`）：入口一次性校验 SI 单位、时间戳、
-kind 必填字段；**任何校验失败都不会产出报告或 patch**。拟合算法数值等价迁移自遗留
+kind 必填字段；**任何校验失败都不会产出报告或 patch**。
+
+| 选项 | 说明 |
+| --- | --- |
+| `--input <path>` | 真机遥测 JSON（telemetry-v1，必填） |
+| `--out <path>` | 报告输出路径 |
+| `--vehicle-id <id>` | 指定标定目标车辆（多车数据集的角色/车辆选择） |
+| `--base-scenario <path>` | 生成新场景时的基座场景（默认官方场景） |
+| `--emit-scenario <path>` | 直接产出可加载的标定后场景 |
+| `--fidelity <path>` | `fidelity.json` 路径（配合 `--update-fidelity`） |
+| `--update-fidelity` | 显式登记保真度晋升（只晋升留出达标且 `source=real` 的子系统） |
+| `--force` | 覆盖已存在的输出 |
+
+拟合算法数值等价迁移自遗留
 `sim_calibrate.js`（指数衰减/块摩擦一维搜索/恢复系数最小二乘/堵转阈值分类）；
 每个参数分列**拟合集与留出集**指标，晋升要求留出达标且数据为真机
 （合成自测数据永不晋升）。登台门控只验证不拟合：误判率/覆盖不足时如实报告模型不足。

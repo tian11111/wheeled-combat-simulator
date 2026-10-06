@@ -26,7 +26,7 @@ UTF-8 读 stdin（如 `py -3.12 -X utf8 ...`）；动作行是 ASCII，任何编
 | `rawSensors` | object | 该车 profile 的真实通道集合（id → 数值） |
 | `sensorLayout` | object | 传感器布局定义 |
 | `perception` | object | `{fieldGray, vision}` 感知实现元数据（保真度证据） |
-| `objects` | object | `{buffs:[{x,y,onPlatform,out,lastTouch}], debuff:{...}}` |
+| `objects` | object | `{buffs:[{x,y,onPlatform,out,lastTouch}], debuff:{...}, debuffs:[{...}]}`；`debuff` 恒 = 第一个减益块（兼容旧控制器），`debuffs` 按块索引列出全部减益块（2026-10-04 起块数与增益/减益组合可配置，上限 12 块） |
 
 `sensors` 灰度值 0–1000（走道 0、黑带约 300、台面白约 1000），红外约 0–1。
 

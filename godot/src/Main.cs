@@ -1816,28 +1816,27 @@ public partial class Main : Node
             GD.Print("[editor] 退出布局编辑 (未应用的改动不生效)");
             return;
         }
-        if (_session.Mode == SessionMode.Replay)
+        // 门禁判定在 EditorGate (纯函数, Sim.Tests 回归): Prep 与 Ready 都算「尚未发令」。
+        // 原先只认 Prep —— 内核在发令准备满 60 s 后自动转 Ready, 界面仍显示「发令准备」,
+        // 编辑入口却静默失效 (2026-10-06 修复)。
+        if (EditorGate.RejectReason(_session.Mode, _liveDriver is not null, _session.Engine.Phase) is { } reason)
         {
-            GD.Print("[editor] 回放模式不能编辑布局: 按 F5 回到实况");
-            return;
-        }
-        if (_liveDriver is not null)
-        {
-            GD.Print("[editor] 外部控制器实况正在后台运行: 先在设置中切回内置 FSM 或按 F5 重置后编辑");
-            return;
-        }
-        var engine = _session.Engine;
-        // 门禁只看阶段: 实况 Prep = 比赛尚未发令。TickIndex 在 Prep 空转时也以
-        // 20 Hz 递增, 用它做门禁会让人工永远进不了编辑器 (0.05 s 后即 >0)。
-        if (engine.Phase != MatchControlPhase.Prep)
-        {
-            GD.Print(engine.Phase == MatchControlPhase.Finished
-                ? "[editor] 比赛已结束: 按 F5 重置为同 seed 新比赛后再编辑布局"
-                : "[editor] 比赛已进行中: 按 F5 重置为同 seed 新比赛后再编辑布局");
+            RejectEditor(reason);
             return;
         }
         _editor.Enter(_session.ScenarioWithResolvedBlocks());
         GD.Print("[editor] 进入布局编辑: 点击选择, 拖动移动, [ ] 旋转, S 吸附, B 添加能量块, K 切换增益/减益, Del 删除块, Ctrl+Z/Y 撤销/重做, Enter 应用, E 退出");
+    }
+
+    /// <summary>
+    /// Logs a rejected layout-editor entry and mirrors the reason onto the HUD.
+    /// A windowed run has no visible console, so a log-only reason reads to the
+    /// user as "the E key does nothing".
+    /// </summary>
+    private void RejectEditor(string reason)
+    {
+        GD.Print($"[editor] {reason}");
+        _hud.ShowNotice(reason);
     }
 
     private void ApplyLayoutScenario(Scenario scenario)

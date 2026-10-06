@@ -38,7 +38,8 @@ dotnet run --project src/Sim.Cli -- match --seed 42 \
 
 **观测里有什么**（camelCase，逐字段表见协议文档）：
 `robot{x,y,th,v,w,onPlatform,state,vehicle}` / `opponent{...}` /
-`objects.buffs[{x,y,out,...}]` 与 `objects.debuff`（**真值坐标**）/
+`objects.buffs[{x,y,out,...}]`、`objects.debuff`（= 第一个减益块）与 `objects.debuffs[]`
+（全部减益块，**真值坐标**）/
 `sensors{gF,gB,gL,gR,dLF,dRF,f,...}`（灰度 0–1000、红外 0–1）/
 `scores` / `tick` / `t` / `timer`。
 
