@@ -20,6 +20,11 @@ throughput experiment:
 No ``EvalCallback``: its default "best model" rule ranks by mean episode
 reward, which is not this project's gate (locked-target real ``BlockScore`` and
 our own ``Drop`` count). See design.md.
+
+``--config <json>`` loads the snake_case field table defined in train_config.py
+(the same fields as the CLI flags; explicit CLI arguments always win, unknown
+keys are rejected). Without ``--config`` parsing is byte-identical to the
+historical pure-CLI behavior.
 """
 
 from __future__ import annotations
@@ -62,11 +67,17 @@ from train_artifacts import (
     read_monitor_csv,
     sha256_file,
 )
+# CLI/配置文件解析与冻结默认值 (TRAIN_SEED/CHECKPOINT_INTERVAL_STEPS) 在
+# train_config.py: train.py 只是消费方, 纯解析语义可在无 SB3 环境下单测。
+from train_config import (
+    CHECKPOINT_INTERVAL_STEPS,
+    TRAIN_SEED,
+    build_argument_parser,
+    load_train_config,
+)
 
-TRAIN_SEED = 20260925
 V4_TRAIN_SEEDS = (20260927, 20260928, 20260929, 20260930, 20261001)
 TRAIN_SEED_POOL = sorted(TRAIN_EPISODE_SEEDS - {TRAIN_SEED})
-CHECKPOINT_INTERVAL_STEPS = 51_200
 ROLLOUT_TRANSITIONS = 2_048
 EPISODE_SEED_PARTITION = 0x53434F52
 EPISODE_SEED_DOMAIN = 0x45504953
@@ -137,7 +148,8 @@ def code_identity(repo_root: Path) -> dict[str, object]:
     files = ("controllers/score_block_rl/train.py",
              "controllers/score_block_rl/gym_env.py",
              "controllers/score_block_rl/train_artifacts.py",
-             "controllers/score_block_rl/splits.py")
+             "controllers/score_block_rl/splits.py",
+             "controllers/score_block_rl/train_config.py")
     result: dict[str, object] = {name: sha256_file(repo_root / name) for name in files}
     try:
         result["git_commit"] = subprocess.run(
@@ -197,19 +209,19 @@ def make_env_factory(dotnet: str, cli_dll: Path, scenario: Path,
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--steps", type=int, default=500_000)
-    parser.add_argument("--out", required=True)
-    parser.add_argument("--train-seed", type=int, default=TRAIN_SEED)
-    parser.add_argument("--n-envs", type=int, default=1,
-                        help="opt-in subprocess environments; 1 preserves the legacy path")
-    parser.add_argument("--dotnet", default=None)
-    parser.add_argument("--cli-dll", default="src/Sim.Cli/bin/Debug/net8.0/Sim.Cli.dll")
-    parser.add_argument("--scenario", default="scenarios/wushu-ring-2026-mujoco.json")
-    parser.add_argument("--reward", default="v4", choices=["v4", "aggression-v1", "aggression-v2", "aggression-v3"],
-                        help="reward variant; v4 (default) keeps the frozen v4 terms byte-identical")
-    parser.add_argument("--checkpoint-interval", type=int, default=CHECKPOINT_INTERVAL_STEPS,
-                        help="global transitions between CheckpointCallback snapshots")
+    # 两段解析: 先用只认 --config 的引导解析器定位配置文件, 配置文件字段再作为
+    # 完整解析器的默认值; 显式 CLI 参数因此天然覆盖配置值, 无 --config 时完整
+    # 解析器的默认值/required/choices 与历史版本逐位一致。
+    bootstrap = argparse.ArgumentParser(add_help=False, usage="%(prog)s [options]")
+    bootstrap.add_argument("--config")
+    preliminary, _ = bootstrap.parse_known_args()
+    config_defaults: dict[str, object] = {}
+    if preliminary.config is not None:
+        try:
+            config_defaults = load_train_config(Path(preliminary.config))
+        except (OSError, ValueError) as exc:
+            bootstrap.error(f"--config {preliminary.config}: {exc}")
+    parser = build_argument_parser(config_defaults)
     args = parser.parse_args()
     if args.steps <= 0:
         parser.error("--steps must be positive")
