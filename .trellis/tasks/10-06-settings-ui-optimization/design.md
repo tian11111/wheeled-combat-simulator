@@ -25,7 +25,7 @@
 ```
 
 - 序列化用 `ProtocolJson` 现有 options（camelCase、null 省略），与设置文件一致（`DesktopSettings.cs:525-583` 的 `SettingsStore` 模式：原子写 `.tmp` + `File.Move`）。
-- 导出来源：`SettingsPanel._settings`、`_robotModels`、当前场景（Main 暴露"当前场景文件路径 + 是否布局产物"，从 `--scenario-path` / 布局编辑器 `LayoutDraft.SaveTo` 的落点取；场景内容读文件原文内嵌，**不嵌路径引用**）。trainConfig 不在桌面侧持有，导出时弹文件对话框让用户选已有 `train-config.json`（可跳过）。
+- 导出来源：`SettingsPanel._settings`、`_robotModels`、当前场景（Main 暴露"当前场景文件路径 + 是否布局产物"，从 `--scenario-path` / 布局编辑器 `LayoutDraft.SaveTo` 的落点取；场景内容读文件原文内嵌，**不嵌路径引用**）。trainConfig 不在桌面侧持有；验收拍板（2026-10-06）改为一步导出——导出目录旁有 `train-config.json` 即自动附带，不再弹第二步选择框。
 
 ### 1b. 导出/导入接线
 

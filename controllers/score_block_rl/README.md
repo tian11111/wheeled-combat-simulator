@@ -67,7 +67,7 @@ dotnet build RobotSimulator.sln -m:1
 
 ## 训练配置文件（`train.py --config`）
 
-设置页"导出配置包"可附带一份训练配置文件（JSON，导入后落在 `user://imported/train-config.json`）。字段为现有 CLI 参数的 snake_case 形式：`steps` / `out` / `train_seed` / `n_envs` / `dotnet` / `cli_dll` / `scenario` / `reward` / `checkpoint_interval`。`train.py --config <json>` 把配置值作为默认值，**显式 CLI 参数始终覆盖配置值**；未知键、类型不符或非法 `reward` 会直接报错拒绝（不静默忽略）。不带 `--config` 时解析行为与纯 CLI 完全一致。
+设置页"导出配置包"一步完成：导出目录旁放一份 `train-config.json` 即自动附带进配置包（JSON，导入后落在 `user://imported/train-config.json`），没有则不附带。字段为现有 CLI 参数的 snake_case 形式：`steps` / `out` / `train_seed` / `n_envs` / `dotnet` / `cli_dll` / `scenario` / `reward` / `checkpoint_interval`。`train.py --config <json>` 把配置值作为默认值，**显式 CLI 参数始终覆盖配置值**；未知键、类型不符或非法 `reward` 会直接报错拒绝（不静默忽略）。不带 `--config` 时解析行为与纯 CLI 完全一致。
 
 ```powershell
 # 用配置包里的训练配置复现实验；CLI 只覆盖本次需要改的字段

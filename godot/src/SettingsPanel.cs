@@ -100,8 +100,6 @@ public partial class SettingsPanel : Control
     private readonly Dictionary<LineEdit, Button> _pathBrowseButtons = new();
     private FileDialog? _bundleSaveDialog;
     private FileDialog? _bundleOpenDialog;
-    private FileDialog? _trainConfigDialog;
-    private string? _pendingBundleExportPath;
 
     /// <summary>
     /// 上次导出配置包的目录: 导入/再次导出的对话框跟随它打开。缺省时 Godot 文件
@@ -355,7 +353,7 @@ public partial class SettingsPanel : Control
 
         // 配置包两按钮 (批1 R1.1): 只负责选文件与转发请求, bundle 内容由 Main 收集/落盘。
         var exportBundle = MakeButton("导出配置包…", Blue, new Vector2(116, 38));
-        exportBundle.TooltipText = "把主设置 / 外观模型 / 当前场景（+可选训练配置）导出为单个 JSON 配置包";
+        exportBundle.TooltipText = "把主设置 / 外观模型 / 当前场景导出为单个 JSON 配置包；导出目录旁有 train-config.json 时自动附带";
         exportBundle.Pressed += RequestExportBundle;
         footer.AddChild(exportBundle);
         var importBundle = MakeButton("导入配置包…", Blue, new Vector2(116, 38));
@@ -517,7 +515,8 @@ public partial class SettingsPanel : Control
 
     /// <summary>
     /// 页脚"导出/导入配置包"的文件对话框 (Access/Filters 用法参照 LayoutEditor.Bind)。
-    /// 导出成功选落点后再弹一次训练配置文件选择, 取消该步 = 不附带训练配置。
+    /// 导出一步完成 (验收拍板 2026-10-06): 选定落点即导出, 训练配置不弹第二步 ——
+    /// 导出目录旁有 train-config.json 时自动附带 (见 FindSidecarTrainConfig)。
     /// </summary>
     private void BuildBundleDialogs()
     {
@@ -541,21 +540,10 @@ public partial class SettingsPanel : Control
             Filters = new[] { "*.json ; 配置包 (Settings Bundle)" },
             UseNativeDialog = true,
         };
-        _trainConfigDialog = new FileDialog
-        {
-            Access = FileDialog.AccessEnum.Filesystem,
-            FileMode = FileDialog.FileModeEnum.OpenFile,
-            Title = "附带训练配置文件（取消 = 不附带）",
-            Filters = new[] { "*.json ; 训练配置 (train.py --config)" },
-            UseNativeDialog = true,
-        };
         _bundleSaveDialog.FileSelected += OnBundleExportPathSelected;
         _bundleOpenDialog.FileSelected += path => ImportBundleRequested?.Invoke(path);
-        _trainConfigDialog.FileSelected += OnTrainConfigSelected;
-        _trainConfigDialog.Canceled += OnTrainConfigSkipped;
         AddChild(_bundleSaveDialog);
         AddChild(_bundleOpenDialog);
-        AddChild(_trainConfigDialog);
     }
 
     private void RequestExportBundle()
@@ -583,29 +571,24 @@ public partial class SettingsPanel : Control
 
     private void OnBundleExportPathSelected(string path)
     {
-        _pendingBundleExportPath = path;
         _lastBundleDirectory = Path.GetDirectoryName(path);
-        _trainConfigDialog?.PopupCentered(new Vector2I(860, 620));
+        ExportBundleRequested?.Invoke(path, FindSidecarTrainConfig(path));
     }
 
-    private void OnTrainConfigSelected(string path)
+    /// <summary>
+    /// 训练配置自动附带: 导出目录旁放着 train-config.json 就打进配置包 (内容与
+    /// train.py --config 同一 schema), 没有则不附带。替代原先"导出后必弹第二步
+    /// 选择框"的两步流程 (验收拍板 2026-10-06)。
+    /// </summary>
+    private static string? FindSidecarTrainConfig(string bundlePath)
     {
-        var bundlePath = _pendingBundleExportPath;
-        _pendingBundleExportPath = null;
-        if (bundlePath is not null)
+        var directory = Path.GetDirectoryName(bundlePath);
+        if (string.IsNullOrEmpty(directory))
         {
-            ExportBundleRequested?.Invoke(bundlePath, path);
+            return null;
         }
-    }
-
-    private void OnTrainConfigSkipped()
-    {
-        var bundlePath = _pendingBundleExportPath;
-        _pendingBundleExportPath = null;
-        if (bundlePath is not null)
-        {
-            ExportBundleRequested?.Invoke(bundlePath, null);
-        }
+        var candidate = Path.Combine(directory, "train-config.json");
+        return File.Exists(candidate) ? candidate : null;
     }
 
     private Control BuildDisplayPage()
