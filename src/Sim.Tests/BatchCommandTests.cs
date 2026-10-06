@@ -154,12 +154,27 @@ public class BatchCommandTests : IDisposable
         var fast = ParseRows(Run("batch", "--seeds", "1,2,3", "--duration", "0.5", "--parallelism", "4").StdOut);
         Assert.Equal(3, slow.Count);
         Assert.Equal(3, fast.Count);
-        var stable = new Func<BatchMatchResult, object[]>(r => new object[]
+        var stable = new Func<BatchMatchResult, object?[]>(r =>
         {
-            r.Seed, r.Ticks, r.Scores!.Us, r.Scores!.Them,
-            r.Penalties!.Us, r.Penalties!.Them, r.DoneReason,
-            r.Faults!.Us, r.Faults!.Them, r.EventCount,
-            r.EventFingerprint, r.ResultFingerprint,
+            // Completed rows must carry the full stable fact set. Without these
+            // guards the comparison below would be vacuous: a field that regressed
+            // to null would be null on both sides and still compare equal.
+            Assert.Equal(BatchMatchResult.StatusCompleted, r.Status);
+            Assert.NotNull(r.Ticks);
+            Assert.NotNull(r.Scores);
+            Assert.NotNull(r.Penalties);
+            Assert.NotNull(r.DoneReason);
+            Assert.NotNull(r.Faults);
+            Assert.NotNull(r.EventCount);
+            Assert.NotNull(r.EventFingerprint);
+            Assert.NotNull(r.ResultFingerprint);
+            return new object?[]
+            {
+                r.Seed, r.Ticks, r.Scores!.Us, r.Scores!.Them,
+                r.Penalties!.Us, r.Penalties!.Them, r.DoneReason,
+                r.Faults!.Us, r.Faults!.Them, r.EventCount,
+                r.EventFingerprint, r.ResultFingerprint,
+            };
         });
         Assert.Equal(slow.Select(stable), fast.Select(stable));
     }
