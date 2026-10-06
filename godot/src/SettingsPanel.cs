@@ -439,6 +439,8 @@ public partial class SettingsPanel : Control
         {
             Access = FileDialog.AccessEnum.Filesystem,
             FileMode = FileDialog.FileModeEnum.OpenFile,
+            // OS 原生文件对话框 (验收拍板 2026-10-06): 与系统文件管理器观感一致。
+            UseNativeDialog = true,
         };
         _pathDialog.FileSelected += path =>
         {
@@ -522,6 +524,7 @@ public partial class SettingsPanel : Control
             Title = "导出配置包",
             Filters = new[] { "*.json ; 配置包 (Settings Bundle)" },
             CurrentFile = SettingsBundleStore.DefaultFileName,
+            UseNativeDialog = true,
         };
         _bundleOpenDialog = new FileDialog
         {
@@ -529,6 +532,7 @@ public partial class SettingsPanel : Control
             FileMode = FileDialog.FileModeEnum.OpenFile,
             Title = "导入配置包",
             Filters = new[] { "*.json ; 配置包 (Settings Bundle)" },
+            UseNativeDialog = true,
         };
         _trainConfigDialog = new FileDialog
         {
@@ -536,6 +540,7 @@ public partial class SettingsPanel : Control
             FileMode = FileDialog.FileModeEnum.OpenFile,
             Title = "附带训练配置文件（取消 = 不附带）",
             Filters = new[] { "*.json ; 训练配置 (train.py --config)" },
+            UseNativeDialog = true,
         };
         _bundleSaveDialog.FileSelected += OnBundleExportPathSelected;
         _bundleOpenDialog.FileSelected += path => ImportBundleRequested?.Invoke(path);
