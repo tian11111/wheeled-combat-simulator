@@ -453,6 +453,42 @@ def checkpoint_checks(harness: Harness) -> None:
 
     harness.check("checkpoint: frozen training defaults", default_interval)
 
+    def config_file_semantics() -> str:
+        import train
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "train-config.json"
+            path.write_text(json.dumps({
+                "steps": 1000, "out": "config-out", "train_seed": 20260927,
+                "n_envs": 2, "dotnet": None, "cli_dll": "config-cli.dll",
+                "scenario": "config-scenario.json", "reward": "aggression-v1",
+                "checkpoint_interval": 25600,
+            }), encoding="utf-8")
+            parser = train.build_argument_parser(train.load_train_config(path))
+            # 显式 CLI 参数覆盖配置值, 未给出的字段取配置值。
+            args = parser.parse_args(["--steps", "2000", "--reward", "v4"])
+            assert (args.steps, args.reward) == (2000, "v4"), vars(args)
+            assert (args.out, args.train_seed) == ("config-out", 20260927), vars(args)
+            assert (args.n_envs, args.checkpoint_interval) == (2, 25600), vars(args)
+            assert (args.dotnet, args.cli_dll, args.scenario) == (
+                None, "config-cli.dll", "config-scenario.json"), vars(args)
+            bad = Path(tmp) / "bad.json"
+            bad.write_text(json.dumps({"stepz": 1}), encoding="utf-8")
+            try:
+                train.load_train_config(bad)
+            except ValueError as exc:
+                assert "stepz" in str(exc), str(exc)
+            else:
+                raise AssertionError("unknown config key was accepted")
+        # 无 --config: 默认值与历史纯 CLI 一致 (--out 仍为必填)。
+        baseline = train.build_argument_parser().parse_args(["--out", "run-out"])
+        assert (baseline.steps, baseline.train_seed) == (500000, 20260925), vars(baseline)
+        assert (baseline.n_envs, baseline.checkpoint_interval) == (1, 51200), vars(baseline)
+        assert (baseline.reward, baseline.dotnet) == ("v4", None), vars(baseline)
+        return "config defaults + explicit CLI override + unknown-key rejection + no-config baseline"
+
+    harness.check("training: --config file semantics", config_file_semantics)
+
     def worker_seed_streams() -> str:
         import train
 

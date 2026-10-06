@@ -64,7 +64,8 @@ godot --path godot -- --scenario-path scenarios/wushu-ring-2026.json      # 加�
 Ctrl+Z/Y 撤销重做, 保存/重载 `arena-layout-v1` JSON 场景并应用到仿真; 机器人可导入
 `.glb/.gltf` 外观模型(仅渲染层)。按 F10 或右上角按钮打开玻璃控制台设置页，可调整分辨率、
 全屏/UI 缩放、全部已登记仿真参数，并为双方绑定外部 Python/C# 等 JSONL 控制器；显示设置即时生效，
-仿真参数和控制器在下一场或 F5 重置后生效。详见 `godot/README.md`。
+其余设置（仿真参数/控制器/小车/视觉/能量块/比赛场景）应用后自动重开当前对局生效，
+回放或布局编辑中则挂到下一场或 F5 重置时生效。详见 `godot/README.md`。
 
 无头跨端一致性校验（与 Sim.Cli `replay-check` 语义一致，比对最终比分/结束原因/末帧/事件指纹）：
 

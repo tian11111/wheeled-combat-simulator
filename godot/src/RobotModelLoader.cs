@@ -9,23 +9,7 @@ using Godot;
 
 namespace Sim.GodotShell;
 
-/// <summary>Render-only model binding for one robot role.</summary>
-public sealed record RobotModelConfig
-{
-    /// <summary>res:// 路径或文件系统路径 (.glb/.gltf)。空 = 使用 primitive。</summary>
-    public string Path { get; init; } = "";
-
-    /// <summary>均匀缩放 (渲染层)。</summary>
-    public double Scale { get; init; } = 1.0;
-
-    /// <summary>朝向偏移 (rad)。</summary>
-    public double YawOffset { get; init; }
-
-    /// <summary>高度偏移 (m)。</summary>
-    public double HeightOffset { get; init; }
-
-    public bool IsEmpty => string.IsNullOrWhiteSpace(Path);
-}
+// RobotModelConfig 记录已独立到 RobotModelConfig.cs (Godot-free, 供 Sim.Tests 链接)。
 
 public static class RobotModelLoader
 {

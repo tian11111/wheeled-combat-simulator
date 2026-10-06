@@ -98,19 +98,23 @@ public partial class LayoutEditor : Node3D
         };
         AddChild(_highlight);
 
+        // FileMode setter 会重写窗口标题 (Godot 内置英文), 中文 Title 必须后设。
+        // UseNativeDialog: OS 原生文件对话框 (验收拍板 2026-10-06, 同设置页)。
         _saveDialog = new FileDialog
         {
-            Title = "保存布局场景",
             Access = FileDialog.AccessEnum.Filesystem,
             FileMode = FileDialog.FileModeEnum.SaveFile,
+            Title = "保存布局场景",
             Filters = new[] { "*.json ; 场景文件 (Scenario)" },
+            UseNativeDialog = true,
         };
         _openDialog = new FileDialog
         {
-            Title = "打开布局场景",
             Access = FileDialog.AccessEnum.Filesystem,
             FileMode = FileDialog.FileModeEnum.OpenFile,
+            Title = "打开布局场景",
             Filters = new[] { "*.json ; 场景文件 (Scenario)" },
+            UseNativeDialog = true,
         };
         _saveDialog.FileSelected += OnSaveSelected;
         _openDialog.FileSelected += OnOpenSelected;

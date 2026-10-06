@@ -38,12 +38,23 @@
     <Compile Include="..\..\godot\src\LayoutDraft.cs" Link="godot\LayoutDraft.cs" />
     <Compile Include="..\..\godot\src\FieldGrayTextureMap.cs" Link="godot\FieldGrayTextureMap.cs" />
     <Compile Include="..\..\godot\src\DesktopSettings.cs" Link="godot\DesktopSettings.cs" />
+    <!-- 配置包 bundle（无 Godot 依赖）与外观模型记录：导出/导入序列化 + 版本校验回归。 -->
+    <Compile Include="..\..\godot\src\SettingsBundle.cs" Link="godot\SettingsBundle.cs" />
+    <Compile Include="..\..\godot\src\RobotModelConfig.cs" Link="godot\RobotModelConfig.cs" />
     <Compile Include="..\..\godot\src\DesktopLiveDriver.cs" Link="godot\DesktopLiveDriver.cs" />
     <Compile Include="..\..\godot\src\ControllerPreflight.cs" Link="godot\ControllerPreflight.cs" />
     <!-- 控制器来源装配决策（我方 external 展演门控/预检回退/命令解析）：纯逻辑，无 Godot。 -->
     <Compile Include="..\..\godot\src\ControllerWiring.cs" Link="godot\ControllerWiring.cs" />
     <!-- 布局编辑入口判定（Prep/Ready 均视为尚未发令）：纯逻辑，无 Godot。 -->
     <Compile Include="..\..\godot\src\EditorGate.cs" Link="godot\EditorGate.cs" />
+    <!-- 批3 R3.1 应用设置是否自动重置的判定（含 Vehicle 深比较）：纯逻辑，无 Godot。 -->
+    <Compile Include="..\..\godot\src\DesktopSettingsDiff.cs" Link="godot\DesktopSettingsDiff.cs" />
+    <!-- 批3 R3.2 传感器预设切换的通道编辑合并：同名保留 / 异名回基底默认。 -->
+    <Compile Include="..\..\godot\src\SensorChannelEdits.cs" Link="godot\SensorChannelEdits.cs" />
+    <!-- 批3 R3.4/R3.5 设置页文案常量与校验错误中文映射（源扫描漏项测试依赖本文件可读）。 -->
+    <Compile Include="..\..\godot\src\SettingsUiText.cs" Link="godot\SettingsUiText.cs" />
+    <!-- 批4 R4.5 MakeOption 的 id 取义规则：下标只表示 UI 顺序，语义按 id 映射（纯逻辑）。 -->
+    <Compile Include="..\..\godot\src\SettingsOptionIds.cs" Link="godot\SettingsOptionIds.cs" />
   </ItemGroup>
 
   <ItemGroup>

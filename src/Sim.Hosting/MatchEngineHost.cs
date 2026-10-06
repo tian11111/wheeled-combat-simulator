@@ -30,23 +30,47 @@ public static class MatchEngineHost
         }
     }
 
-    public static MatchEngine Create(Scenario scenario, IVisionAdapter? visionAdapter = null)
-    {
-        ArgumentNullException.ThrowIfNull(scenario);
-        // Legacy construction never touches the native loader.
-        return scenario.Physics?.Backend == PhysicsSpec.Mujoco
-            ? new MatchEngine(scenario, visionAdapter, MujocoPhysicsBackendFactory.Instance)
-            : new MatchEngine(scenario, visionAdapter);
-    }
+    /// <param name="contactOptions">
+    /// legacy L1/L2/L3 接触求解开关 (桌面"高级/开发者"折叠区); null = 默认全开 =
+    /// 现行为。mujoco 后端不消费该参数。
+    /// </param>
+    public static MatchEngine Create(Scenario scenario, IVisionAdapter? visionAdapter = null,
+        ContactResolveOptions? contactOptions = null)
+        => Create(scenario, visionAdapter, null, contactOptions);
 
     /// <summary>训练/评测专用: 显式注入 physics factory(如 mjModel 会话级复用)。
     /// 普通比赛入口 Create(scenario, visionAdapter) 语义不变。</summary>
     public static MatchEngine Create(Scenario scenario, IVisionAdapter? visionAdapter,
         IPhysicsBackendFactory factory)
+        => Create(scenario, visionAdapter, factory, null);
+
+    /// <summary>
+    /// host 的 backend 分派判据 (Create 与测试共用同一表达式): 只有
+    /// <c>physics.backend == "mujoco"</c> 的场景走注入工厂, 其余走 legacy 求解器。
+    /// 每次会话构造重新求值, 故场景级 backend 变更在下次重建即生效。
+    /// </summary>
+    public static bool UsesMujocoFactory(Scenario scenario)
     {
         ArgumentNullException.ThrowIfNull(scenario);
-        ArgumentNullException.ThrowIfNull(factory);
-        return new MatchEngine(scenario, visionAdapter, factory);
+        return scenario.Physics?.Backend == PhysicsSpec.Mujoco;
+    }
+
+    /// <summary>
+    /// Single backend-selection boundary: a mujoco scenario gets a fresh backend from
+    /// <paramref name="factory"/> (default <see cref="MujocoPhysicsBackendFactory.Instance"/>),
+    /// everything else stays on the legacy solver. Called once per session
+    /// construction, so a scenario-level backend change takes effect on the next
+    /// rebuild (desktop settings "比赛/场景"页热切, spike 2026-10-06).
+    /// </summary>
+    public static MatchEngine Create(Scenario scenario, IVisionAdapter? visionAdapter,
+        IPhysicsBackendFactory? factory, ContactResolveOptions? contactOptions)
+    {
+        ArgumentNullException.ThrowIfNull(scenario);
+        // Legacy construction never touches the native loader.
+        return UsesMujocoFactory(scenario)
+            ? new MatchEngine(scenario, visionAdapter, factory ?? MujocoPhysicsBackendFactory.Instance,
+                contactOptions)
+            : new MatchEngine(scenario, visionAdapter, null, contactOptions);
     }
 
     public static MatchEngine CreateForReplay(ReplayFile file)

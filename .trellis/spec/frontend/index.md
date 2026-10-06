@@ -11,6 +11,7 @@ React, browser, CSS, or server-state layer in this repository.
 | [State Management](./state-management.md) | Match session and immutable render state |
 | [Quality Guidelines](./quality-guidelines.md) | Headless/parity and visual checks |
 | [Type Safety](./type-safety.md) | C# records, DTOs, and nullability |
+| [Settings UI](./settings-ui.md) | SettingsPanel conventions: note labels, option ids, dialogs, copy, validation, settings/bundle contracts |
 
 All guidance describes the current Godot shell and its tested, engine-free
 adapters; do not infer browser conventions from these filenames.

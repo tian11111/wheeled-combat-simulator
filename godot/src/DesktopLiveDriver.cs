@@ -44,6 +44,9 @@ public sealed class DesktopLiveDriver : IDisposable
     private readonly ControllerProfile _usProfile;
     private readonly ControllerProfile _themProfile;
     private readonly Func<IVisionAdapter?>? _visionFactory;
+    // legacy L1/L2/L3 接触开关 (批2): driver 自建引擎必须与桌面 MatchSession 同参,
+    // 否则外部控制器实况与渲染线程物理不一致。null = 默认全开 = 现行为。
+    private readonly ContactResolveOptions? _contactOptions;
     private readonly bool _exhibitionRequested;
     private readonly BlockingCollection<DriverCommand> _commands = new(128);
     private readonly ConcurrentQueue<Snapshot> _snapshots = new();
@@ -84,12 +87,18 @@ public sealed class DesktopLiveDriver : IDisposable
     /// legacy 场景直接拒绝并给出原因（见 <see cref="ControllerWiring"/>）。
     /// 默认 false = 逐 tick 语义与既有桌面外部控制器完全一致。
     /// </param>
+    /// <param name="contactOptions">
+    /// legacy L1/L2/L3 接触求解开关 (桌面"高级/开发者"折叠区); null = 默认全开 =
+    /// 现行为。mujoco 场景不消费。
+    /// </param>
     public DesktopLiveDriver(Scenario scenario, ControllerProfile? usProfile, ControllerProfile? themProfile,
-        Func<IVisionAdapter?>? visionFactory = null, bool exhibitionUs = false)
+        Func<IVisionAdapter?>? visionFactory = null, bool exhibitionUs = false,
+        ContactResolveOptions? contactOptions = null)
     {
         ArgumentNullException.ThrowIfNull(scenario);
         _scenario = scenario;
         _visionFactory = visionFactory;
+        _contactOptions = contactOptions;
         _usProfile = usProfile ?? new ControllerProfile();
         _themProfile = themProfile ?? new ControllerProfile();
         _exhibitionRequested = exhibitionUs;
@@ -194,7 +203,7 @@ public sealed class DesktopLiveDriver : IDisposable
     {
         try
         {
-            _engine = MatchEngineHost.Create(_scenario, CreateVision());
+            _engine = MatchEngineHost.Create(_scenario, CreateVision(), _contactOptions);
             // legacy 场景拒绝展演外部控制器：不启动我方子进程，状态里给出原因
             // （不静默用内置 FSM 假装展演成功）。壳层已按同一决策回退，这里是最后防线。
             var rejected = _exhibitionRequested && _usProfile.IsExternal

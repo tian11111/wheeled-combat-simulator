@@ -597,97 +597,16 @@ public partial class ArenaVisualizer : Node3D
                 Mesh = _energyBlockMesh,
                 MaterialOverride = _outBlockMaterial,
             };
-            var edges = new MeshInstance3D
-            {
-                Name = "Edges",
-                Mesh = MakeBlockEdgeMesh(_blockSize),
-                MaterialOverride = MakeBlockEdgeMaterial(),
-            };
             var shadow = new MeshInstance3D
             {
                 Name = "ContactShadow",
                 Mesh = MakeBlockContactShadowMesh(_blockSize),
                 MaterialOverride = _blockContactShadowMaterial,
             };
-            mesh.AddChild(edges);
             mesh.AddChild(shadow);
             AddChild(mesh);
             _blockNodes.Add(mesh);
         }
-    }
-
-    /// <summary>
-    /// 12 条深色棱线: 白底贴纸立方体在白亮的擂台中心会失去轮廓, 角对角视角
-    /// 被读成"交叉的斜面板"; 棱线让立方体轮廓在所有角度可辨 (纯渲染装饰)。
-    /// </summary>
-    private static ArrayMesh MakeBlockEdgeMesh(float size)
-    {
-        var half = size / 2f;
-        var tool = new SurfaceTool();
-        tool.Begin(Mesh.PrimitiveType.Triangles);
-        // 沿三条世界轴各布 4 条边; 厚度约为块边长的 6% (似骰子倒角, 远景可辨)。
-        var t = size * 0.06f;
-        var axisX = new Vector3(1, 0, 0);
-        var axisY = new Vector3(0, 1, 0);
-        var axisZ = new Vector3(0, 0, 1);
-        foreach (var s in new[] { -1f, 1f })
-        {
-            foreach (var w in new[] { -half, half })
-            {
-                // X 轴边: y/z 固定在角上。
-                AddEdgeBox(tool, axisX, new Vector3(0, s * half, w), half, t);
-                AddEdgeBox(tool, axisY, new Vector3(w, 0, s * half), half, t);
-                AddEdgeBox(tool, axisZ, new Vector3(s * half, w, 0), half, t);
-            }
-        }
-        return tool.Commit() ?? throw new InvalidOperationException("Could not build block edge mesh");
-    }
-
-    private static void AddEdgeBox(SurfaceTool tool, Vector3 axis, Vector3 center, float length, float thickness)
-    {
-        var right = axis;
-        var up = Math.Abs(axis.Y) > 0.5f ? new Vector3(0, 0, 1) : new Vector3(0, 1, 0);
-        var forward = right.Cross(up);
-        var hl = length / 2f;
-        var ht = thickness / 2f;
-        for (var face = 0; face < 4; face++)
-        {
-            var normal = face switch
-            {
-                0 => up,
-                1 => up * -1,
-                2 => forward,
-                _ => forward * -1,
-            };
-            var side = face < 2 ? forward : up;
-            var a = center + normal * ht - side * ht - right * hl;
-            var b = center + normal * ht - side * ht + right * hl;
-            var c = center + normal * ht + side * ht + right * hl;
-            var d = center + normal * ht + side * ht - right * hl;
-            // Clockwise from outside (Godot front-face convention).
-            tool.SetNormal(normal);
-            tool.AddVertex(a);
-            tool.SetNormal(normal);
-            tool.AddVertex(d);
-            tool.SetNormal(normal);
-            tool.AddVertex(c);
-            tool.SetNormal(normal);
-            tool.AddVertex(a);
-            tool.SetNormal(normal);
-            tool.AddVertex(c);
-            tool.SetNormal(normal);
-            tool.AddVertex(b);
-        }
-    }
-
-    private static StandardMaterial3D MakeBlockEdgeMaterial()
-    {
-        return new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.16f, 0.18f, 0.24f),
-            Roughness = 0.9f,
-            Metallic = 0f,
-        };
     }
 
     private void EnsureBlockMaterials()
@@ -769,64 +688,30 @@ public partial class ArenaVisualizer : Node3D
     }
 
     /// <summary>
-    /// Builds a lightly chamfered cube whose six broad faces all use the same
-    /// upright UV square. Godot 4.7 does not expose RoundedBoxMesh, so the
-    /// render-only bevel is assembled from six faces, twelve edge strips, and
-    /// eight corner facets. The sticker remains on every face; no physics mesh
-    /// or simulation dimension is changed.
+    /// Builds a strict cube whose six broad faces all use the same upright UV
+    /// square. 官方能量块为直角棱 (验收拍板 2026-10-06): 早期版本做过 8% 倒角 +
+    /// 12 条凸出棱线的"骰子"外观, 因与实物不符被移除; 保留自定义六面网格是因为
+    /// Godot 4.7 的 BoxMesh 按面展开 UV, 会把贴纸图案旋转/镜像到不同方向。
+    /// 纯渲染层改动——物理碰撞与判定仍是整盒 OBB, 仿真尺寸不变。
     /// </summary>
     private static ArrayMesh MakeOfficialEnergyBlockMesh(float size)
     {
         var half = size / 2f;
-        var bevel = Mathf.Clamp(size * 0.08f, 0.002f, half * 0.32f);
         var tool = new SurfaceTool();
         tool.Begin(Mesh.PrimitiveType.Triangles);
 
-        // The broad face is inset by the bevel width, while its outward plane
-        // stays at +/-half so the physical-looking silhouette remains exact.
-        AddTexturedFace(tool, half, half - bevel,
+        AddTexturedFace(tool, half, half,
             new Vector3(0, 0, 1), new Vector3(1, 0, 0), new Vector3(0, 1, 0));
-        AddTexturedFace(tool, half, half - bevel,
+        AddTexturedFace(tool, half, half,
             new Vector3(0, 0, -1), new Vector3(-1, 0, 0), new Vector3(0, 1, 0));
-        AddTexturedFace(tool, half, half - bevel,
+        AddTexturedFace(tool, half, half,
             new Vector3(1, 0, 0), new Vector3(0, 0, -1), new Vector3(0, 1, 0));
-        AddTexturedFace(tool, half, half - bevel,
+        AddTexturedFace(tool, half, half,
             new Vector3(-1, 0, 0), new Vector3(0, 0, 1), new Vector3(0, 1, 0));
-        AddTexturedFace(tool, half, half - bevel,
+        AddTexturedFace(tool, half, half,
             new Vector3(0, 1, 0), new Vector3(1, 0, 0), new Vector3(0, 0, -1));
-        AddTexturedFace(tool, half, half - bevel,
+        AddTexturedFace(tool, half, half,
             new Vector3(0, -1, 0), new Vector3(1, 0, 0), new Vector3(0, 0, 1));
-
-        var faceNormals = new[]
-        {
-            new Vector3(1, 0, 0), new Vector3(-1, 0, 0),
-            new Vector3(0, 1, 0), new Vector3(0, -1, 0),
-            new Vector3(0, 0, 1), new Vector3(0, 0, -1),
-        };
-        for (var i = 0; i < faceNormals.Length; i++)
-        {
-            for (var j = i + 1; j < faceNormals.Length; j++)
-            {
-                var n1 = faceNormals[i];
-                var n2 = faceNormals[j];
-                if (Mathf.Abs(n1.Dot(n2)) > 0.5f)
-                {
-                    continue;
-                }
-                AddBevelEdge(tool, half, bevel, n1, n2, n1.Cross(n2).Normalized());
-            }
-        }
-
-        foreach (var sx in new[] { -1f, 1f })
-        {
-            foreach (var sy in new[] { -1f, 1f })
-            {
-                foreach (var sz in new[] { -1f, 1f })
-                {
-                    AddCornerFacet(tool, half, bevel, sx, sy, sz);
-                }
-            }
-        }
 
         return tool.Commit() ?? throw new InvalidOperationException("Could not build energy block mesh");
     }
@@ -841,31 +726,6 @@ public partial class ArenaVisualizer : Node3D
         var topLeft = center - right * faceHalf + up * faceHalf;
 
         AddTexturedQuad(tool, bottomLeft, topLeft, topRight, bottomRight, normal);
-    }
-
-    private static void AddBevelEdge(SurfaceTool tool, float half, float bevel,
-        Vector3 n1, Vector3 n2, Vector3 edge)
-    {
-        var edgeHalf = half - bevel;
-        var facePoint1 = n1 * half + n2 * (half - bevel);
-        var facePoint2 = n1 * (half - bevel) + n2 * half;
-        var a = facePoint1 - edge * edgeHalf;
-        var b = facePoint1 + edge * edgeHalf;
-        var c = facePoint2 + edge * edgeHalf;
-        var d = facePoint2 - edge * edgeHalf;
-        AddTexturedQuad(tool, a, b, c, d, (n1 + n2).Normalized());
-    }
-
-    private static void AddCornerFacet(SurfaceTool tool, float half, float bevel,
-        float sx, float sy, float sz)
-    {
-        var nx = new Vector3(sx, 0, 0);
-        var ny = new Vector3(0, sy, 0);
-        var nz = new Vector3(0, 0, sz);
-        var a = nx * half + ny * (half - bevel) + nz * (half - bevel);
-        var b = nx * (half - bevel) + ny * half + nz * (half - bevel);
-        var c = nx * (half - bevel) + ny * (half - bevel) + nz * half;
-        AddTexturedTriangle(tool, a, b, c, (nx + ny + nz).Normalized());
     }
 
     private static void AddTexturedQuad(SurfaceTool tool, Vector3 a, Vector3 b,
@@ -885,18 +745,6 @@ public partial class ArenaVisualizer : Node3D
         AddTexturedVertex(tool, a, normal, new Vector2(0, 1));
         AddTexturedVertex(tool, c, normal, new Vector2(1, 0));
         AddTexturedVertex(tool, d, normal, new Vector2(1, 1));
-    }
-
-    private static void AddTexturedTriangle(SurfaceTool tool, Vector3 a, Vector3 b,
-        Vector3 c, Vector3 normal)
-    {
-        if ((b - a).Cross(c - a).Dot(normal) > 0f)
-        {
-            (b, c) = (c, b);
-        }
-        AddTexturedVertex(tool, a, normal, new Vector2(0.5f, 0));
-        AddTexturedVertex(tool, b, normal, new Vector2(0, 1));
-        AddTexturedVertex(tool, c, normal, new Vector2(1, 1));
     }
 
     private static void AddTexturedVertex(SurfaceTool tool, Vector3 position, Vector3 normal, Vector2 uv)

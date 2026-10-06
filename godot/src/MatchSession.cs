@@ -29,6 +29,9 @@ public sealed class MatchSession : IDisposable
     // live match.
     private Scenario _scenario;
     private readonly Func<IVisionAdapter?>? _visionFactory;
+    // legacy L1/L2/L3 接触求解开关 (桌面"高级/开发者"折叠区); null = 默认全开 =
+    // 现行为。会话重建 (ResetToLive) 沿用同一开关, 否则重置后物理与渲染线程分叉。
+    private readonly ContactResolveOptions? _contactOptions;
     private LiveVisionBridge? _liveVision;
     private readonly Queue<Snapshot> _pending = new();
     private double _accumulator;
@@ -58,11 +61,17 @@ public sealed class MatchSession : IDisposable
     /// 本场消费台账与 SimT 0 基准, 不能跨场复用, 故构造与 ResetToLive 各自调用一次
     /// 工厂新建实例 —— 由 DesktopSettings.CreateVisionFactory 决定三源之一。
     /// </param>
-    public MatchSession(Scenario scenario, Func<IVisionAdapter?>? visionFactory = null)
+    /// <param name="contactOptions">
+    /// legacy L1/L2/L3 接触开关 (桌面"高级/开发者"折叠区, 批2 R2.2); null = 默认
+    /// 全开 = 现行为。mujoco 场景不消费。
+    /// </param>
+    public MatchSession(Scenario scenario, Func<IVisionAdapter?>? visionFactory = null,
+        ContactResolveOptions? contactOptions = null)
     {
         _scenario = scenario;
         _visionFactory = visionFactory;
-        Engine = MatchEngineHost.Create(scenario, CreateVision());
+        _contactOptions = contactOptions;
+        Engine = MatchEngineHost.Create(scenario, CreateVision(), contactOptions);
     }
 
     public MatchEngine Engine { get; private set; }
@@ -174,7 +183,7 @@ public sealed class MatchSession : IDisposable
     public void ResetToLive()
     {
         ReleaseVision();
-        var next = MatchEngineHost.Create(_scenario, CreateVision());
+        var next = MatchEngineHost.Create(_scenario, CreateVision(), _contactOptions);
         var previous = Engine;
         Engine = next;
         previous.Dispose();
