@@ -39,9 +39,11 @@ public class ScoreBlockExhibitionTests
         Assert.False(result.NoScoreBlock);
         Assert.Null(result.Reason);
         Assert.True(result.HasTarget);
-        // 域标定轮(10-02)重录: seed 42 → entry_tick=369, 目标=增益块(摩擦/补偿标定后
-        // SEARCH 轨迹变化, 旧值 281 失效; 记录见本任务 evidence/)。
-        Assert.Equal(369, result.EntryTick);
+        // 10-14 基线 P0 修复重录: 掉台判据由 footprint 四角改为车体中心越界(消除台沿
+        // 抖动送分)后 SEARCH/登台轨迹变化, seed 42 → entry_tick=97, 目标仍为增益块。
+        // 旧值 369(10-02 域标定轮)随之失效; 重录命令: rl-env --scenario
+        // scenarios/wushu-ring-2026-mujoco.json 的 reset info.entry_tick。
+        Assert.Equal(97, result.EntryTick);
         Assert.Equal(result.EntryTick, result.PrerollTicks);
         Assert.Equal(engine.TickIndex, result.PrerollTicks);
         Assert.Equal("增益块", engine.Blocks[result.TargetIndex].Name);
@@ -69,10 +71,10 @@ public class ScoreBlockExhibitionTests
         // 同一实现 ⇒ 逐位一致; 这里同时覆盖 9+2 顺序与 clamp 口径。
         Assert.Equal(rlEnvObs, observation);
         Assert.All(observation, value => Assert.InRange(value, -1.0, 1.0));
-        // 域标定轮(10-02)重录样本(±1e-4): 固定训练入口的数值口径。旧样本
-        // (10-01 facts.md §2, 摩擦 1.5/补偿 4 时代)随模型哈希失效; 新值来源同 entry
-        // tick 重录(tmp/calib/obsdiag, 每模型摩擦 v1 f5 + 补偿 10)。
-        double[] documented = [0.1273, 0.1641, 0.5625, 0.5625, 0.0, -0.0907, 1.0, 1.0, 0.8463, -0.7349, -0.7682];
+        // 10-14 基线 P0 修复重录样本(±1e-4): 掉台判据改中心越界 + ATTACK 5s 超时兜底后
+        // 入口 tick 97 处的位姿/块距随轨迹变化(旧样本 entry_tick=369 时代, 首项 0.1273)。
+        // 新值来源: rl-env reset(seed 42) 的 obs 数组逐位照抄。
+        double[] documented = [0.1423, -0.1782, 0.5625, 0.5625, 0.0, 0.0275, 1.0, 1.0, 0.9596, -0.7779, -0.7837];
         for (var i = 0; i < documented.Length; i++)
         {
             Assert.InRange(observation[i], documented[i] - 1e-4, documented[i] + 1e-4);

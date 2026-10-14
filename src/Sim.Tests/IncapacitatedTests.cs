@@ -68,6 +68,8 @@ public class IncapacitatedTests
         engine.Arm();
         long flippedAtTick = -1;
         long declaredTick = -1;
+        var incapEntries = 0;
+        var wasIncapacitated = (Us: false, Them: false);
         for (var i = 0; i < 1400 && !engine.Done; i++)
         {
             engine.Tick();
@@ -76,7 +78,18 @@ public class IncapacitatedTests
             {
                 flippedAtTick = engine.TickIndex;
             }
-            if (us.Fsm.State == FsmState.Incapacitated)
+            var incapacitated = us.Fsm.State == FsmState.Incapacitated;
+            var themIncapacitated = engine.Them.Fsm.State == FsmState.Incapacitated;
+            if (incapacitated && !wasIncapacitated.Us)
+            {
+                incapEntries++;
+            }
+            if (themIncapacitated && !wasIncapacitated.Them)
+            {
+                incapEntries++;
+            }
+            wasIncapacitated = (incapacitated, themIncapacitated);
+            if (incapacitated)
             {
                 declaredTick = declaredTick < 0 ? engine.TickIndex : declaredTick;
                 Assert.Equal(0.0, us.V);
@@ -89,7 +102,13 @@ public class IncapacitatedTests
         Assert.True(declaredTick - flippedAtTick <= 30,
             $"flip at tick {flippedAtTick} -> INCAPACITATED at tick {declaredTick} should be within 30 ticks");
         var events = engine.Events.Events.Count(e => e.Kind == EventKind.Incapacitated);
-        Assert.True(events >= 1 && events <= 2, $"INCAPACITATED should be announced on entry (got {events})");
+        // 契约: "每次进入 INCAPACITATED 宣告一次"(翻覆→直立→再翻覆会再次宣告), 因此把
+        // 事件数与循环里实测的进入次数(双方各计)比对。旧断言上界 2 是 10-14 修复前轨迹
+        // 的钉死值; 掉台判据由 footprint 四角改为车体中心越界后, 这条 MuJoCo 轨迹翻覆↔
+        // 直立往复次数变化(实测双方合计 5 次, 每段进入各宣告一次, 非重复宣告), 上界随之
+        // 失效, 改为轨迹无关的口径。
+        Assert.True(incapEntries >= 1, "a flipped robot must enter INCAPACITATED at least once");
+        Assert.Equal(incapEntries, events);
     }
 
     [Fact]
