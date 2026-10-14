@@ -94,6 +94,8 @@ public sealed class FsmRuntime
     public string DoneReason = "";
     public double InactiveT;
     public bool InactiveWarned;
+    /// <summary>本次连续 ATTACK 已持续的时长(s), 用于进攻僵持超时兜底。</summary>
+    public double AttackT;
     /// <summary>倾覆持续时长(s); legacy 恒 0。</summary>
     public double FlipT;
     /// <summary>恢复直立持续时长(s), 用于离开 INCAPACITATED。</summary>

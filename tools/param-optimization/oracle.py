@@ -32,21 +32,43 @@ def write_scenario(base_scenario_path: str | Path, parameters: dict[str, float],
 
 
 def run_match(dotnet_exe: str, cli_dll: str, scenario_path: str | Path, seed: int, duration: float) -> dict:
-    """Run one match with --events; return raw stdout plus exit code."""
-    # 子进程经管道输出时使用系统 ANSI 代码页(中文 Windows 为 GBK/GB18030),
-    # UTF-8 解码会把 [我方]/[对手] 变成替换符, 归属匹配全部失效。
+    """Run one match with --events; return parsed metrics.
+
+    管道输出编码随 runtime 环境漂移(实证, match 路径从未显式设置输出编码,
+    git -S OutputEncoding 全历史唯一提交 6aadde8 只作用于 rl-env):
+    2026-09-25 旧 Temp SDK 下为 GBK(150-trial 历史数据 final_scores/mount_t
+    有效可证), 2026-10-14 便携 SDK 8.0.31 实测为 UTF-8。故按字节捕获,
+    先试 UTF-8 再按中文 marker 有效性签名回退 gb18030, 两种环境都正确
+    (取代原单押 gb18030 的误判, 2026-10-14 修复)。
+    """
     proc = subprocess.run(
         [dotnet_exe, cli_dll, "match", "--seed", str(seed), "--scenario", str(scenario_path),
          "--duration", str(duration), "--events"],
-        capture_output=True, text=True, encoding="gb18030", errors="replace", timeout=600,
+        capture_output=True, timeout=600,
     )
     if proc.returncode != 0:
-        raise RuntimeError(f"match seed={seed} exited {proc.returncode}: {proc.stderr[-400:]}")
-    return parse_match_output(proc.stdout)
+        raise RuntimeError(f"match seed={seed} exited {proc.returncode}: {proc.stderr[-400:]!r}")
+    return parse_match_output(_decode_stdout(proc.stdout))
+
+
+def _decode_stdout(raw: bytes) -> str:
+    # 有效性签名: 汇总行 "seed=" 存在时 "score 我方" 中文 marker 应完好;
+    # UTF-8 解 GBK 字节(或反之)都会使 marker 变替换符 → 换另一种编码重解。
+    text = raw.decode("utf-8", errors="replace")
+    if "seed=" in text and "score 我方" not in text:
+        text = raw.decode("gb18030", errors="replace")
+    return text
 
 
 def parse_match_output(text: str) -> dict:
-    """Extract per-side metrics from one `match --events` run."""
+    """Extract per-side metrics from one `match --events` run.
+
+    us_drops 口径 (2026-10-14 修正): 一次掉台在事件流里产生**两行** ——
+    计分行 `[score] 我方掉台, 对方 +1` (带 points) 与 FSM 转移行
+    `[fsm] 掉台! (方向 西) → RECOVER`。原实现 `" Drop " in line` 把两行各计一次
+    (seed1 旧流实测 212 行 ≈ 105 次真实掉台的 2 倍)。现在**只计 [fsm] 行**
+    (= 真实掉台宣告, 与 EventKind.Drop 的边沿触发语义一致: 每次掉台恰好一条)。
+    """
     us_block_scores = 0
     us_drops = 0
     mount_t = None
@@ -57,7 +79,8 @@ def parse_match_output(text: str) -> dict:
         # 出现在 t= 之后; 用子串匹配(类型名后跟多空格 + [角色])。
         if "BlockScore" in line and "[我方]" in line:
             us_block_scores += 1
-        elif " Drop " in line and "[我方]" in line:
+        elif " Drop " in line and "[我方]" in line and "[fsm]" in line:
+            # 只认 FSM 转移行 (真实掉台); "[score]" 计分行不另计。
             us_drops += 1
         elif "Mount" in line and "[我方]" in line and "已上台" in line:
             t = _event_t(line)
@@ -76,7 +99,12 @@ def parse_match_output(text: str) -> dict:
 
 
 def _event_t(line: str) -> float | None:
-    # "[  25] t= 236.00 Kind ..." → t value in 0.1 s units (SimT display).
+    """事件行 t= 值 (单位: 秒)。
+
+    2026-10-14 修正: 原先这里返回的是**显示值**, 注释称 "t value in 0.1 s units"
+    —— 那是 Sim.Core.Js.ToFixed 缺陷造成的 10× 放大 (5.0s 显示成 "50.0")。该缺陷
+    已在 10-14-oracle-metrics-fix 修复 (Js.cs), 事件行 t= 现在就是真秒, 无需再换算。
+    """
     marker = "t="
     idx = line.find(marker)
     if idx < 0:

@@ -52,8 +52,9 @@ public class MatchRunnerExhibitionTests
         Assert.False(result.Exhibition.GateEvidenceEligible);
         // 交接帧与 rl-env 训练入口同源(同一共享缝), 且能到达该 tick 本身就证明预推进期间
         // 我方没有任何外部动作(任何非 null 动作都会把角色切 Manual, 永远进不了 SCORE_BLOCK)。
-        // 域标定轮(10-02)重录: 281 → 369(摩擦/补偿标定后 SEARCH 轨迹变化)。
-        Assert.Equal(369, result.Exhibition.EntryTick);
+        // 10-14 基线 P0 修复重录: 掉台判据改车体中心越界(消台沿抖动送分)后 SEARCH 轨迹
+        // 变化, 281 → 369 → 97; 与 ScoreBlockExhibitionTests 的 rl-env 入口 tick 同源。
+        Assert.Equal(97, result.Exhibition.EntryTick);
         Assert.Equal("增益块", result.Exhibition.TargetName);
         Assert.True(result.Exhibition.TargetIndex >= 0);
         Assert.True(result.Ticks > result.Exhibition.EntryTick);

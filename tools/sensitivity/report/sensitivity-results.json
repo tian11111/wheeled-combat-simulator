@@ -1,0 +1,9515 @@
+{
+ "config": {
+  "git_head": "6e9b5fc4029d3af91163045b6d1b5dc2cac9f2e2",
+  "dotnet": "C:\\Users\\Neco\\AppData\\Local\\Programs\\robot-simulator-dotnet\\dotnet.exe",
+  "cli_dll": "D:\\project\\robot-simulator\\src\\Sim.Cli\\bin\\Release\\net8.0\\Sim.Cli.dll",
+  "base_scenario": "D:\\project\\robot-simulator\\scenarios\\wushu-ring-2026.json",
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8
+  ],
+  "duration": 120.0,
+  "level_mults": {
+   "m25": 0.75,
+   "p25": 1.25,
+   "m50": 0.5,
+   "p50": 1.5
+  },
+  "params": [
+   {
+    "name": "latFrictionK",
+    "channel": "vehicles",
+    "subsystem": "friction",
+    "baseline": 8.0,
+    "domain": [
+     0.5,
+     60.0
+    ],
+    "tier": 1,
+    "levels": [
+     [
+      "m25",
+      6.0
+     ],
+     [
+      "p25",
+      10.0
+     ],
+     [
+      "m50",
+      4.0
+     ],
+     [
+      "p50",
+      12.0
+     ]
+    ]
+   },
+   {
+    "name": "BLOCK_MU_K",
+    "channel": "parameters",
+    "subsystem": "friction",
+    "baseline": 0.5,
+    "domain": null,
+    "tier": 1,
+    "levels": [
+     [
+      "m25",
+      0.375
+     ],
+     [
+      "p25",
+      0.625
+     ],
+     [
+      "m50",
+      0.25
+     ],
+     [
+      "p50",
+      0.75
+     ]
+    ]
+   },
+   {
+    "name": "BLOCK_STICK_SPEED",
+    "channel": "parameters",
+    "subsystem": "friction",
+    "baseline": 0.02,
+    "domain": null,
+    "tier": 2,
+    "levels": [
+     [
+      "m25",
+      0.015
+     ],
+     [
+      "p25",
+      0.025
+     ],
+     [
+      "m50",
+      0.01
+     ],
+     [
+      "p50",
+      0.03
+     ]
+    ]
+   },
+   {
+    "name": "angDamping",
+    "channel": "vehicles",
+    "subsystem": "collision",
+    "baseline": 3.0,
+    "domain": [
+     0.0,
+     40.0
+    ],
+    "tier": 1,
+    "levels": [
+     [
+      "m25",
+      2.25
+     ],
+     [
+      "p25",
+      3.75
+     ],
+     [
+      "m50",
+      1.5
+     ],
+     [
+      "p50",
+      4.5
+     ]
+    ]
+   },
+   {
+    "name": "COLLISION_RESTITUTION",
+    "channel": "parameters",
+    "subsystem": "collision",
+    "baseline": null,
+    "domain": [
+     0.0,
+     0.9
+    ],
+    "tier": 1,
+    "levels": [
+     {
+      "segment": "null→数值（模型路径切换，效应按噪声倍数呈现，不参与跨参数 S 排序）",
+      "baseline": null,
+      "levels": [
+       [
+        "m25",
+        0.75
+       ],
+       [
+        "p25",
+        0.9
+       ],
+       [
+        "m50",
+        0.5
+       ],
+       [
+        "p50",
+        0.9
+       ]
+      ]
+     },
+     {
+      "segment": "数值基线 0.75（固定恢复系数路径，S 与其他参数可比）",
+      "baseline": 0.75,
+      "levels": [
+       [
+        "m25",
+        0.5625
+       ],
+       [
+        "p25",
+        0.9
+       ],
+       [
+        "m50",
+        0.375
+       ],
+       [
+        "p50",
+        0.9
+       ]
+      ]
+     }
+    ]
+   },
+   {
+    "name": "STALL_SPEED",
+    "channel": "parameters",
+    "subsystem": "stall",
+    "baseline": 0.03,
+    "domain": null,
+    "tier": 1,
+    "levels": [
+     [
+      "m25",
+      0.0225
+     ],
+     [
+      "p25",
+      0.0375
+     ],
+     [
+      "m50",
+      0.015
+     ],
+     [
+      "p50",
+      0.045
+     ]
+    ]
+   },
+   {
+    "name": "STALL_TIME",
+    "channel": "parameters",
+    "subsystem": "stall",
+    "baseline": 0.4,
+    "domain": null,
+    "tier": 2,
+    "levels": [
+     [
+      "m25",
+      0.30000000000000004
+     ],
+     [
+      "p25",
+      0.5
+     ],
+     [
+      "m50",
+      0.2
+     ],
+     [
+      "p50",
+      0.6000000000000001
+     ]
+    ]
+   },
+   {
+    "name": "STALL_RELEASE",
+    "channel": "parameters",
+    "subsystem": "stall",
+    "baseline": 0.06,
+    "domain": null,
+    "tier": 2,
+    "levels": [
+     [
+      "m25",
+      0.045
+     ],
+     [
+      "p25",
+      0.075
+     ],
+     [
+      "m50",
+      0.03
+     ],
+     [
+      "p50",
+      0.09
+     ]
+    ]
+   },
+   {
+    "name": "STALL_DISPLACEMENT",
+    "channel": "parameters",
+    "subsystem": "stall",
+    "baseline": 0.006,
+    "domain": null,
+    "tier": 2,
+    "levels": [
+     [
+      "m25",
+      0.0045000000000000005
+     ],
+     [
+      "p25",
+      0.0075
+     ],
+     [
+      "m50",
+      0.003
+     ],
+     [
+      "p50",
+      0.009000000000000001
+     ]
+    ]
+   },
+   {
+    "name": "MOUNT_V_MIN",
+    "channel": "parameters",
+    "subsystem": "mount",
+    "baseline": 0.3,
+    "domain": [
+     0.0,
+     2.0
+    ],
+    "tier": 1,
+    "levels": [
+     [
+      "m25",
+      0.22499999999999998
+     ],
+     [
+      "p25",
+      0.375
+     ],
+     [
+      "m50",
+      0.15
+     ],
+     [
+      "p50",
+      0.44999999999999996
+     ]
+    ]
+   },
+   {
+    "name": "MOUNT_ANGLE_MAX",
+    "channel": "parameters",
+    "subsystem": "mount",
+    "baseline": 0.26,
+    "domain": [
+     0.0,
+     1.2
+    ],
+    "tier": 1,
+    "levels": [
+     [
+      "m25",
+      0.195
+     ],
+     [
+      "p25",
+      0.325
+     ],
+     [
+      "m50",
+      0.13
+     ],
+     [
+      "p50",
+      0.39
+     ]
+    ]
+   },
+   {
+    "name": "classifyRate",
+    "channel": "parameters",
+    "subsystem": "vision-阳性对照",
+    "baseline": 100.0,
+    "domain": [
+     0.0,
+     100.0
+    ],
+    "tier": 1,
+    "levels": [
+     [
+      "rate80",
+      80.0
+     ],
+     [
+      "rate50",
+      50.0
+     ]
+    ]
+   }
+  ],
+  "skipped_noop_levels": []
+ },
+ "runs": [
+  {
+   "param": "__baseline__",
+   "value": null,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.218
+  },
+  {
+   "param": "__baseline__",
+   "value": null,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.206
+  },
+  {
+   "param": "__baseline__",
+   "value": null,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "__baseline__",
+   "value": null,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.222
+  },
+  {
+   "param": "__baseline__",
+   "value": null,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "__baseline__",
+   "value": null,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "__baseline__",
+   "value": null,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "__baseline__",
+   "value": null,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "latFrictionK",
+   "value": 6.0,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "latFrictionK",
+   "value": 6.0,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "latFrictionK",
+   "value": 6.0,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "latFrictionK",
+   "value": 6.0,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "latFrictionK",
+   "value": 6.0,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "latFrictionK",
+   "value": 6.0,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "latFrictionK",
+   "value": 6.0,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "latFrictionK",
+   "value": 6.0,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     11.0
+    ],
+    "score_margin": -8.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "latFrictionK",
+   "value": 10.0,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "latFrictionK",
+   "value": 10.0,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "latFrictionK",
+   "value": 10.0,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "latFrictionK",
+   "value": 10.0,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     11.0,
+     3.0
+    ],
+    "score_margin": 8.0,
+    "mount_fail": 0
+   },
+   "wall": 0.221
+  },
+  {
+   "param": "latFrictionK",
+   "value": 10.0,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.225
+  },
+  {
+   "param": "latFrictionK",
+   "value": 10.0,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "latFrictionK",
+   "value": 10.0,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "latFrictionK",
+   "value": 10.0,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     11.0
+    ],
+    "score_margin": -8.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "latFrictionK",
+   "value": 4.0,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "latFrictionK",
+   "value": 4.0,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.224
+  },
+  {
+   "param": "latFrictionK",
+   "value": 4.0,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.22
+  },
+  {
+   "param": "latFrictionK",
+   "value": 4.0,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.223
+  },
+  {
+   "param": "latFrictionK",
+   "value": 4.0,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "latFrictionK",
+   "value": 4.0,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "latFrictionK",
+   "value": 4.0,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     4.0
+    ],
+    "score_margin": 5.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "latFrictionK",
+   "value": 4.0,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     17.0
+    ],
+    "score_margin": -14.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "latFrictionK",
+   "value": 12.0,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "latFrictionK",
+   "value": 12.0,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "latFrictionK",
+   "value": 12.0,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     5.0
+    ],
+    "score_margin": 4.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "latFrictionK",
+   "value": 12.0,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     11.0,
+     3.0
+    ],
+    "score_margin": 8.0,
+    "mount_fail": 0
+   },
+   "wall": 0.224
+  },
+  {
+   "param": "latFrictionK",
+   "value": 12.0,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.218
+  },
+  {
+   "param": "latFrictionK",
+   "value": 12.0,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "latFrictionK",
+   "value": 12.0,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "latFrictionK",
+   "value": 12.0,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     17.0
+    ],
+    "score_margin": -14.0,
+    "mount_fail": 0
+   },
+   "wall": 0.221
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.375,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.375,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.375,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.218
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.375,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.375,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.375,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.375,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     4.0,
+     9.0
+    ],
+    "score_margin": -5.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.375,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.224
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.625,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.625,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.23
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.625,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.625,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.625,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.625,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     13.0,
+     3.0
+    ],
+    "score_margin": 10.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.625,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.625,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.25,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.25,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.25,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.25,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.25,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.25,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.25,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.25,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     6.0
+    ],
+    "score_margin": 3.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.75,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.75,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.75,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.75,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     11.0,
+     3.0
+    ],
+    "score_margin": 8.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.75,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     6.0
+    ],
+    "score_margin": 3.0,
+    "mount_fail": 0
+   },
+   "wall": 0.22
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.75,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     11.0,
+     3.0
+    ],
+    "score_margin": 8.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.75,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "BLOCK_MU_K",
+   "value": 0.75,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.015,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.221
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.015,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.015,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.015,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.015,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.015,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.015,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.015,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.218
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.025,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.025,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.025,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.025,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.025,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.025,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.025,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.025,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.01,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.01,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.01,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.01,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.01,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.01,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.01,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.01,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.03,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.226
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.03,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.03,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.03,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.03,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.03,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.03,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "BLOCK_STICK_SPEED",
+   "value": 0.03,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "angDamping",
+   "value": 2.25,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "angDamping",
+   "value": 2.25,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "angDamping",
+   "value": 2.25,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "angDamping",
+   "value": 2.25,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.221
+  },
+  {
+   "param": "angDamping",
+   "value": 2.25,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "angDamping",
+   "value": 2.25,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "angDamping",
+   "value": 2.25,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "angDamping",
+   "value": 2.25,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     11.0
+    ],
+    "score_margin": -8.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "angDamping",
+   "value": 3.75,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "angDamping",
+   "value": 3.75,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     4.0,
+     9.0
+    ],
+    "score_margin": -5.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "angDamping",
+   "value": 3.75,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "angDamping",
+   "value": 3.75,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "angDamping",
+   "value": 3.75,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "angDamping",
+   "value": 3.75,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "angDamping",
+   "value": 3.75,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "angDamping",
+   "value": 3.75,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "angDamping",
+   "value": 1.5,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "angDamping",
+   "value": 1.5,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "angDamping",
+   "value": 1.5,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "angDamping",
+   "value": 1.5,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "angDamping",
+   "value": 1.5,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "angDamping",
+   "value": 1.5,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "angDamping",
+   "value": 1.5,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "angDamping",
+   "value": 1.5,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "angDamping",
+   "value": 4.5,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.221
+  },
+  {
+   "param": "angDamping",
+   "value": 4.5,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "angDamping",
+   "value": 4.5,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "angDamping",
+   "value": 4.5,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     8.0
+    ],
+    "score_margin": 1.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "angDamping",
+   "value": 4.5,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     11.0
+    ],
+    "score_margin": -8.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "angDamping",
+   "value": 4.5,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "angDamping",
+   "value": 4.5,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "angDamping",
+   "value": 4.5,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.75,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.218
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.75,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.75,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.75,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.75,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.75,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.75,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.75,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     13.0
+    ],
+    "score_margin": -10.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.9,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.9,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.9,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.9,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.9,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.9,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.9,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.9,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     15.0
+    ],
+    "score_margin": -12.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     9.0
+    ],
+    "score_margin": -6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     11.0,
+     3.0
+    ],
+    "score_margin": 8.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     13.0
+    ],
+    "score_margin": -10.0,
+    "mount_fail": 0
+   },
+   "wall": 0.22
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5625,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5625,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5625,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5625,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     11.0,
+     3.0
+    ],
+    "score_margin": 8.0,
+    "mount_fail": 0
+   },
+   "wall": 0.223
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5625,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.218
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5625,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     4.0
+    ],
+    "score_margin": -1.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5625,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.5625,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     13.0
+    ],
+    "score_margin": -10.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.375,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.205
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.375,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.375,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.375,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.375,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.375,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.375,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "COLLISION_RESTITUTION",
+   "value": 0.375,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0225,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0225,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0225,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0225,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0225,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0225,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0225,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.207
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0225,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0375,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.22
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0375,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0375,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0375,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.218
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0375,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0375,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0375,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.0375,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.015,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.015,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.015,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.015,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.015,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.015,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.015,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.015,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.045,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.22
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.045,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.045,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.045,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.045,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.045,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.045,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.207
+  },
+  {
+   "param": "STALL_SPEED",
+   "value": 0.045,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.30000000000000004,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.30000000000000004,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.30000000000000004,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.207
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.30000000000000004,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.218
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.30000000000000004,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.30000000000000004,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.30000000000000004,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.30000000000000004,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.5,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.5,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.5,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.5,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.5,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.207
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.5,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.5,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.5,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.2,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.2,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.207
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.2,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.2,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.2,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.2,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.2,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.207
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.2,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.6000000000000001,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.218
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.6000000000000001,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.6000000000000001,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.6000000000000001,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.6000000000000001,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.6000000000000001,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.6000000000000001,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.207
+  },
+  {
+   "param": "STALL_TIME",
+   "value": 0.6000000000000001,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.045,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.045,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.045,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.045,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.045,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.045,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.045,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.045,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.075,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.075,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.207
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.075,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.075,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.075,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.075,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.075,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.075,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.03,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.03,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.03,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.03,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.03,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.03,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.03,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.206
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.03,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.09,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.09,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.09,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.09,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.09,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.09,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.09,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "STALL_RELEASE",
+   "value": 0.09,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0045000000000000005,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0045000000000000005,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0045000000000000005,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0045000000000000005,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0045000000000000005,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0045000000000000005,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0045000000000000005,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0045000000000000005,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0075,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.221
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0075,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0075,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.22
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0075,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0075,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0075,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0075,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.0075,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.003,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.003,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.207
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.003,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.003,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.003,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.003,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.003,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.207
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.003,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.009000000000000001,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.009000000000000001,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.009000000000000001,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.009000000000000001,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.009000000000000001,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.009000000000000001,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.009000000000000001,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "STALL_DISPLACEMENT",
+   "value": 0.009000000000000001,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.22499999999999998,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.218
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.22499999999999998,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.22499999999999998,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.22499999999999998,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.22499999999999998,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.22499999999999998,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.22499999999999998,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.22499999999999998,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.375,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.375,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.375,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.207
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.375,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.375,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.375,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.375,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.219
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.375,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.15,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.15,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.206
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.15,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.15,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.15,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.15,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.15,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.15,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.44999999999999996,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.44999999999999996,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.44999999999999996,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.44999999999999996,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.44999999999999996,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.44999999999999996,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.44999999999999996,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "MOUNT_V_MIN",
+   "value": 0.44999999999999996,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.195,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.195,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.195,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.195,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.195,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.195,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.195,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.195,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     12.0
+    ],
+    "score_margin": -9.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.325,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.325,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.325,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.325,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.325,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.325,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.325,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.325,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.13,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.13,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.13,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.208
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.13,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.13,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.13,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.13,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.206
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.13,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     12.0
+    ],
+    "score_margin": -9.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.39,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.39,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.39,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.39,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.39,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.39,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.39,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "MOUNT_ANGLE_MAX",
+   "value": 0.39,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     10.0
+    ],
+    "score_margin": -7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "classifyRate",
+   "value": 80.0,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     7.0
+    ],
+    "score_margin": 2.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "classifyRate",
+   "value": 80.0,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.209
+  },
+  {
+   "param": "classifyRate",
+   "value": 80.0,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "classifyRate",
+   "value": 80.0,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "classifyRate",
+   "value": 80.0,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.212
+  },
+  {
+   "param": "classifyRate",
+   "value": 80.0,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "classifyRate",
+   "value": 80.0,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     8.0,
+     9.0
+    ],
+    "score_margin": -1.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "classifyRate",
+   "value": 80.0,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     3.0
+    ],
+    "score_margin": 6.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "classifyRate",
+   "value": 50.0,
+   "seed": 1,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     8.0,
+     9.0
+    ],
+    "score_margin": -1.0,
+    "mount_fail": 0
+   },
+   "wall": 0.211
+  },
+  {
+   "param": "classifyRate",
+   "value": 50.0,
+   "seed": 2,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     9.0,
+     6.0
+    ],
+    "score_margin": 3.0,
+    "mount_fail": 0
+   },
+   "wall": 0.214
+  },
+  {
+   "param": "classifyRate",
+   "value": 50.0,
+   "seed": 3,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     3.0
+    ],
+    "score_margin": 0.0,
+    "mount_fail": 0
+   },
+   "wall": 0.21
+  },
+  {
+   "param": "classifyRate",
+   "value": 50.0,
+   "seed": 4,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 1,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     3.0,
+     14.0
+    ],
+    "score_margin": -11.0,
+    "mount_fail": 0
+   },
+   "wall": 0.217
+  },
+  {
+   "param": "classifyRate",
+   "value": 50.0,
+   "seed": 5,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     8.0,
+     9.0
+    ],
+    "score_margin": -1.0,
+    "mount_fail": 0
+   },
+   "wall": 0.216
+  },
+  {
+   "param": "classifyRate",
+   "value": 50.0,
+   "seed": 6,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     8.0,
+     9.0
+    ],
+    "score_margin": -1.0,
+    "mount_fail": 0
+   },
+   "wall": 0.213
+  },
+  {
+   "param": "classifyRate",
+   "value": 50.0,
+   "seed": 7,
+   "metrics": {
+    "us_block_scores": 1,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     10.0,
+     3.0
+    ],
+    "score_margin": 7.0,
+    "mount_fail": 0
+   },
+   "wall": 0.215
+  },
+  {
+   "param": "classifyRate",
+   "value": 50.0,
+   "seed": 8,
+   "metrics": {
+    "us_block_scores": 2,
+    "us_drops": 0,
+    "mount_t": 1.3,
+    "done_reason": "比赛时间结束",
+    "final_score": [
+     8.0,
+     9.0
+    ],
+    "score_margin": -1.0,
+    "mount_fail": 0
+   },
+   "wall": 0.22
+  }
+ ],
+ "aggregate": {
+  "baseline": {
+   "per_metric": {
+    "us_block_scores": {
+     "mean": 1.125,
+     "std": 0.33071891388307384,
+     "n": 8
+    },
+    "us_drops": {
+     "mean": 0.125,
+     "std": 0.33071891388307384,
+     "n": 8
+    },
+    "score_margin": {
+     "mean": 2.25,
+     "std": 4.548351349665063,
+     "n": 8
+    },
+    "mount_fail": {
+     "mean": 0.0,
+     "std": 0.0,
+     "n": 8
+    }
+   },
+   "mount_t": {
+    "mounted": 8,
+    "total": 8,
+    "mean_mounted": 1.3
+   },
+   "done_reasons": {
+    "比赛时间结束": 8
+   }
+  },
+  "params": [
+   {
+    "name": "latFrictionK",
+    "channel": "vehicles",
+    "subsystem": "friction",
+    "tier": 1,
+    "baseline": 8.0,
+    "domain": [
+     0.5,
+     60.0
+    ],
+    "levels": [
+     {
+      "segment": null,
+      "tag": "m25",
+      "value": 6.0,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.375,
+        "std": 0.4841229182759271,
+        "S": 3.023715784064675
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 0.5,
+        "std": 6.164414002968976,
+        "S": 1.5390191878017372
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 3.023715784064675,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p25",
+      "value": 10.0,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 3.75,
+        "std": 4.943429983321297,
+        "S": 1.3191593038300604
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 1.3191593038300604,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "m50",
+      "value": 4.0,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.375,
+        "std": 0.4841229182759271,
+        "S": 1.5118578920323376
+       },
+       "us_drops": {
+        "mean": 0.25,
+        "std": 0.4330127018922193,
+        "S": 0.7559289460161688
+       },
+       "score_margin": {
+        "mean": -0.375,
+        "std": 7.069962871189636,
+        "S": 1.1542643908513028
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 1.5118578920323376,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p50",
+      "value": 12.0,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.25,
+        "std": 0.4330127018922193,
+        "S": 0.7559289460161688
+       },
+       "us_drops": {
+        "mean": 0.25,
+        "std": 0.4330127018922193,
+        "S": 0.7559289460161688
+       },
+       "score_margin": {
+        "mean": 2.0,
+        "std": 7.280109889280518,
+        "S": 0.10992994198583837
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.7559289460161688,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     }
+    ],
+    "S_max": 3.023715784064675,
+    "phase_any": false,
+    "verdict": "敏感",
+    "advice": "高优先级：OAT 邻域内显著影响比赛指标，建议 08-28 优先安排对应受控采集"
+   },
+   {
+    "name": "BLOCK_MU_K",
+    "channel": "parameters",
+    "subsystem": "friction",
+    "tier": 1,
+    "baseline": 0.5,
+    "domain": null,
+    "levels": [
+     {
+      "segment": null,
+      "tag": "m25",
+      "value": 0.375,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.25,
+        "std": 0.4330127018922193,
+        "S": 1.5118578920323376
+       },
+       "us_drops": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 1.5118578920323376
+       },
+       "score_margin": {
+        "mean": 2.625,
+        "std": 5.146297212559725,
+        "S": 0.3297898259575151
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 1.5118578920323376,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p25",
+      "value": 0.625,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.0,
+        "std": 0.0,
+        "S": 1.5118578920323376
+       },
+       "us_drops": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 1.5118578920323376
+       },
+       "score_margin": {
+        "mean": 4.375,
+        "std": 3.6033838263498934,
+        "S": 1.8688090137592523
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 1.8688090137592523,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "m50",
+      "value": 0.25,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.375,
+        "std": 0.4841229182759271,
+        "S": 1.5118578920323376
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 0.375,
+        "std": 5.290025992374707,
+        "S": 0.8244745648937878
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 1.5118578920323376,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p50",
+      "value": 0.75,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 3.125,
+        "std": 4.567206476611277,
+        "S": 0.3847547969504343
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.3847547969504343,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     }
+    ],
+    "S_max": 1.8688090137592523,
+    "phase_any": false,
+    "verdict": "弱/存疑",
+    "advice": "中优先级：效应在种子噪声边缘（1≤S<3），建议 08-28 酌情纳入或先以更大扰动范围复测"
+   },
+   {
+    "name": "BLOCK_STICK_SPEED",
+    "channel": "parameters",
+    "subsystem": "friction",
+    "tier": 2,
+    "baseline": 0.02,
+    "domain": null,
+    "levels": [
+     {
+      "segment": null,
+      "tag": "m25",
+      "value": 0.015,
+      "dp_rel": 0.25000000000000006,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p25",
+      "value": 0.025,
+      "dp_rel": 0.25000000000000006,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "m50",
+      "value": 0.01,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p50",
+      "value": 0.03,
+      "dp_rel": 0.4999999999999999,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     }
+    ],
+    "S_max": 0.0,
+    "phase_any": false,
+    "verdict": "不敏感",
+    "advice": "低优先级：OAT ±50% 邻域内效应淹没于种子噪声，建议 08-28 评估暂缓采集（OAT 只测局部敏感度，不排除大范围非线性）"
+   },
+   {
+    "name": "angDamping",
+    "channel": "vehicles",
+    "subsystem": "collision",
+    "tier": 1,
+    "baseline": 3.0,
+    "domain": [
+     0.0,
+     40.0
+    ],
+    "levels": [
+     {
+      "segment": null,
+      "tag": "m25",
+      "value": 2.25,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.375,
+        "std": 0.4841229182759271,
+        "S": 3.023715784064675
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 0.5,
+        "std": 5.894913061275798,
+        "S": 1.5390191878017372
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 3.023715784064675,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p25",
+      "value": 3.75,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.5,
+        "std": 0.5,
+        "S": 4.5355736760970125
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": -0.75,
+        "std": 5.584576975922169,
+        "S": 2.638318607660121
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 4.5355736760970125,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "m50",
+      "value": 1.5,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.25,
+        "std": 0.4330127018922193,
+        "S": 0.7559289460161688
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.125,
+        "std": 5.348773223833667,
+        "S": 0.054964970992919186
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.7559289460161688,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p50",
+      "value": 4.5,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.25,
+        "std": 0.4330127018922193,
+        "S": 0.7559289460161688
+       },
+       "score_margin": {
+        "mean": 2.125,
+        "std": 4.648588495446763,
+        "S": 0.054964970992919186
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.7559289460161688,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     }
+    ],
+    "S_max": 4.5355736760970125,
+    "phase_any": false,
+    "verdict": "敏感",
+    "advice": "高优先级：OAT 邻域内显著影响比赛指标，建议 08-28 优先安排对应受控采集"
+   },
+   {
+    "name": "COLLISION_RESTITUTION",
+    "channel": "parameters",
+    "subsystem": "collision",
+    "tier": 1,
+    "baseline": null,
+    "domain": [
+     0.0,
+     0.9
+    ],
+    "levels": [
+     {
+      "segment": "null→数值（模型路径切换，效应按噪声倍数呈现，不参与跨参数 S 排序）",
+      "tag": "m25",
+      "value": 0.75,
+      "dp_rel": null,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 1.75,
+        "std": 5.238081709939241,
+        "S": 0.10992994198583837
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.10992994198583837,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": "null→数值（模型路径切换，效应按噪声倍数呈现，不参与跨参数 S 排序）",
+      "tag": "p25",
+      "value": 0.9,
+      "dp_rel": null,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.375,
+        "std": 6.040229714174784,
+        "S": 0.027482485496459593
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.027482485496459593,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": "null→数值（模型路径切换，效应按噪声倍数呈现，不参与跨参数 S 排序）",
+      "tag": "m50",
+      "value": 0.5,
+      "dp_rel": null,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.375,
+        "std": 0.4841229182759271,
+        "S": 0.7559289460161688
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 0.5,
+        "std": 6.5383484153110105,
+        "S": 0.3847547969504343
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.7559289460161688,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": "null→数值（模型路径切换，效应按噪声倍数呈现，不参与跨参数 S 排序）",
+      "tag": "p50",
+      "value": 0.9,
+      "dp_rel": null,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.375,
+        "std": 6.040229714174784,
+        "S": 0.027482485496459593
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.027482485496459593,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": "数值基线 0.75（固定恢复系数路径，S 与其他参数可比）",
+      "tag": "m25",
+      "value": 0.5625,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.25,
+        "std": 0.4330127018922193,
+        "S": 1.5118578920323376
+       },
+       "score_margin": {
+        "mean": 2.625,
+        "std": 5.633327169621874,
+        "S": 0.6681835438645591
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 1.5118578920323376,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": "数值基线 0.75（固定恢复系数路径，S 与其他参数可比）",
+      "tag": "p25",
+      "value": 0.9,
+      "dp_rel": 0.20000000000000004,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.375,
+        "std": 6.040229714174784,
+        "S": 0.5965924498790706
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.5965924498790706,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": "数值基线 0.75（固定恢复系数路径，S 与其他参数可比）",
+      "tag": "m50",
+      "value": 0.375,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.19090958396130261
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.19090958396130261,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": "数值基线 0.75（固定恢复系数路径，S 与其他参数可比）",
+      "tag": "p50",
+      "value": 0.9,
+      "dp_rel": 0.20000000000000004,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.375,
+        "std": 6.040229714174784,
+        "S": 0.5965924498790706
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.5965924498790706,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     }
+    ],
+    "S_max": 1.5118578920323376,
+    "phase_any": false,
+    "verdict": "弱/存疑",
+    "advice": "中优先级：效应在种子噪声边缘（1≤S<3），建议 08-28 酌情纳入或先以更大扰动范围复测"
+   },
+   {
+    "name": "STALL_SPEED",
+    "channel": "parameters",
+    "subsystem": "stall",
+    "tier": 1,
+    "baseline": 0.03,
+    "domain": null,
+    "levels": [
+     {
+      "segment": null,
+      "tag": "m25",
+      "value": 0.0225,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p25",
+      "value": 0.0375,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "m50",
+      "value": 0.015,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p50",
+      "value": 0.045,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     }
+    ],
+    "S_max": 0.0,
+    "phase_any": false,
+    "verdict": "不敏感",
+    "advice": "低优先级：OAT ±50% 邻域内效应淹没于种子噪声，建议 08-28 评估暂缓采集（OAT 只测局部敏感度，不排除大范围非线性）"
+   },
+   {
+    "name": "STALL_TIME",
+    "channel": "parameters",
+    "subsystem": "stall",
+    "tier": 2,
+    "baseline": 0.4,
+    "domain": null,
+    "levels": [
+     {
+      "segment": null,
+      "tag": "m25",
+      "value": 0.30000000000000004,
+      "dp_rel": 0.24999999999999994,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p25",
+      "value": 0.5,
+      "dp_rel": 0.24999999999999994,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "m50",
+      "value": 0.2,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p50",
+      "value": 0.6000000000000001,
+      "dp_rel": 0.5000000000000001,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     }
+    ],
+    "S_max": 0.0,
+    "phase_any": false,
+    "verdict": "不敏感",
+    "advice": "低优先级：OAT ±50% 邻域内效应淹没于种子噪声，建议 08-28 评估暂缓采集（OAT 只测局部敏感度，不排除大范围非线性）"
+   },
+   {
+    "name": "STALL_RELEASE",
+    "channel": "parameters",
+    "subsystem": "stall",
+    "tier": 2,
+    "baseline": 0.06,
+    "domain": null,
+    "levels": [
+     {
+      "segment": null,
+      "tag": "m25",
+      "value": 0.045,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p25",
+      "value": 0.075,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "m50",
+      "value": 0.03,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p50",
+      "value": 0.09,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     }
+    ],
+    "S_max": 0.0,
+    "phase_any": false,
+    "verdict": "不敏感",
+    "advice": "低优先级：OAT ±50% 邻域内效应淹没于种子噪声，建议 08-28 评估暂缓采集（OAT 只测局部敏感度，不排除大范围非线性）"
+   },
+   {
+    "name": "STALL_DISPLACEMENT",
+    "channel": "parameters",
+    "subsystem": "stall",
+    "tier": 2,
+    "baseline": 0.006,
+    "domain": null,
+    "levels": [
+     {
+      "segment": null,
+      "tag": "m25",
+      "value": 0.0045000000000000005,
+      "dp_rel": 0.24999999999999992,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p25",
+      "value": 0.0075,
+      "dp_rel": 0.24999999999999992,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "m50",
+      "value": 0.003,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p50",
+      "value": 0.009000000000000001,
+      "dp_rel": 0.5000000000000001,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     }
+    ],
+    "S_max": 0.0,
+    "phase_any": false,
+    "verdict": "不敏感",
+    "advice": "低优先级：OAT ±50% 邻域内效应淹没于种子噪声，建议 08-28 评估暂缓采集（OAT 只测局部敏感度，不排除大范围非线性）"
+   },
+   {
+    "name": "MOUNT_V_MIN",
+    "channel": "parameters",
+    "subsystem": "mount",
+    "tier": 1,
+    "baseline": 0.3,
+    "domain": [
+     0.0,
+     2.0
+    ],
+    "levels": [
+     {
+      "segment": null,
+      "tag": "m25",
+      "value": 0.22499999999999998,
+      "dp_rel": 0.25000000000000006,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p25",
+      "value": 0.375,
+      "dp_rel": 0.25000000000000006,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "m50",
+      "value": 0.15,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p50",
+      "value": 0.44999999999999996,
+      "dp_rel": 0.4999999999999999,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     }
+    ],
+    "S_max": 0.0,
+    "phase_any": false,
+    "verdict": "不敏感",
+    "advice": "低优先级：OAT ±50% 邻域内效应淹没于种子噪声，建议 08-28 评估暂缓采集（OAT 只测局部敏感度，不排除大范围非线性）"
+   },
+   {
+    "name": "MOUNT_ANGLE_MAX",
+    "channel": "parameters",
+    "subsystem": "mount",
+    "tier": 1,
+    "baseline": 0.26,
+    "domain": [
+     0.0,
+     1.2
+    ],
+    "levels": [
+     {
+      "segment": null,
+      "tag": "m25",
+      "value": 0.195,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.0,
+        "std": 5.07444578254611,
+        "S": 0.21985988397167675
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.21985988397167675,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p25",
+      "value": 0.325,
+      "dp_rel": 0.25,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "m50",
+      "value": 0.13,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.0,
+        "std": 5.07444578254611,
+        "S": 0.10992994198583837
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.10992994198583837,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "p50",
+      "value": 0.39,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.25,
+        "std": 4.548351349665063,
+        "S": 0.0
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.0,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     }
+    ],
+    "S_max": 0.21985988397167675,
+    "phase_any": false,
+    "verdict": "不敏感",
+    "advice": "低优先级：OAT ±50% 邻域内效应淹没于种子噪声，建议 08-28 评估暂缓采集（OAT 只测局部敏感度，不排除大范围非线性）"
+   },
+   {
+    "name": "classifyRate",
+    "channel": "parameters",
+    "subsystem": "vision-阳性对照",
+    "tier": 1,
+    "baseline": 100.0,
+    "domain": [
+     0.0,
+     100.0
+    ],
+    "levels": [
+     {
+      "segment": null,
+      "tag": "rate80",
+      "value": 80.0,
+      "dp_rel": 0.2,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "us_drops": {
+        "mean": 0.125,
+        "std": 0.33071891388307384,
+        "S": 0.0
+       },
+       "score_margin": {
+        "mean": 2.5,
+        "std": 3.082207001484488,
+        "S": 0.2748248549645959
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 0.2748248549645959,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     },
+     {
+      "segment": null,
+      "tag": "rate50",
+      "value": 50.0,
+      "dp_rel": 0.5,
+      "per_metric": {
+       "us_block_scores": {
+        "mean": 1.625,
+        "std": 0.4841229182759271,
+        "S": 3.023715784064675
+       },
+       "us_drops": {
+        "mean": 0.25,
+        "std": 0.4330127018922193,
+        "S": 0.7559289460161688
+       },
+       "score_margin": {
+        "mean": -0.625,
+        "std": 4.741769184597665,
+        "S": 1.2641943328371412
+       },
+       "mount_fail": {
+        "mean": 0.0,
+        "std": 0.0,
+        "S": 0.0
+       }
+      },
+      "max_S": 3.023715784064675,
+      "phase": false,
+      "done_flips": 0,
+      "mount_flips": 0,
+      "mount_t": {
+       "mounted": 8,
+       "total": 8,
+       "mean_mounted": 1.3
+      },
+      "done_reasons": {
+       "比赛时间结束": 8
+      }
+     }
+    ],
+    "S_max": 3.023715784064675,
+    "phase_any": false,
+    "verdict": "敏感",
+    "advice": "高优先级：OAT 邻域内显著影响比赛指标，建议 08-28 优先安排对应受控采集"
+   }
+  ],
+  "control_ok": true
+ }
+}

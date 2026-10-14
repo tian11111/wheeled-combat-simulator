@@ -138,6 +138,13 @@ godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.j
 **确定性契约**
 
 - legacy 物理默认行为已于 2026-10-03 有意变更（接触修复 L1+L2+L3 默认全开），**旧 legacy 回放文件在新默认下不可复现**；`replays/seed-42.json` 基线已重录（5:10 / 302 事件），同默认下逐位确定性不变。
+- **2026-10-14 基线行为修复**（CoreVersion 1.0.5 → 1.0.7）：掉台判据由 footprint 四角改为车体中心越界（消除贴沿旋转被误判掉台导致的台沿抖动死循环送分）、ATTACK 增加 5 s 超时兜底（消除双方互推的永久僵持）、`Js.ToFixed` 按 ECMAScript 语义修正（原 digits>0 时放大 10^digits 倍，是事件行 `t=` 显示值 = 10× 秒的根源）。**以上修复改变事件流与比分，全部旧回放/基线随之失配并已重录**（`replays/seed-42.json` 现为 3:9 / 211 事件）；详见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 的"基线行为修复"节。
+
+**基线行为有效性（2026-10-14 起）**
+
+- 此前项目只有三类门禁：单元测试（代码对不对）、`replay-check`（可复现）、`--parity-check`（跨端一致）——**都不覆盖"这场比赛看起来像真比赛吗"**。上述两个 P0 缺陷因此存活 49 天未被发现（项目首次提交即引入）。
+- 现已补行为判据回归（`BaselineP0RegressionTests`：无同 tick Mount∩Drop 对、计分掉台 0、僵持静默 ≤60 s）。
+  修复后实测：8 种子掉台送分占对手总分 97%/82%/74% → 0%/0%/10%；8 场合计比分 123:211 → 49:31。
 
 其余口径见下方 [保真度边界](#保真度边界) 与 [`fidelity.json`](fidelity.json)。
 

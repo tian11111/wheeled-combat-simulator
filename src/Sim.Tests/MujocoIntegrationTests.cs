@@ -1,3 +1,4 @@
+using Sim.Core;
 using Sim.Hosting;
 using Sim.Protocol;
 
@@ -221,11 +222,14 @@ public class MujocoIntegrationTests
     {
         if (!OperatingSystem.IsWindows()) return;
         // 09-25 索敌闭环: 控制映射变更以 CoreVersion 标识, MuJoCo 回放创建时
-        // 额外比较; legacy 回放不加此门禁 (1.0.5: v2 能量块 seed 随机布局)。
+        // 额外比较; legacy 回放不加此门禁。
+        // 2026-10-14: 断言改为引用 MatchEngine.CoreVersion 常量而非字面量 ——
+        // 基线 P0 修复(1.0.6)与 Js.ToFixed 修正(1.0.7)都改轨迹/事件, 版本随之升阶;
+        // 钉死字面量会让每次合法升版都产生假失败。
         var mujocoScenario = Scenario();
         using var engine = MatchEngineHost.Create(mujocoScenario);
         var header = engine.BuildReplayHeader();
-        Assert.Equal("sim-core-1.0.5", header.CoreVersion);
+        Assert.Equal(MatchEngine.CoreVersion, header.CoreVersion);
 
         var file = new ReplayFile { Header = header, Scenario = mujocoScenario };
         using (var replayEngine = MatchEngineHost.CreateForReplay(file))
@@ -237,7 +241,7 @@ public class MujocoIntegrationTests
         var staleFile = new ReplayFile { Header = stale, Scenario = mujocoScenario };
         var error = Assert.Throws<InvalidOperationException>(() => MatchEngineHost.CreateForReplay(staleFile));
         Assert.Contains("sim-core-1.0.1", error.Message);
-        Assert.Contains("sim-core-1.0.5", error.Message);
+        Assert.Contains(MatchEngine.CoreVersion, error.Message);
     }
 
     [Fact]
