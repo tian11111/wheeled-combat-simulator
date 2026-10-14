@@ -61,7 +61,14 @@ def _decode_stdout(raw: bytes) -> str:
 
 
 def parse_match_output(text: str) -> dict:
-    """Extract per-side metrics from one `match --events` run."""
+    """Extract per-side metrics from one `match --events` run.
+
+    us_drops 口径 (2026-10-14 修正): 一次掉台在事件流里产生**两行** ——
+    计分行 `[score] 我方掉台, 对方 +1` (带 points) 与 FSM 转移行
+    `[fsm] 掉台! (方向 西) → RECOVER`。原实现 `" Drop " in line` 把两行各计一次
+    (seed1 旧流实测 212 行 ≈ 105 次真实掉台的 2 倍)。现在**只计 [fsm] 行**
+    (= 真实掉台宣告, 与 EventKind.Drop 的边沿触发语义一致: 每次掉台恰好一条)。
+    """
     us_block_scores = 0
     us_drops = 0
     mount_t = None
@@ -72,7 +79,8 @@ def parse_match_output(text: str) -> dict:
         # 出现在 t= 之后; 用子串匹配(类型名后跟多空格 + [角色])。
         if "BlockScore" in line and "[我方]" in line:
             us_block_scores += 1
-        elif " Drop " in line and "[我方]" in line:
+        elif " Drop " in line and "[我方]" in line and "[fsm]" in line:
+            # 只认 FSM 转移行 (真实掉台); "[score]" 计分行不另计。
             us_drops += 1
         elif "Mount" in line and "[我方]" in line and "已上台" in line:
             t = _event_t(line)
@@ -91,7 +99,12 @@ def parse_match_output(text: str) -> dict:
 
 
 def _event_t(line: str) -> float | None:
-    # "[  25] t= 236.00 Kind ..." → t value in 0.1 s units (SimT display).
+    """事件行 t= 值 (单位: 秒)。
+
+    2026-10-14 修正: 原先这里返回的是**显示值**, 注释称 "t value in 0.1 s units"
+    —— 那是 Sim.Core.Js.ToFixed 缺陷造成的 10× 放大 (5.0s 显示成 "50.0")。该缺陷
+    已在 10-14-oracle-metrics-fix 修复 (Js.cs), 事件行 t= 现在就是真秒, 无需再换算。
+    """
     marker = "t="
     idx = line.find(marker)
     if idx < 0:
