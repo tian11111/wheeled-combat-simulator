@@ -208,6 +208,15 @@ public sealed class FsmController
         Log(r, "[fsm] SEARCH: 旋转扫描中…");
     }
 
+    private void EnterAttackFor(RobotRuntime r)
+    {
+        var st = r.Fsm;
+        st.State = FsmState.Attack;
+        st.AttackT = 0;
+        r.V = 0;
+        r.W = 0;
+    }
+
     private void EnterRecoverFor(RobotRuntime r, string phase)
     {
         var st = r.Fsm;
@@ -303,6 +312,14 @@ public sealed class FsmController
     private double MountSpeed() => _params.MountSpeed / 1000 * 0.75;
 
     /// <summary>
+    /// ATTACK 连续进攻超时(s): 双方都在台上互推僵持时, 内置 FSM 会永久停在 ATTACK
+    /// —— 事件与计分同时冻结(seed2@300s 在 35.2s 后静默 264.8s, 8/8 场从未分出胜负)。
+    /// 官方规则材料(docs/)没有给出进攻时长上限, 按 implement.md 取 5s 量级: 正常一次
+    /// 追击推挤(1.25 m/s 追击 + 对准)远短于 5s, 只有互推僵持才会触顶。
+    /// </summary>
+    private const double AttackTimeoutSeconds = 5.0;
+
+    /// <summary>
     /// 行走类时限的速度缩放: 登台/恢复/追块的时限按参考极速 1.5 m/s 标定,
     /// 真车电机极速更低时(如 2342 减速后 0.408 m/s)同距离需要更长时限。
     /// 仅在 maxSpeed 低于参考时放大 —— legacy/原场景(1.5) 缩放恒 1, 逐位不变。
@@ -317,6 +334,10 @@ public sealed class FsmController
         var st = r.Fsm;
         if (!st.Armed || st.State is FsmState.MountRing or FsmState.Recover or FsmState.Finished)
         {
+            // 登台/恢复/结束流程期间检测到的掉台由该流程自身处理, 不把 DropPending
+            // 留给之后的状态消费: 否则登台瞬间会先判"已上台", 下一 tick 又被这条陈旧的
+            // 标志立刻判回"掉台", 形成同 t 的 Mount+Drop 事件对。
+            r.DropPending = false;
             return;
         }
         var sens = r.Sens;
@@ -330,7 +351,7 @@ public sealed class FsmController
             EnterRecoverFor(r, "backup");
             return;
         }
-        if (r.DropPending || (r.WasOn && !_physics.OnStage(r)))
+        if (r.DropPending || (r.WasOn && !_field.OnPlatform(r.X, r.Y)))
         {
             r.DropPending = false;
             var (lcx, lcy) = _field.Transform.WorldToLocalPoint(r.X, r.Y);
@@ -417,6 +438,9 @@ public sealed class FsmController
     {
         var m = r.Fsm.Mount;
         m.T += dt;
+        // 登台成功 = 四角在台(登台是"整车爬到台上"的动作, 用 footprint 判据)。
+        // 掉台判据另有一套(车体中心越界, 见 MatchEngine.ObjFallCheckAll): 二者不同源,
+        // 因为贴沿原地旋转时角点会短暂扫出台沿, 但车体并未掉下去。
         if (_physics.FullOn(r))
         {
             Log(r, "[fsm] 已上台 on_stage ✓ → SEARCH", kind: EventKind.Mount, data: new { via = "on_stage" });
@@ -882,18 +906,14 @@ public sealed class FsmController
                     else if (detection.Label == "opponent")
                     {
                         Log(r, "[fsm] 视觉分类 → 对手 → ATTACK");
-                        r.Fsm.State = FsmState.Attack;
-                        r.V = 0;
-                        r.W = 0;
+                        EnterAttackFor(r);
                     }
                     else
                     {
                         if (r.Sens.GetValueOrDefault("f") > _params.IrTrigger)
                         {
                             Log(r, "[fsm] 识别不到 + 前向持续 → 判定为对手 → ATTACK");
-                            r.Fsm.State = FsmState.Attack;
-                            r.V = 0;
-                            r.W = 0;
+                            EnterAttackFor(r);
                         }
                         else
                         {
@@ -960,6 +980,13 @@ public sealed class FsmController
         if (!_physics.OnStage(o))
         {
             Log(r, "[fsm] ATTACK: 目标失效(不在台上) → SEARCH");
+            EnterSearchFor(r);
+            return;
+        }
+        r.Fsm.AttackT += dt;
+        if (r.Fsm.AttackT > AttackTimeoutSeconds)
+        {
+            Log(r, $"[fsm] ATTACK: 连续进攻 {Js.ToFixed(r.Fsm.AttackT, 1)}s 未分出胜负 → SEARCH(超时兜底)");
             EnterSearchFor(r);
             return;
         }

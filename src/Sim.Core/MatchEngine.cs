@@ -40,7 +40,14 @@ public sealed class MatchEngine : IDisposable
     // FSM 行为变更同样改变 MuJoCo 轨迹, 因此一并纳入版本标识。
     // 2026-09-29: 1.0.4 — 传感器 3D 化(探点重标装配.glb 光电节点 + WheeledCombat11
     // 显式启用 + MuJoCo mj_ray 真实几何探测), 感知语义与通道清单都变, MuJoCo 轨迹必变。
-    public const string CoreVersion = "sim-core-1.0.5";
+    // 2026-10-14: 1.0.6 — 两个基线 P0 修复改变比赛轨迹与事件流:
+    //   ①掉台判据由 footprint 四角改为车体中心越界(消除贴沿旋转的角点外扫被误判掉台
+    //     所致的台沿抖动死循环; seed1 对手 93 分中 90 分原来自伤送分);
+    //   ②ATTACK 增加 5s 超时兜底(消除双方互推僵持下的永久空转, seed2@300s 原静默 264.8s)。
+    //   两者都改变事件与比分, MuJoCo 回放身份因此升级。
+    // 2026-10-14: 1.0.7 — Js.ToFixed 按 ECMAScript 语义修正(digits>0 时原实现放大
+    //   10^digits 倍, 事件行 t= 显示值 = 10x 秒); 事件文本与指纹随之变化。
+    public const string CoreVersion = "sim-core-1.0.7";
 
     private readonly Scenario _scenario;
     private readonly FieldModel _field;
@@ -722,8 +729,11 @@ public sealed class MatchEngine : IDisposable
         UpdateScoreClock(d);
         UpdateInactivity(d);
         _matchTimer = Math.Max(0, Math.Min(_us.Fsm.Timer, _them.Fsm.Timer));
-        _us.WasOn = _physics.OnStage(_us);
-        _them.WasOn = _physics.OnStage(_them);
+        // 掉台判据统一用"车体中心是否在台面内"(见 ObjFallCheckAll): 中心是车体质量中心,
+        // 中心越界才算真的掉下去; 四角判据(OnStage/footprint)会把"贴沿原地旋转时角点短暂
+        // 扫出台沿"误判成掉台, 实测造成 0.7-1.0s 的抖动循环与 73-97% 送分。
+        _us.WasOn = _field.OnPlatform(_us.X, _us.Y);
+        _them.WasOn = _field.OnPlatform(_them.X, _them.Y);
 
         RecordReplayTick(acts);
     }
@@ -802,8 +812,9 @@ public sealed class MatchEngine : IDisposable
         // simultaneous drop cannot score for either side.
         var prevUs = _us.WasOn;
         var prevThem = _them.WasOn;
-        var nowUs = _physics.OnStage(_us);
-        var nowThem = _physics.OnStage(_them);
+        // 掉台 = 车体中心离开台面 (四角判据见上: 会把贴沿旋转的角点外扫误判成掉台)。
+        var nowUs = _field.OnPlatform(_us.X, _us.Y);
+        var nowThem = _field.OnPlatform(_them.X, _them.Y);
         var usDrop = prevUs && !nowUs;
         var themDrop = prevThem && !nowThem;
         if (usDrop)
@@ -848,9 +859,9 @@ public sealed class MatchEngine : IDisposable
     // ---------- referee: score clock and inactivity ----------
 
     private string ScoreClockPhase()
-        => _physics.OnStage(_us) && !_physics.OnStage(_them) ? "us_only"
-        : !_physics.OnStage(_us) && _physics.OnStage(_them) ? "them_only"
-        : _physics.OnStage(_us) && _physics.OnStage(_them) ? "both_on" : "both_off";
+        => _field.OnPlatform(_us.X, _us.Y) && !_field.OnPlatform(_them.X, _them.Y) ? "us_only"
+        : !_field.OnPlatform(_us.X, _us.Y) && _field.OnPlatform(_them.X, _them.Y) ? "them_only"
+        : _field.OnPlatform(_us.X, _us.Y) && _field.OnPlatform(_them.X, _them.Y) ? "both_on" : "both_off";
 
     private void UpdateScoreClock(double d)
     {
