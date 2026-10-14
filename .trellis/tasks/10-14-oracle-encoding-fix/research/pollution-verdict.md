@@ -23,3 +23,8 @@
 ## 遗留（不属本任务）
 
 - `study/study.db`（311KB）被 git 跟踪与自家文档矛盾——仓库卫生遗留（10-14 审计已记录）。
+
+## 口径补注（2026-10-14，10-14-oracle-metrics-fix 追加）
+
+- **`mount_t` 数字是"旧 ToFixed 放大值"，非本次判定依据**：trials.csv 里的 `mount_t`（如 `[29.0×4]`）由旧 `oracle._event_t` 直接取事件行 `t=` 显示值；当时 `Sim.Core.Js.ToFixed` 存在 digits>0 放大 10^digits 倍的缺陷，故该栏数字 = **真秒的 10 倍**（29.0 实为 2.9s）。本判定的结论（"历史数据有效、未污染"）只依赖 `final_scores`/`mount_t` **有效非零**这一"解析未失效"签名，与数值量纲无关，故不受单位缺陷影响。
+- 该放大缺陷已在 10-14-oracle-metrics-fix 修复（Js.cs 按 G17 精确展开舍入，Node 22 例对照）；oracle `_event_t` 口径同步改注为"真秒"；selftest 更新。

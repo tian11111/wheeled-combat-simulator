@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "铁律（合成数据不入标定链）与工具边界"}
+{"file": ".trellis/tasks/10-14-baseline-p0-fix/research/evidence.md", "reason": "度量 bug 证据（P1 节）与重跑动机"}
+{"file": ".trellis/tasks/10-14-oracle-metrics-fix/prd.md", "reason": "R1-R4 验收清单"}

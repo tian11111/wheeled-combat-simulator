@@ -89,15 +89,43 @@ Godot 物理仅用于可视摆放与可选诊断，**不参与判分**。
 
 | 手段 | 命令 | 说明 |
 | --- | --- | --- |
-| 内核回归 | `dotnet test` | 746 个测试（745 通过 / 1 跳过，2026-10-06 实测）：规则、确定性、回放复现、跨端校验、视图适配、场地布局、标定闭环、视觉证据分线、MuJoCo 后端、MBri 控制器、批量仿真、块布局配置、桌面壳纯逻辑 |
+| 内核回归 | `dotnet test` | 840 个测试（839 通过 / 1 跳过，2026-10-14 实测）：规则、确定性、回放复现、跨端校验、视图适配、场地布局、标定闭环、视觉证据分线、MuJoCo 后端、MBri 控制器、批量仿真、块布局配置、桌面壳纯逻辑、ECMAScript 格式化语义、基线行为判据 |
 | 无头复现 | `dotnet run --project src/Sim.Cli -- replay-check <file>` | 用记录的动作流逐位重放并比对 |
 | 跨端一致 | `godot --headless --path godot -- --parity-check <file>` | Godot 壳按 CLI `replay-check` 语义比对最终比分/结束原因/末帧/事件指纹（无 Godot 时由 `CrossEndTests` 回归同一代码路径） |
 | 视图适配 | `SnapshotViewTests` | 快照→渲染帧投影/插值不失真 |
 | 布局一致 | `ArenaLayoutFlowTests` + 身份/旋转变换回归 | 编辑保存的 `arena-layout-v1` 场景在 CLI/Godot 驱动同一几何；identity 位姿逐位复现旧基线 |
 
 Godot↔CLI 的同种子一致性已闭环：`godot --headless --path godot -- --parity-check ../replays/godot-parity-seed42.json`
-返回 PASS（比分 5:10、结束原因、末帧 2400、302 条事件指纹逐位一致）；旋转/平移后的场地回放
-（`replays/rotated-seed42.json`，13:6 / 278 事件 / 2400 ticks）两端同样逐位一致 PASS。另见 `godot/README.md` 与 `src/Sim.Tests/CrossEndTests.cs`。
+返回 PASS（比分 3:9、结束原因、末帧 2400、211 条事件指纹逐位一致，2026-10-14 基线 P0 修复后重录；
+旧数字 5:10/302 属修复前基线）。另见 `godot/README.md` 与 `src/Sim.Tests/CrossEndTests.cs`。
+
+## 基线行为修复（2026-10-14，CoreVersion 1.0.5 → 1.0.7）
+
+仿真效果评估发现并修复了两个**长期存在（项目首次提交即引入）**的基线缺陷——它们曾主导比分与事件流，
+但现有测试（单元/回放复现/跨端一致）都不覆盖"这场比赛看起来像真比赛吗"：
+
+- **掉台判据几何误判（1.0.6）**：`OnStage` 要求 footprint 四角全在台面内，贴沿原地旋转
+  （SEARCH 转向/扫描、RECOVER spin）时角点短暂扫出台沿、车体并未掉下去却被判掉台 → 对方 +1 →
+  RECOVER → 再登台 → 再旋转，形成 0.7–1.0 s 死循环。实测 seed1@120s 对手 93 分中 90 分（96.8%）
+  来自我方掉台送分。另一放大器是陈旧的 `DropPending`（登台成功转 SEARCH 的下一 tick 被消费）。
+  修复：掉台判据改为**车体中心越界**（`FieldModel.OnPlatform(x,y)`），并在 MountRing/Recover/Finished
+  早退分支清除 `DropPending`。登台判据仍为四角（`FullOn`，语义是"整车爬到台上"）——两者不同源，注释已写明。
+- **ATTACK 无超时（1.0.6）**：`AttackTick` 唯一退出路径是"对手不在台上"，双方互推僵持时永久空转
+  （seed2@300s 在 t=35.2 s 后静默 264.8 s、比分冻结 10:4；8/8 场从未分出胜负）。修复：新增
+  `AttackTimeoutSeconds = 5.0` 超时兜底转 SEARCH（官方规则材料无进攻时长规定，取保守值并在代码注释注明依据）。
+- **`Js.ToFixed` 放大缺陷（1.0.7）**：digits>0 时先乘 10^digits 又按 `F{digits}` 打印，输出比真值大
+  10^digits 倍（`5.0 → "50.0"`）——即事件行 `t=` 显示值 = 10× 秒的根源（曾被误读成"0.1 s 单位"）。
+  修复按 ECMAScript 语义（G17 精确展开 + 绝对值域舍入 + 负零保留），期望值经 Node 22 例对照。
+
+**修复后实测（8 种子 × 120 s，同口径）**：换边掉台 104/61/28 → 0/0/1；掉台送分占对手总分
+97%/82%/74% → 0%/0%/10%；最大静默段 84.8/79.4/55.4 s → 4.4–5.1 s；8 场合计比分
+我方 123 : 对手 211 → 我方 49 : 对手 31。行为判据由 `BaselineP0RegressionTests` 钉住
+（无同 tick Mount∩Drop 对、计分掉台 0、静默 ≤60 s）。
+
+**连带影响**：参数敏感性结论随之翻转——缺陷引擎的双稳态噪声（`us_drops` 49.5±72.9）曾把
+`latFrictionK`/`angDamping` 的真实效应淹没成"不显著"假阴性；修复后两者 S=3.02/4.54 双双显著，
+正是 fidelity.json 中 friction/collision 的待标定量（详见 `tools/sensitivity/report/` 与
+`.trellis/tasks/08-28-.../research/sensitivity-input.md`）。
 
 ## 场地与位姿（arena-layout-v1）
 
