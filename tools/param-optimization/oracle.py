@@ -32,17 +32,32 @@ def write_scenario(base_scenario_path: str | Path, parameters: dict[str, float],
 
 
 def run_match(dotnet_exe: str, cli_dll: str, scenario_path: str | Path, seed: int, duration: float) -> dict:
-    """Run one match with --events; return raw stdout plus exit code."""
-    # 子进程经管道输出时使用系统 ANSI 代码页(中文 Windows 为 GBK/GB18030),
-    # UTF-8 解码会把 [我方]/[对手] 变成替换符, 归属匹配全部失效。
+    """Run one match with --events; return parsed metrics.
+
+    管道输出编码随 runtime 环境漂移(实证, match 路径从未显式设置输出编码,
+    git -S OutputEncoding 全历史唯一提交 6aadde8 只作用于 rl-env):
+    2026-09-25 旧 Temp SDK 下为 GBK(150-trial 历史数据 final_scores/mount_t
+    有效可证), 2026-10-14 便携 SDK 8.0.31 实测为 UTF-8。故按字节捕获,
+    先试 UTF-8 再按中文 marker 有效性签名回退 gb18030, 两种环境都正确
+    (取代原单押 gb18030 的误判, 2026-10-14 修复)。
+    """
     proc = subprocess.run(
         [dotnet_exe, cli_dll, "match", "--seed", str(seed), "--scenario", str(scenario_path),
          "--duration", str(duration), "--events"],
-        capture_output=True, text=True, encoding="gb18030", errors="replace", timeout=600,
+        capture_output=True, timeout=600,
     )
     if proc.returncode != 0:
-        raise RuntimeError(f"match seed={seed} exited {proc.returncode}: {proc.stderr[-400:]}")
-    return parse_match_output(proc.stdout)
+        raise RuntimeError(f"match seed={seed} exited {proc.returncode}: {proc.stderr[-400:]!r}")
+    return parse_match_output(_decode_stdout(proc.stdout))
+
+
+def _decode_stdout(raw: bytes) -> str:
+    # 有效性签名: 汇总行 "seed=" 存在时 "score 我方" 中文 marker 应完好;
+    # UTF-8 解 GBK 字节(或反之)都会使 marker 变替换符 → 换另一种编码重解。
+    text = raw.decode("utf-8", errors="replace")
+    if "seed=" in text and "score 我方" not in text:
+        text = raw.decode("gb18030", errors="replace")
+    return text
 
 
 def parse_match_output(text: str) -> dict:

@@ -15,4 +15,8 @@ assert m["us_drops"] == 1, m
 assert m["mount_t"] == 32.0, m
 assert m["done_reason"] == "比赛时间结束", m
 assert m["final_score"] == (8.0, 3.0), m
+
+# 编码漂移容错(2026-10-14): UTF-8 与 GBK 字节流都应完整还原 sample。
+assert oracle._decode_stdout(sample.encode("utf-8")) == sample
+assert oracle._decode_stdout(sample.encode("gb18030")) == sample
 print("selftest OK:", m)
