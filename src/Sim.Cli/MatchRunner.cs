@@ -13,7 +13,22 @@ namespace Sim.Cli;
 /// </summary>
 internal static class MatchRunner
 {
-    private const int MaxTicks = 10_000;
+    /// <summary>
+    /// 单场 tick 上限（10000 tick = 官方 0.05s tick 下的 500s）。CLI 的 `--duration`
+    /// 校验以它为准；内核 `RunToEnd(maxTicks)` 参数化 API 不因此收紧。
+    /// </summary>
+    internal const int MaxTicks = 10_000;
+
+    /// <summary>`--duration` 上限（秒）= MaxTicks × 场景 tick 长度。</summary>
+    internal static double MaxDurationSeconds(double tickSeconds) => MaxTicks * tickSeconds;
+
+    /// <summary>
+    /// `--duration` 超上限的统一错误文案（match/batch 同口径）：回显原始输入、上限
+    /// tick 数与对应秒数，并指明是报错而非静默截断。
+    /// </summary>
+    internal static string DurationCapError(string raw, double tickSeconds) =>
+        $"--duration '{raw}' exceeds the {MaxTicks}-tick replay/match cap "
+        + $"({MaxDurationSeconds(tickSeconds):0.###}s at {tickSeconds}s ticks); shorten the duration";
 
     /// <summary>
     /// SCORE_BLOCK 展演摘要（仅 <see cref="Options.StartAtScoreBlock"/> 为 true 时非

@@ -8,12 +8,22 @@
 | --- | --- | --- |
 | `--seed N` / `--seeds a,b,c` | `42` | 确定性种子（可多个做批量评估） |
 | `--scenario <path>` | 官方默认布局 | `scenarios/*.json` 场景文件 |
-| `--duration <s>` | 120 | 覆盖比赛时长 |
+| `--duration <s>` | 120 | 覆盖比赛时长；有限正数，上限 500s（10000 ticks），超限/非法值报错而非截断或回退 |
 | `--controller-us <cmd>` | 内置 FSM | 我方外部策略进程命令 |
 | `--controller-them <cmd>` | 内置 FSM | 对手外部策略进程命令 |
 | `--timeout-ms <ms>` | 100 | 策略单帧响应截止时间 |
 | `--events` | 关 | 逐条打印事件日志（`batch` 不支持，其 stdout 固定为 JSONL） |
 | `--out <path>` | — | `replay-record` 输出文件；`batch` 的结果文件（原子替换） |
+
+### `--duration` 契约（match / batch 同口径）
+
+- 取值必须是**有限正数**（秒）；`abc` / `12x` / 空串 / `0` / 负数 / `NaN` / `Infinity`
+  一律**显式报错**（`error: invalid --duration '<raw>' ...`），不再静默回退默认 120s。
+- 上限 **500s = 10000 ticks**（官方 0.05s tick；上限按场景 `tickSeconds` 换算）：
+  超过即**报错**（`error: --duration '<raw>' exceeds the 10000-tick replay/match cap ...`），
+  不再静默截到 10000 tick 后以 `doneReason=(未结束)` 收场。
+- 退出码：`match` 为 `1`；`batch` 沿用"非法输入返回 2"的预检约定（零 JSONL、零部分文件）。
+- 需要更长赛时请用 `batch`/多段拼接自行组合；提高上限属内核 API 变更，另行立任务。
 
 ### 物理模式（场景字段 `physics.backend`）
 

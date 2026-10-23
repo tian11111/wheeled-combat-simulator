@@ -193,6 +193,14 @@ internal static class BatchCommand
 
         if (settings.Duration is { } duration)
         {
+            // 上限判定在 CLI 层（与 match 同口径）：超限显式报错 exit 2，
+            // 不让 MatchRunner 静默截到 MaxTicks。
+            if (duration / scenario.Field.TickSeconds > MatchRunner.MaxTicks)
+            {
+                throw new BatchUsageException(MatchRunner.DurationCapError(
+                    settings.DurationRaw ?? duration.ToString(CultureInfo.InvariantCulture),
+                    scenario.Field.TickSeconds));
+            }
             scenario = scenario with { Field = scenario.Field with { MatchDuration = duration } };
         }
         var errors = scenario.Validate().ToList();
@@ -289,6 +297,9 @@ internal static class BatchCommand
 
         public double? Duration { get; init; }
 
+        /// <summary>`--duration` 的原始文本（错误信息回显用；未给该选项时为 null）。</summary>
+        public string? DurationRaw { get; init; }
+
         public string? ControllerUs { get; init; }
 
         public string? ControllerThem { get; init; }
@@ -356,14 +367,16 @@ internal static class BatchCommand
         }
 
         double? duration = null;
-        if (values.TryGetValue("--duration", out var durationRaw))
+        string? durationRaw = null;
+        if (values.TryGetValue("--duration", out var rawDuration))
         {
-            var error = ParsePositiveFinite(durationRaw, "--duration", out var parsed);
+            var error = ParsePositiveFinite(rawDuration, "--duration", out var parsed);
             if (error is not null)
             {
                 return (null, error, false);
             }
             duration = parsed;
+            durationRaw = rawDuration;
         }
 
         double timeoutMs = 100;
@@ -393,6 +406,7 @@ internal static class BatchCommand
             Seeds = seeds,
             ScenarioPath = values.GetValueOrDefault("--scenario"),
             Duration = duration,
+            DurationRaw = durationRaw,
             ControllerUs = values.GetValueOrDefault("--controller-us"),
             ControllerThem = values.GetValueOrDefault("--controller-them"),
             TimeoutMs = timeoutMs,
