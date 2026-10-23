@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "铁律/层次依赖/MBri选择契约——改 Sim.Core 与回放消费方前必读"}
+{"file": "src/Sim.Core/MatchEngine.cs", "reason": "RecordReplayTick/EventBus.Tick/RestartRobot/RestartPenalty——R1 核心改动面"}
+{"file": "src/Sim.Cli/Program.cs", "reason": "RunReplayCheck 循环与 duration 解析——R1/R3 改动面"}
+{"file": "src/Sim.Controller/ExternalControllerBridge.cs", "reason": "Decide 写路径/读循环/ExitDrainGrace——R2 改动面"}
+{"file": "godot/src/ParityCheck.cs", "reason": "桌面回放消费方之一——R1 三处同修"}
+{"file": "godot/src/MatchSession.cs", "reason": "桌面回放消费方之二——R1 三处同修"}
+{"file": "src/Sim.Tests/RestartRobotTests.cs", "reason": "BuildRestartReplay 录制序与 fixture 重生成——R1 fixture 处理依据"}
+{"file": "src/Sim.Cli/BatchCommand.cs", "reason": "batch duration 解析与 exit 2 约定——R3 对齐"}
