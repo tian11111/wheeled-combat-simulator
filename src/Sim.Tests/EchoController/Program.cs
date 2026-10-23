@@ -10,6 +10,11 @@ using System.Text.Json;
 //   hang     — consumes stdin but never replies and never exits (proves batch
 //              reaps controller processes; reading keeps the bridge write side
 //              from blocking so the batch can finish and dispose its bridges)
+//   stall    — never reads stdin and never exits: the OS pipe buffer fills and
+//              the bridge's timed write path is the only way out (regression for
+//              "strategy stops draining stdin" hangs the whole match).
+//   stallonce— like stall for args[1] ms, then behaves like echo: proves a slow
+//              (but recoverable) controller is never killed and resumes cleanly.
 //   utf8probe— decode stdin as UTF-8 (independent of console codepage) and reply
 //              v = robot.action 字符数, w = 首个码点 (桥的 UTF-8 契约探针)
 //   rlguard  — 展演注入守卫: 只有携带 11 维有限 rlObservation 的帧才回零动作;
@@ -17,6 +22,19 @@ using System.Text.Json;
 //              于是 "展演 e2e 断言 faults==0" 就钉住了 C# 侧真的注入了 rlObservation;
 //              非展演路径(无 rlObservation)下该模式会 fault, 可做反向对照证明守卫非空转。
 var mode = args.Length > 0 ? args[0] : "echo";
+if (mode == "stall")
+{
+    // 永不读 stdin 也永不退出: 管道缓冲写满后桥的写会阻塞, 只有带超时的写路径
+    // 能救场。Dispose 杀掉整棵进程树时本进程随之结束。
+    Thread.Sleep(Timeout.Infinite);
+}
+if (mode == "stallonce")
+{
+    // 先停读 args[1] 毫秒(管道写满 → 桥的写超时), 然后恢复正常的 echo 行为:
+    // 证明写超时只是 tick 级失败, 进程保留且能在后续帧恢复。
+    Thread.Sleep(args.Length > 1 && int.TryParse(args[1], out var pauseMs) ? pauseMs : 1000);
+    mode = "echo";
+}
 switch (mode)
 {
     case "die":

@@ -19,14 +19,43 @@ public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
     /// </summary>
     private static readonly TimeSpan ExitDrainGrace = TimeSpan.FromMilliseconds(100);
 
+    /// <summary>
+    /// 观测行未能在 <c>--timeout-ms</c> 内写进管道（含"上一帧的写仍阻塞"）:
+    /// 桥放弃等待本帧观测送达, 零动作, 计一次 fault; 进程保留, 下一帧仍可恢复。
+    /// </summary>
+    private const string WriteTimeoutFault = "controller stdin write timeout";
+
     private readonly Process _process;
     private readonly BlockingCollection<string> _lines = new();
     private readonly Thread _reader;
+    private readonly Thread _writer;
+    private readonly object _writeGate = new();
     private readonly TimeSpan _deadline;
+    private WriteJob? _inFlight;
     private string _lastFault = "";
     private string _lastProtocolFault = "";
     private long _faults;
     private int _disposed;
+
+    /// <summary>一帧待写观测。写线程持有它直到管道写入/失败；同一时刻至多一个。</summary>
+    private sealed class WriteJob(string payload)
+    {
+        public string Payload { get; } = payload;
+
+        private readonly TaskCompletionSource _done =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary>写完成（成功或失败）时完成；调用方按超时等待。</summary>
+        public Task Completion => _done.Task;
+
+        public Exception? Failure { get; private set; }
+
+        public void Complete(Exception? failure)
+        {
+            Failure = failure;
+            _done.TrySetResult();
+        }
+    }
 
     private ExternalControllerBridge(Process process, TimeSpan deadline)
     {
@@ -34,6 +63,10 @@ public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
         _deadline = deadline;
         _reader = new Thread(ReadLoop) { IsBackground = true, Name = "controller-stdout" };
         _reader.Start();
+        // 常驻写线程: 管道写满时它会阻塞在这一帧的写上, 调用方按超时放弃;
+        // 专用线程不占线程池, 别的桥阻塞也不会拖慢本桥的下一帧。
+        _writer = new Thread(WriteLoop) { IsBackground = true, Name = "controller-stdin" };
+        _writer.Start();
     }
 
     /// <summary>Fault count: timeouts, dead-pipe writes and rejected responses.</summary>
@@ -87,17 +120,51 @@ public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
             return Fault("controller process is not running");
         }
 
+        string payload;
         try
         {
-            _process.StandardInput.WriteLine(ProtocolJson.Serialize(observation));
-            _process.StandardInput.Flush();
+            payload = ProtocolJson.Serialize(observation);
         }
         catch (Exception error)
         {
+            // 与既有口径一致: 序列化失败也归入 stdin 失败这一确定性故障类别。
             return Fault($"controller stdin failed: {error.Message}");
         }
-
         var expectedId = observation.RequestId.ToString();
+        WriteJob job;
+        lock (_writeGate)
+        {
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                // Dispose 与 Decide 竞争: 写线程已退出, 排进去的写永远不会完成。
+                return Fault("controller process is not running");
+            }
+            // 单在途写裁决: 上一帧的写还卡在管道里时, 本帧的观测必然也送不进去
+            // (策略没消化上一帧)。直接按写超时记 fault 零动作, 不排队第二个写 ——
+            // 否则每 tick 一个阻塞写任务会堆叠, 内存/管道一起爆。
+            if (_inFlight is not null)
+            {
+                return Fault(WriteTimeoutFault);
+            }
+            job = new WriteJob(payload);
+            _inFlight = job;
+            Monitor.Pulse(_writeGate);
+        }
+
+        // 写与应答共用 --timeout-ms 口径: 管道写满时写线程会一直阻塞在 WriteLine,
+        // 调用方等满一个 TimeoutMs 就放弃本帧 (写线程仍在后台, 管道恢复后自行完成,
+        // 进程不杀 —— 与应答超时"慢/暂塞仍可恢复"的语义对齐)。写与应答各自计满一个
+        // 截止, 慢写的进程不会因此挤掉原本的应答预算。非正截止按 0 处理: 既有语义
+        // 下这种配置本就等不到任何应答, 这里不能让它变成 Task.Wait 的参数异常。
+        if (!job.Completion.Wait(_deadline > TimeSpan.Zero ? _deadline : TimeSpan.Zero))
+        {
+            return Fault(WriteTimeoutFault);
+        }
+        if (job.Failure is { } writeError)
+        {
+            return Fault($"controller stdin failed: {writeError.Message}");
+        }
+
         var cutoff = DateTime.UtcNow + _deadline;
         // 命令能启动但当场退出(脚本不存在/解释器报错)时, 读取线程可能还在把退出前
         // 写出的行送进队列: 先给 ExitDrainGrace 排空, 仍无应答就立即按"进程已退出"
@@ -151,6 +218,52 @@ public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
         return RobotAction.Zero;
     }
 
+    /// <summary>
+    /// 常驻写线程: 串行执行 <see cref="_inFlight"/> 里的观测行。管道写满时它会
+    /// 阻塞在这一帧的写上; <see cref="Decide"/> 超时后不再排新写（单在途裁决），
+    /// 所以这里最多只有一个阻塞写，管道恢复/进程退出后它自行完成或失败。
+    /// </summary>
+    private void WriteLoop()
+    {
+        while (true)
+        {
+            WriteJob? job;
+            lock (_writeGate)
+            {
+                while (_inFlight is null && Volatile.Read(ref _disposed) == 0)
+                {
+                    Monitor.Wait(_writeGate);
+                }
+                job = _inFlight;
+                if (job is null)
+                {
+                    return; // disposed with no pending write
+                }
+            }
+
+            Exception? failure = null;
+            try
+            {
+                _process.StandardInput.WriteLine(job.Payload);
+                _process.StandardInput.Flush();
+            }
+            catch (Exception error)
+            {
+                failure = error;
+            }
+
+            lock (_writeGate)
+            {
+                // 只有自己仍是在途写时才清空: Dispose 之后不再接收新写。
+                if (ReferenceEquals(_inFlight, job))
+                {
+                    _inFlight = null;
+                }
+            }
+            job.Complete(failure);
+        }
+    }
+
     private void ReadLoop()
     {
         try
@@ -198,6 +311,15 @@ public sealed class ExternalControllerBridge : IControllerAdapter, IDisposable
         {
             // The process may have exited between HasExited and Kill.
         }
+        // 唤醒写线程: 它可能正阻塞在管道写上（子进程已不再读）。Kill 关掉读端后
+        // 该写会自行失败, 线程看到 disposed 且无在途写即退出。有界等待而不是无限
+        // join: 管道异常时 Dispose 也不能挂死; 等它退出只是为了避免与
+        // StandardInput 的并发关闭（StreamWriter 非线程安全）。
+        lock (_writeGate)
+        {
+            Monitor.PulseAll(_writeGate);
+        }
+        _writer.Join(TimeSpan.FromSeconds(1));
         _lines.CompleteAdding();
         _process.Dispose();
         _lines.Dispose();
