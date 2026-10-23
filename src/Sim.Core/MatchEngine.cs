@@ -47,7 +47,12 @@ public sealed class MatchEngine : IDisposable
     //   两者都改变事件与比分, MuJoCo 回放身份因此升级。
     // 2026-10-14: 1.0.7 — Js.ToFixed 按 ECMAScript 语义修正(digits>0 时原实现放大
     //   10^digits 倍, 事件行 t= 显示值 = 10x 秒); 事件文本与指纹随之变化。
-    public const string CoreVersion = "sim-core-1.0.7";
+    // 2026-10-23: 1.0.8 — 回放命令时序修复(10-22 可靠性审计 R1): FSM 翻覆自动重启
+    //   不再录为回放命令(此前回放时被双重应用, MuJoCo 含重启回放 6/10 FAIL),
+    //   外部命令(RestartPenalty/RestartRobot)事件戳经 StampCommandTick 对齐到命令
+    //   记录 tick。MuJoCo 回放的 header.ticks 形状变化 ⇒ 修复前录制的 MuJoCo 回放
+    //   由版本门明确拒绝(而非逐位比对期谜语式失败); legacy 无命令回放逐位不变。
+    public const string CoreVersion = "sim-core-1.0.8";
 
     private readonly Scenario _scenario;
     private readonly FieldModel _field;
@@ -172,7 +177,7 @@ public sealed class MatchEngine : IDisposable
         }
         _sensors = new SensorSampler(_field, _params, _us, _them, _blocks, scenario.Seed, () => SimStepIndex, _physics);
         _fsm = new FsmController(_field, _physics, _params, () => _rng.Next(), _us, _them, _blocks, _events,
-            _vision, OnBothDone, onAutoRestart: r => RestartRobot(r.Role));
+            _vision, OnBothDone, onAutoRestart: r => RestartRobotCore(r.Role, recordCommand: false));
 
         // resetAll tail: refresh sensors once so PREP-phase views show real data.
         _sensors.SampleSensorsFor(_us);
@@ -442,11 +447,21 @@ public sealed class MatchEngine : IDisposable
             _penaltyThem += pts;
         }
         OppGain(r, pts, "penalty");
+        StampCommandTick();
         _events.Emit(EventKind.RestartPenalty, r,
             $"[referee] {(pts == 4 ? "重启" : "调试")}判罚, 对方 +{Js.Num(pts)} ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})", "score");
         RecordCommand($"restart:{key}:{kind}");
         return pts;
     }
+
+    /// <summary>
+    /// A command issued outside <see cref="StepSimExt"/> (referee/CLI/RPC, i.e. between
+    /// ticks) is recorded on the next committed row, which is <c>TickIndex + 1</c>; its
+    /// events must carry that same tick instead of the previous tick's leftover value.
+    /// Inside <see cref="StepSimExt"/> this is already the value the bus holds, so the
+    /// call is a no-op there (FSM auto-restart). Pure assignment — no IO/clock/random.
+    /// </summary>
+    private void StampCommandTick() => _events.Tick = TickIndex + 1;
 
     /// <summary>
     /// Real restart (referee R/T): the target robot returns to its scenario
@@ -465,7 +480,14 @@ public sealed class MatchEngine : IDisposable
     /// <c>restart_robot:&lt;role&gt;</c>.
     /// Returns false when the current phase rejects the restart.
     /// </summary>
-    public bool RestartRobot(string role)
+    public bool RestartRobot(string role) => RestartRobotCore(role, recordCommand: true);
+
+    /// <param name="recordCommand">
+    /// False only for the FSM's own auto-restart callback: that restart is already
+    /// re-derived by replaying the same action stream, so recording it as a command
+    /// would apply it a second time on replay and fork the match.
+    /// </param>
+    private bool RestartRobotCore(string role, bool recordCommand)
     {
         ArgumentNullException.ThrowIfNull(role);
         if (!RoleNames.IsKnownRole(role))
@@ -488,11 +510,18 @@ public sealed class MatchEngine : IDisposable
             _penaltyThem += points;
         }
         OppGain(r, points, "restart");
+        if (recordCommand)
+        {
+            StampCommandTick();
+        }
         _events.Emit(EventKind.Restart, r,
             $"[referee] 真实重启 {r.Name}: 回到出发点并清理瞬态, 对方 +{Js.Num(points)} ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})",
             "score",
             new { role = r.Role, points, scorer = r.IsUs ? RoleNames.Them : RoleNames.Us });
-        RecordCommand($"restart_robot:{r.Role}");
+        if (recordCommand)
+        {
+            RecordCommand($"restart_robot:{r.Role}");
+        }
         return true;
     }
 

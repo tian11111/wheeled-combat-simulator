@@ -1,3 +1,4 @@
+using System.Globalization;
 using Sim.Core;
 using Sim.Hosting;
 using Sim.Protocol;
@@ -51,6 +52,10 @@ public static class Program
         public List<long> Seeds { get; init; } = [42];
         public string? ScenarioPath { get; init; }
         public double? Duration { get; init; }
+
+        /// <summary>`--duration` 的原始文本（错误信息回显用；未给该选项时为 null）。</summary>
+        public string? DurationRaw { get; init; }
+
         public string? ControllerUs { get; init; }
         public string? ControllerThem { get; init; }
         public double TimeoutMs { get; init; } = 100;
@@ -68,14 +73,19 @@ public static class Program
         public Scenario BuildScenario(long seed)
         {
             var scenario = ScenarioPath is null ? DefaultScenario() : LoadScenario(ScenarioPath);
-            scenario = scenario with
+            if (Duration is { } duration)
             {
-                Seed = seed,
-                Field = Duration is null
-                    ? scenario.Field
-                    : scenario.Field with { MatchDuration = Duration.Value },
-            };
-            return scenario;
+                // 上限判定在 CLI 层: 内核 RunToEnd(maxTicks) 参数化 API 不收紧。
+                // 超限显式报错而不是让 MatchRunner 静默截到 MaxTicks。
+                if (duration / scenario.Field.TickSeconds > MatchRunner.MaxTicks)
+                {
+                    throw new InvalidOperationException(
+                        MatchRunner.DurationCapError(DurationRaw ?? duration.ToString(CultureInfo.InvariantCulture),
+                            scenario.Field.TickSeconds));
+                }
+                scenario = scenario with { Field = scenario.Field with { MatchDuration = duration } };
+            }
+            return scenario with { Seed = seed };
         }
 
         /// <summary>
@@ -109,11 +119,32 @@ public static class Program
                 seeds.Add(long.Parse(part));
             }
         }
+        // `--duration` 非法值必须显式报错, 不再静默回退默认 120s (审计 R3)。
+        // 解析用不变文化: 逗号小数点区域会把 "120.5" 静默读成 1205 (与 rl-env 同口径)。
+        double? duration = null;
+        string? durationRaw = null;
+        var durationIndex = Array.IndexOf(args, "--duration");
+        if (durationIndex >= 0)
+        {
+            if (durationIndex + 1 >= args.Length)
+            {
+                throw new ArgumentException("--duration requires a value");
+            }
+            durationRaw = args[durationIndex + 1];
+            if (!double.TryParse(durationRaw, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+                || !double.IsFinite(parsed) || parsed <= 0)
+            {
+                throw new ArgumentException(
+                    $"invalid --duration '{durationRaw}' (expected a finite positive number of seconds)");
+            }
+            duration = parsed;
+        }
         return new Options
         {
             Seeds = seeds.Count > 0 ? seeds : [42],
             ScenarioPath = Get("--scenario"),
-            Duration = double.TryParse(Get("--duration"), out var duration) ? duration : null,
+            Duration = duration,
+            DurationRaw = durationRaw,
             ControllerUs = Get("--controller-us"),
             ControllerThem = Get("--controller-them"),
             TimeoutMs = double.TryParse(Get("--timeout-ms"), out var timeout) ? timeout : 100,

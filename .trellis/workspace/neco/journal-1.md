@@ -1762,3 +1762,45 @@ legacy 接触默认翻转——L1+L2+L3 全开（用户拍板"都开"）
 ### Status
 
 [OK] **Completed** — 待推送 PR
+
+
+## Session 39: 可靠性审计修复三批落地(工作流执行+主会话收尾)
+
+**Date**: 2026-10-23
+**Task**: 可靠性审计修复三批落地(工作流执行+主会话收尾)
+**Branch**: `fix/baseline-p0-and-oracle-metrics`
+
+### Summary
+
+10-22审计三缺陷全修: R1 MuJoCo回放自复现(自动重启不录命令+事件戳对齐,10/10 PASS); R2控制器写超时(常驻写线程+单在途写,stall 0.7s完成); R3 duration显式校验(非法/超限全拒). 工作流dwfrun-2bf0a804三批门禁全过(终报errored仅因artifact超256KB), 批1方向按实测推翻design推荐改引擎侧. 五笔提交未push.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fd9ea51` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 40: Blocker裁决落地: CoreVersion 1.0.8 升阶
+
+**Date**: 2026-10-23
+**Task**: Blocker裁决落地: CoreVersion 1.0.8 升阶
+**Branch**: `fix/baseline-p0-and-oracle-metrics`
+
+### Summary
+
+按用户'按你判断来'裁决: 升1.0.8(旧MuJoCo回放由版本门明确拒绝exit1, 非谜语式分歧行), 旧伪命令回放作废(仓库内零持有), replay-record连带校验接受, 场景内嵌matchDuration缺口单独记账. 全量848/849绿, godot parity PASS.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8c16b39` | (see git log) |
+
+### Status
+
+[OK] **Completed**
