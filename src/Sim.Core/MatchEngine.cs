@@ -172,7 +172,7 @@ public sealed class MatchEngine : IDisposable
         }
         _sensors = new SensorSampler(_field, _params, _us, _them, _blocks, scenario.Seed, () => SimStepIndex, _physics);
         _fsm = new FsmController(_field, _physics, _params, () => _rng.Next(), _us, _them, _blocks, _events,
-            _vision, OnBothDone, onAutoRestart: r => RestartRobot(r.Role));
+            _vision, OnBothDone, onAutoRestart: r => RestartRobotCore(r.Role, recordCommand: false));
 
         // resetAll tail: refresh sensors once so PREP-phase views show real data.
         _sensors.SampleSensorsFor(_us);
@@ -442,11 +442,21 @@ public sealed class MatchEngine : IDisposable
             _penaltyThem += pts;
         }
         OppGain(r, pts, "penalty");
+        StampCommandTick();
         _events.Emit(EventKind.RestartPenalty, r,
             $"[referee] {(pts == 4 ? "重启" : "调试")}判罚, 对方 +{Js.Num(pts)} ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})", "score");
         RecordCommand($"restart:{key}:{kind}");
         return pts;
     }
+
+    /// <summary>
+    /// A command issued outside <see cref="StepSimExt"/> (referee/CLI/RPC, i.e. between
+    /// ticks) is recorded on the next committed row, which is <c>TickIndex + 1</c>; its
+    /// events must carry that same tick instead of the previous tick's leftover value.
+    /// Inside <see cref="StepSimExt"/> this is already the value the bus holds, so the
+    /// call is a no-op there (FSM auto-restart). Pure assignment — no IO/clock/random.
+    /// </summary>
+    private void StampCommandTick() => _events.Tick = TickIndex + 1;
 
     /// <summary>
     /// Real restart (referee R/T): the target robot returns to its scenario
@@ -465,7 +475,14 @@ public sealed class MatchEngine : IDisposable
     /// <c>restart_robot:&lt;role&gt;</c>.
     /// Returns false when the current phase rejects the restart.
     /// </summary>
-    public bool RestartRobot(string role)
+    public bool RestartRobot(string role) => RestartRobotCore(role, recordCommand: true);
+
+    /// <param name="recordCommand">
+    /// False only for the FSM's own auto-restart callback: that restart is already
+    /// re-derived by replaying the same action stream, so recording it as a command
+    /// would apply it a second time on replay and fork the match.
+    /// </param>
+    private bool RestartRobotCore(string role, bool recordCommand)
     {
         ArgumentNullException.ThrowIfNull(role);
         if (!RoleNames.IsKnownRole(role))
@@ -488,11 +505,18 @@ public sealed class MatchEngine : IDisposable
             _penaltyThem += points;
         }
         OppGain(r, points, "restart");
+        if (recordCommand)
+        {
+            StampCommandTick();
+        }
         _events.Emit(EventKind.Restart, r,
             $"[referee] 真实重启 {r.Name}: 回到出发点并清理瞬态, 对方 +{Js.Num(points)} ({Js.Num(_scoreUs)}:{Js.Num(_scoreThem)})",
             "score",
             new { role = r.Role, points, scorer = r.IsUs ? RoleNames.Them : RoleNames.Us });
-        RecordCommand($"restart_robot:{r.Role}");
+        if (recordCommand)
+        {
+            RecordCommand($"restart_robot:{r.Role}");
+        }
         return true;
     }
 
