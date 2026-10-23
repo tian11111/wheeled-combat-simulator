@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 39
+- **Total Sessions**: 40
 - **Last Active**: 2026-10-23
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1785 | Active |
+| `journal-1.md` | ~1806 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 40 | 2026-10-23 | Blocker裁决落地: CoreVersion 1.0.8 升阶 | `8c16b39` | `fix/baseline-p0-and-oracle-metrics` |
 | 39 | 2026-10-23 | 可靠性审计修复三批落地(工作流执行+主会话收尾) | `fd9ea51` | `fix/baseline-p0-and-oracle-metrics` |
 | 38 | 2026-09-30 | 桌面设置四批落地 + 真权重视觉接入 runner(进行中) | `eb7d780`, `ea83a35`, `9191578`, `2725a7e`, `64271d0` | `test/score-block-ppo-checkpoint-round` |
 | 37 | 2026-09-30 | v2 能量块 seed 随机布局 + 桌面相对路径修复 | `51717b7`, `6304f49` | `test/score-block-ppo-checkpoint-round` |

@@ -1783,3 +1783,24 @@ legacy 接触默认翻转——L1+L2+L3 全开（用户拍板"都开"）
 ### Status
 
 [OK] **Completed**
+
+
+## Session 40: Blocker裁决落地: CoreVersion 1.0.8 升阶
+
+**Date**: 2026-10-23
+**Task**: Blocker裁决落地: CoreVersion 1.0.8 升阶
+**Branch**: `fix/baseline-p0-and-oracle-metrics`
+
+### Summary
+
+按用户'按你判断来'裁决: 升1.0.8(旧MuJoCo回放由版本门明确拒绝exit1, 非谜语式分歧行), 旧伪命令回放作废(仓库内零持有), replay-record连带校验接受, 场景内嵌matchDuration缺口单独记账. 全量848/849绿, godot parity PASS.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8c16b39` | (see git log) |
+
+### Status
+
+[OK] **Completed**
