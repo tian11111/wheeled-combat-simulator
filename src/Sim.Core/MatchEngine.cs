@@ -47,7 +47,12 @@ public sealed class MatchEngine : IDisposable
     //   两者都改变事件与比分, MuJoCo 回放身份因此升级。
     // 2026-10-14: 1.0.7 — Js.ToFixed 按 ECMAScript 语义修正(digits>0 时原实现放大
     //   10^digits 倍, 事件行 t= 显示值 = 10x 秒); 事件文本与指纹随之变化。
-    public const string CoreVersion = "sim-core-1.0.7";
+    // 2026-10-23: 1.0.8 — 回放命令时序修复(10-22 可靠性审计 R1): FSM 翻覆自动重启
+    //   不再录为回放命令(此前回放时被双重应用, MuJoCo 含重启回放 6/10 FAIL),
+    //   外部命令(RestartPenalty/RestartRobot)事件戳经 StampCommandTick 对齐到命令
+    //   记录 tick。MuJoCo 回放的 header.ticks 形状变化 ⇒ 修复前录制的 MuJoCo 回放
+    //   由版本门明确拒绝(而非逐位比对期谜语式失败); legacy 无命令回放逐位不变。
+    public const string CoreVersion = "sim-core-1.0.8";
 
     private readonly Scenario _scenario;
     private readonly FieldModel _field;
