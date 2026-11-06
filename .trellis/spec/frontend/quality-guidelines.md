@@ -18,6 +18,23 @@ relying only on offset height. When replay controls are visible, position the
 event feed above the replay bar and verify the rendered gap at the supported
 window sizes; otherwise Godot may expand the card into the replay controls.
 
+HUD cards are scaled around the viewport center. Convert the visible viewport
+corners into the scaled HUD's local coordinates before anchoring cards; otherwise
+uiScale=1.4 pushes the top and bottom cards off-screen. Respect the actual card
+minimum sizes and leave space between the status, event and replay areas. If a
+compact fallback needs scrolling, keep its input region confined to the cards so
+the remaining scene still accepts camera input. Keep the help card's width equal
+across normal and compact layouts; a width change can alter wrapped text height
+and make the layout switch back and forth on every frame.
+
+The scrollable event text uses `MouseFilter.Pass` and
+`MouseForcePassScrollEvents=false`: the wheel scrolls the event list without
+zooming the camera, while left/right drags can reach the camera. Verify both
+paths through Godot's input pipeline, including releasing a drag over the feed;
+a static screenshot cannot establish these interactions. When events refresh,
+follow the newest item only if the reader was already at the bottom; preserve
+the scroll position while the reader is inspecting older events.
+
 Camera/input smoke checks (`--camera-smoke`, `--edit-smoke`) run through the
 real input pipeline and are timing-sensitive: the headless viewport is 64×64,
 the camera pose is damped, and Godot's buffered-input flush jitters, so

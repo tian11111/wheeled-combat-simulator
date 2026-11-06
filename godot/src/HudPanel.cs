@@ -13,11 +13,11 @@ public partial class HudPanel : Control
     private static readonly Color CardColorRaised = new(0.08f, 0.12f, 0.19f, 0.82f);
     private static readonly Color CardBorder = new(0.26f, 0.42f, 0.62f, 0.86f);
     private static readonly Color TextPrimary = new(0.91f, 0.94f, 0.98f);
-    private static readonly Color TextSecondary = new(0.57f, 0.64f, 0.74f);
-    private static readonly Color AccentYellow = new(0.98f, 0.72f, 0.22f);
-    private static readonly Color AccentBlue = new(0.31f, 0.58f, 1.0f);
-    private static readonly Color AccentRed = new(1.0f, 0.35f, 0.32f);
-    private static readonly Color AccentGreen = new(0.30f, 0.85f, 0.68f);
+    private static readonly Color TextSecondary = new(0.71f, 0.77f, 0.84f);
+    private static readonly Color AccentYellow = new(0.96f, 0.77f, 0.37f);
+    private static readonly Color AccentBlue = new(0.40f, 0.71f, 1.0f);
+    private static readonly Color AccentRed = new(1.0f, 0.54f, 0.50f);
+    private static readonly Color AccentGreen = new(0.41f, 0.87f, 0.71f);
 
     private PanelContainer? _status;
     private Label? _statusMode;
@@ -44,6 +44,9 @@ public partial class HudPanel : Control
     private Label? _replayTick;
     private HSlider? _timeline;
     private Button? _playButton;
+    private ScrollContainer? _compactScroll;
+    private Control? _compactContent;
+    private bool _compactLayout;
 
     private PanelContainer? _editorBar;
     private Label? _editorInfo;
@@ -68,6 +71,15 @@ public partial class HudPanel : Control
         BuildHelpCard();
         BuildReplayBar();
         BuildEditorBar();
+        _compactScroll = new ScrollContainer
+        {
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto,
+            Visible = false,
+        };
+        _compactContent = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        AddChild(_compactScroll);
+        _compactScroll.AddChild(_compactContent);
         UpdatePivot();
     }
 
@@ -84,9 +96,93 @@ public partial class HudPanel : Control
         PivotOffset = Size / 2.0f;
     }
 
+    public override void _Process(double delta)
+    {
+        LayoutCards();
+    }
+
+    // Transform the visible viewport corners into this scaled control's space.
+    // Center scaling changes the local visible origin as well as its size.
+    private void LayoutCards()
+    {
+        if (_status is null || _help is null || _events is null || _replayBar is null || _editorBar is null
+            || _compactScroll is null || _compactContent is null)
+        {
+            return;
+        }
+
+        var viewport = GetViewport().GetVisibleRect();
+        var inverse = GetGlobalTransformWithCanvas().AffineInverse();
+        var topLeft = inverse * viewport.Position;
+        var bottomRight = inverse * viewport.End;
+        const float margin = 12f;
+        const float gap = 10f;
+        var width = Math.Max(0f, bottomRight.X - topLeft.X - margin * 2);
+        var left = topLeft.X + margin;
+        var top = topLeft.Y + margin;
+        var bottom = bottomRight.Y - margin;
+
+        var statusWidth = Math.Min(330f, Math.Max(0f, (width - gap) * 0.55f));
+        var helpWidth = Math.Min(306f, Math.Max(0f, width - gap - statusWidth));
+        var statusHeight = Math.Max(240f, _status.GetCombinedMinimumSize().Y);
+        var helpHeight = Math.Max(248f, _help.GetCombinedMinimumSize().Y);
+        var replayHeight = Math.Max(66f, _replayBar.GetCombinedMinimumSize().Y);
+        var eventBottom = bottom - (_replayBar.Visible ? replayHeight + gap : 0f);
+        var availableEventHeight = eventBottom - (top + statusHeight + gap);
+        var compact = !_editorActive && (width < 620f || availableEventHeight < 90f
+            || top + helpHeight + gap > eventBottom);
+        if (compact != _compactLayout)
+        {
+            _compactLayout = compact;
+            foreach (var card in new[] { _status, _help, _events, _replayBar, _editorBar })
+            {
+                card.Reparent(compact ? _compactContent : this, false);
+            }
+            _compactScroll.Visible = compact;
+        }
+
+        if (compact)
+        {
+            // Small viewports scroll the whole HUD, keeping every card and action reachable.
+            // Leave room for the vertical scrollbar and keep the event feed independently scrollable.
+            var compactWidth = Math.Min(330f, Math.Max(0f, width - 20f));
+            var y = 0f;
+            PlaceCard(_status, 0, y, compactWidth, statusHeight);
+            y += statusHeight + gap;
+            PlaceCard(_help, 0, y, Math.Min(compactWidth, helpWidth), helpHeight);
+            y += helpHeight + gap;
+            PlaceCard(_events, 0, y, compactWidth, 120f);
+            y += 120f;
+            if (_replayBar.Visible)
+            {
+                y += gap;
+                PlaceCard(_replayBar, 0, y, compactWidth, replayHeight);
+                y += replayHeight;
+            }
+            _compactContent.CustomMinimumSize = new Vector2(compactWidth, y);
+            PlaceCard(_compactScroll, left, top, Math.Min(width, compactWidth + 20f), Math.Max(0f, bottom - top));
+            return;
+        }
+
+        PlaceCard(_status, left, top, statusWidth, statusHeight);
+        PlaceCard(_help, left + width - helpWidth, top, helpWidth, helpHeight);
+
+        PlaceCard(_replayBar, left, bottom - replayHeight, width, replayHeight);
+        var eventHeight = Math.Min(154f, availableEventHeight);
+        PlaceCard(_events, left, eventBottom - eventHeight, Math.Min(330f, width), eventHeight);
+
+        var editorHeight = Math.Max(152f, _editorBar.GetCombinedMinimumSize().Y);
+        PlaceCard(_editorBar, left, top, width, editorHeight);
+    }
+
+    private static void PlaceCard(Control card, float x, float y, float width, float height)
+    {
+        SetAnchoredRect(card, 0, 0, 0, 0, x, y, x + width, y + height);
+    }
+
     private void BuildStatusCard()
     {
-        _status = MakeCard(new Vector2(380, 240), AccentBlue);
+        _status = MakeCard(new Vector2(0, 240), AccentBlue);
         SetAnchoredRect(_status, 0, 0, 0, 0, 16, 16, 396, 256);
         AddChild(_status);
 
@@ -101,20 +197,23 @@ public partial class HudPanel : Control
         clockRow.AddThemeConstantOverride("separation", 10);
         vbox.AddChild(clockRow);
         AddLabel(clockRow, "剩余时间", 11, TextSecondary, new Vector2(74, 0));
-        _statusTimer = AddLabel(clockRow, "--.- s", 16, AccentYellow);
+        _statusTimer = AddLabel(clockRow, "--.- s", 18, AccentYellow);
 
         var scoreRow = new HBoxContainer();
         scoreRow.AddThemeConstantOverride("separation", 10);
         vbox.AddChild(scoreRow);
         AddLabel(scoreRow, "比分", 11, TextSecondary, new Vector2(74, 0));
-        _statusScore = AddLabel(scoreRow, "0 : 0", 20, TextPrimary);
+        _statusScore = AddLabel(scoreRow, "0 : 0", 24, TextPrimary);
         _statusScore.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.5f));
         _statusScore.AddThemeConstantOverride("shadow_offset_x", 1);
         _statusScore.AddThemeConstantOverride("shadow_offset_y", 1);
 
         _statusPenalty = AddLabel(vbox, "重启判罚  我方 0 / 对手 0", 11, TextSecondary);
         _statusBreakdown = AddLabel(vbox, "明细  我方 —  /  对手 —", 11, TextSecondary);
-        _statusBreakdown.ClipText = true;
+        _statusPenalty.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _statusPenalty.ClipText = false;
+        _statusBreakdown.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _statusBreakdown.ClipText = false;
 
         var teamRow = new HBoxContainer();
         teamRow.AddThemeConstantOverride("separation", 6);
@@ -124,26 +223,28 @@ public partial class HudPanel : Control
         _themStatus = AddTeamCard(teamRow, "对手  /  RED", AccentRed);
 
         _statusEnd = AddLabel(vbox, "裁判台在线 · 等待指令", 11, AccentGreen);
-        _statusEnd.ClipText = true;
+        _statusEnd.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _statusEnd.ClipText = false;
     }
 
     private void BuildEventCard()
     {
-        _events = MakeCard(new Vector2(456, 154), AccentYellow);
-        PositionEventCard(replayVisible: false);
+        _events = MakeCard(new Vector2(0, 90), AccentYellow);
         AddChild(_events);
 
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 4);
         _events.AddChild(vbox);
-        AddLabel(vbox, "LIVE EVENT FEED  /  最近事件", 11, AccentYellow);
+        AddLabel(vbox, "LIVE EVENT FEED  /  最近事件 · 滚轮查看", 11, AccentYellow);
         // 事件按类别配色 (裁判黄 / FSM 灰 / 得分绿); BBCode 需要转义消息里的 '['。
         _eventsBody = new RichTextLabel
         {
             BbcodeEnabled = true,
-            FitContent = true,
-            ScrollActive = false,
-            MouseFilter = MouseFilterEnum.Ignore,
+            FitContent = false,
+            ScrollActive = true,
+            ScrollFollowing = true,
+            MouseFilter = MouseFilterEnum.Pass,
+            MouseForcePassScrollEvents = false,
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
         _eventsBody.AddThemeFontSizeOverride("normal_font_size", 12);
@@ -154,7 +255,7 @@ public partial class HudPanel : Control
     private void BuildHelpCard()
     {
         // 高度比旧版 +54px: 控制台来源行(我方 FSM/外部进程名)与运行时/提示两行并存。
-        _help = MakeCard(new Vector2(306, 248), CardBorder);
+        _help = MakeCard(new Vector2(0, 248), CardBorder);
         SetAnchoredRect(_help, 1, 0, 1, 0, -322, 16, -16, 276);
         AddChild(_help);
 
@@ -164,14 +265,16 @@ public partial class HudPanel : Control
         AddLabel(vbox, "OPERATOR PANEL  /  操作台", 11, AccentBlue);
         _helpBody = AddLabel(vbox, "镜头 概览", 12, TextPrimary);
         _helpBody.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _helpBody.ClipText = true;
+        _helpBody.ClipText = false;
         _helpBody.SizeFlagsVertical = SizeFlags.ExpandFill;
         // 当前装配的控制器来源（内置 FSM / 外部进程名）：无 driver 也常驻显示。
-        _controllerSource = AddLabel(vbox, "控制器  我方 内置 FSM  /  对手 内置 FSM", 10, AccentGreen);
+        _controllerSource = AddLabel(vbox, "控制器  我方 内置 FSM  /  对手 内置 FSM", 12, AccentGreen);
         _controllerSource.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _controllerSource.ClipText = false;
         _controllerSource.CustomMinimumSize = new Vector2(0, 28);
-        _controllerStatus = AddLabel(vbox, "", 10, AccentGreen);
+        _controllerStatus = AddLabel(vbox, "", 12, AccentGreen);
         _controllerStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _controllerStatus.ClipText = false;
         _controllerStatus.CustomMinimumSize = new Vector2(0, 44);
         _controllerStatus.Visible = false;
         _settingsButton = new Button
@@ -294,7 +397,7 @@ public partial class HudPanel : Control
     /// <summary>顶栏: 布局编辑模式的选择/数值检视 + 操作按钮 (Main 在编辑器激活时刷新)。</summary>
     private void BuildEditorBar()
     {
-        _editorBar = MakeCard(new Vector2(620, 152), AccentYellow);
+        _editorBar = MakeCard(new Vector2(0, 152), AccentYellow);
         SetAnchoredRect(_editorBar, 0, 0, 1, 0, 12, 12, -12, 176);
         AddChild(_editorBar);
 
@@ -311,7 +414,14 @@ public partial class HudPanel : Control
         var hbox = new HBoxContainer();
         hbox.AddThemeConstantOverride("separation", 5);
         hbox.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        vbox.AddChild(hbox);
+        var editorScroll = new ScrollContainer
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Auto,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        };
+        vbox.AddChild(editorScroll);
+        editorScroll.AddChild(hbox);
         _editorApply = AddEditorButton(hbox, "应用布局\n(Enter)", AccentGreen);
         AddEditorButton(hbox, "撤销\nCtrl+Z", TextPrimary);
         AddEditorButton(hbox, "重做\nCtrl+Y", TextPrimary);
@@ -412,11 +522,18 @@ public partial class HudPanel : Control
         var hbox = new HBoxContainer();
         hbox.AddThemeConstantOverride("separation", 6);
         hbox.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _replayBar.AddChild(hbox);
+        var replayScroll = new ScrollContainer
+        {
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Auto,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        };
+        _replayBar.AddChild(replayScroll);
+        replayScroll.AddChild(hbox);
 
         var meta = new VBoxContainer
         {
-            CustomMinimumSize = new Vector2(108, 0),
+            CustomMinimumSize = new Vector2(160, 0),
             SizeFlagsVertical = SizeFlags.ShrinkCenter,
         };
         meta.AddThemeConstantOverride("separation", 1);
@@ -529,7 +646,10 @@ public partial class HudPanel : Control
         vbox.AddThemeConstantOverride("separation", 1);
         panel.AddChild(vbox);
         AddLabel(vbox, title, 10, accent);
-        return AddLabel(vbox, "未知", 12, TextPrimary);
+        var status = AddLabel(vbox, "未知", 12, TextPrimary);
+        status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        status.ClipText = false;
+        return status;
     }
 
     private static StyleBoxFlat MakeTeamStyle(Color accent)
@@ -586,19 +706,6 @@ public partial class HudPanel : Control
         control.OffsetTop = offsetTop;
         control.OffsetRight = offsetRight;
         control.OffsetBottom = offsetBottom;
-    }
-
-    private void PositionEventCard(bool replayVisible)
-    {
-        if (_events is null)
-        {
-            return;
-        }
-
-        // The card has a 154px minimum height. Lift its top edge when the
-        // replay bar is present so the two bottom-anchored panels never overlap.
-        var topOffset = replayVisible ? -246 : -178;
-        SetAnchoredRect(_events, 0, 1, 0, 1, 16, topOffset, 472, -86);
     }
 
     /// <summary>
@@ -663,9 +770,17 @@ public partial class HudPanel : Control
         _usStatus!.Text = $"{StateChip(us, "我")}\n{us.Action ?? "待命"}";
         _themStatus!.Text = $"{StateChip(them, "对")}\n{them.Action ?? "待命"}";
 
-        _eventsBody!.Text = hud.RecentEvents.Count > 0
+        var eventsText = hud.RecentEvents.Count > 0
             ? string.Join("\n", hud.RecentEvents.Select(EventLine))
             : "(暂无事件)";
+        if (_eventsBody!.Text != eventsText)
+        {
+            var scroll = _eventsBody.GetVScrollBar();
+            var atBottom = _eventsBody.Text.Length == 0 || scroll.MaxValue <= scroll.Page
+                || scroll.Value >= scroll.MaxValue - scroll.Page - 1;
+            _eventsBody.ScrollFollowing = atBottom;
+            _eventsBody.Text = eventsText;
+        }
 
         var azimuth = MathF.Abs(cameraYawDeg) >= 1f ? $" · 方位 {NormalizedAzimuth(cameraYawDeg):0}°" : "";
         _helpBody!.Text =
@@ -691,7 +806,6 @@ public partial class HudPanel : Control
         {
             var replayVisible = mode == SessionMode.Replay && !_editorActive;
             _replayBar.Visible = replayVisible;
-            PositionEventCard(replayVisible);
         }
         if (_playButton is not null)
         {

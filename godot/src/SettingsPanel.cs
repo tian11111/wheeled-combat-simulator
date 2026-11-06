@@ -13,14 +13,14 @@ public partial class SettingsPanel : Control
     private static readonly Color GlassRaised = new(0.10f, 0.14f, 0.21f, 0.88f);
     private static readonly Color Backdrop = new(0.005f, 0.012f, 0.028f, 0.72f);
     private static readonly Color Border = new(0.30f, 0.52f, 0.82f, 0.82f);
-    private static readonly Color Blue = new(0.35f, 0.67f, 1.0f);
-    private static readonly Color Green = new(0.30f, 0.90f, 0.70f);
-    private static readonly Color Yellow = new(1.0f, 0.76f, 0.25f);
-    private static readonly Color Red = new(1.0f, 0.36f, 0.35f);
-    private static readonly Color Primary = new(0.92f, 0.96f, 1.0f);
-    private static readonly Color Secondary = new(0.62f, 0.70f, 0.82f);
+    private static readonly Color Blue = new(0.40f, 0.71f, 1.0f);
+    private static readonly Color Green = new(0.41f, 0.87f, 0.71f);
+    private static readonly Color Yellow = new(0.96f, 0.77f, 0.37f);
+    private static readonly Color Red = new(1.0f, 0.54f, 0.50f);
+    private static readonly Color Primary = new(0.91f, 0.94f, 0.98f);
+    private static readonly Color Secondary = new(0.71f, 0.77f, 0.84f);
     /// <summary>灰字: 当前来源不使用的输入说明 (批4 R4.5)。</summary>
-    private static readonly Color Muted = new(0.44f, 0.49f, 0.57f);
+    private static readonly Color Muted = new(0.57f, 0.63f, 0.71f);
 
     // 对话框设计尺寸; 实际尺寸 = min(设计尺寸, 视口 × 0.9 / uiScale), 见 UpdateDialogRect。
     private const float DialogDesignWidth = 980f;
@@ -300,14 +300,14 @@ public partial class SettingsPanel : Control
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
-        margin.AddThemeConstantOverride("margin_left", 22);
-        margin.AddThemeConstantOverride("margin_top", 18);
-        margin.AddThemeConstantOverride("margin_right", 22);
-        margin.AddThemeConstantOverride("margin_bottom", 18);
+        margin.AddThemeConstantOverride("margin_left", 18);
+        margin.AddThemeConstantOverride("margin_top", 12);
+        margin.AddThemeConstantOverride("margin_right", 18);
+        margin.AddThemeConstantOverride("margin_bottom", 12);
         dialogScroll.AddChild(margin);
 
         var root = new VBoxContainer();
-        root.AddThemeConstantOverride("separation", 10);
+        root.AddThemeConstantOverride("separation", 6);
         margin.AddChild(root);
 
         var header = new HBoxContainer();
@@ -327,9 +327,9 @@ public partial class SettingsPanel : Control
         {
             SizeFlagsVertical = SizeFlags.ExpandFill,
             // 最小高度只是"页面压缩地板" (批4 R4.3): 每页内容各自滚动, 视口/uiScale
-            // 变小时标签区可以压到 260 仍可操作 —— 1280×720 @ uiScale 1.4 的对话框
+            // 变小时标签区可以压到 240 仍可操作 —— 1280×720 @ uiScale 1.4 的对话框
             // 因此刚好放下页脚 (完整可见); 更极端的 640×360 才由外层兜底滚动接管。
-            CustomMinimumSize = new Vector2(0, 260),
+            CustomMinimumSize = new Vector2(0, 240),
             TabsVisible = true,
         };
         root.AddChild(tabs);
@@ -404,7 +404,7 @@ public partial class SettingsPanel : Control
     private static void AddSettingsTab(TabContainer tabs, Control content, string title, string footerNote)
     {
         var page = new VBoxContainer();
-        page.AddThemeConstantOverride("separation", 6);
+        page.AddThemeConstantOverride("separation", 4);
         content.SizeFlagsVertical = SizeFlags.ExpandFill;
         page.AddChild(content);
         AddNoteLabel(page, footerNote, 11, Secondary, new Vector2(0, 22));
@@ -2360,19 +2360,19 @@ public partial class SettingsPanel : Control
     private static void ApplyButtonTheme(Button button, Color accent)
     {
         button.AddThemeColorOverride("font_color", Primary);
-        button.AddThemeColorOverride("font_hover_color", accent);
-        button.AddThemeColorOverride("font_pressed_color", accent);
+        button.AddThemeColorOverride("font_hover_color", Primary);
+        button.AddThemeColorOverride("font_pressed_color", Primary);
+        button.AddThemeColorOverride("font_disabled_color", Muted);
         button.AddThemeStyleboxOverride("normal", MakeInputStyle(GlassRaised, Border));
         button.AddThemeStyleboxOverride("hover", MakeInputStyle(new Color(0.15f, 0.22f, 0.32f, 0.94f), accent));
         button.AddThemeStyleboxOverride("pressed", MakeInputStyle(new Color(0.18f, 0.26f, 0.36f, 0.98f), accent));
+        button.AddThemeStyleboxOverride("disabled", MakeInputStyle(new Color(0.05f, 0.07f, 0.11f, 0.85f), Muted));
+        button.AddThemeStyleboxOverride("focus", MakeInputStyle(new Color(0, 0, 0, 0), Blue));
     }
 
     private static void ApplySpinTheme(SpinBox spin)
     {
-        spin.AddThemeColorOverride("font_color", Primary);
-        spin.AddThemeColorOverride("font_uneditable_color", Secondary);
-        spin.AddThemeStyleboxOverride("normal", MakeInputStyle(GlassRaised, Border));
-        spin.AddThemeStyleboxOverride("read_only", MakeInputStyle(new Color(0.05f, 0.07f, 0.11f, 0.7f), Border));
+        ApplyLineEditTheme(spin.GetLineEdit());
     }
 
     private static void ApplyOptionTheme(OptionButton option)
@@ -2385,8 +2385,10 @@ public partial class SettingsPanel : Control
     {
         line.AddThemeColorOverride("font_color", Primary);
         line.AddThemeColorOverride("font_placeholder_color", new Color(Secondary, 0.75f));
+        line.AddThemeColorOverride("font_uneditable_color", Secondary);
         line.AddThemeStyleboxOverride("normal", MakeInputStyle(GlassRaised, Border));
         line.AddThemeStyleboxOverride("focus", MakeInputStyle(new Color(0.12f, 0.19f, 0.28f, 0.96f), Blue));
+        line.AddThemeStyleboxOverride("read_only", MakeInputStyle(new Color(0.05f, 0.07f, 0.11f, 0.85f), Muted));
     }
 
     private static void ApplyCheckButtonTheme(CheckButton check)

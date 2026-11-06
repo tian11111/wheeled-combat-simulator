@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Godot shell conventions"}
+{"file": ".trellis/spec/frontend/settings-ui.md", "reason": "Settings UI layout and interaction contracts"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Rendering and input ownership"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Visual and parity verification"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse existing UI components"}
