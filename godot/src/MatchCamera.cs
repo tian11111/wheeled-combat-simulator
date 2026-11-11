@@ -78,6 +78,25 @@ public partial class MatchCamera : Camera3D
 
     public CameraMode Mode => _mode;
 
+    public sealed record ViewState(CameraMode Mode, float OverviewYaw, float OverviewPitch, float OverviewDistance,
+        Vector3 OverviewFocus, float TopHeight, float TopYaw, Vector3 TopFocus, float FollowYaw,
+        float FollowPitch, float FollowZoom, Vector3 FollowFocus, Vector3 Position, Vector3 LookCurrent);
+
+    public ViewState SaveView() => new(_mode, _overviewYaw, _overviewPitch, _overviewDistance, _overviewFocus,
+        _topHeight, _topYaw, _topFocus, _followYaw, _followPitch, _followZoom, _followFocus, Position, _lookCurrent);
+
+    public void RestoreView(ViewState state)
+    {
+        _mode = state.Mode;
+        _overviewYaw = state.OverviewYaw; _overviewPitch = state.OverviewPitch; _overviewDistance = state.OverviewDistance; _overviewFocus = state.OverviewFocus;
+        _topHeight = state.TopHeight; _topYaw = state.TopYaw; _topFocus = state.TopFocus;
+        _followYaw = state.FollowYaw; _followPitch = state.FollowPitch; _followZoom = state.FollowZoom; _followFocus = state.FollowFocus;
+        _rotating = _panning = false;
+        ReleaseMouseIfIdle();
+        Position = state.Position; _lookCurrent = state.LookCurrent;
+        if (_mode == CameraMode.Top) ApplyTopPose(); else ResetGoals();
+    }
+
     /// <summary>
     /// Ownership hook: when false (layout editor owns the mouse) the camera
     /// ignores all pointer input. Main mirrors <c>LayoutEditor.Active</c> here.
@@ -221,6 +240,9 @@ public partial class MatchCamera : Camera3D
     }
 
     public void SetFocus(RenderFrame frame)
+        => SetFocus(new Vector3((float)frame.CameraFocus.X, 0.05f, (float)frame.CameraFocus.Z));
+
+    public void SetFocus(Vector3 focus)
     {
         // 跟随模式: 自动以双方中点为焦点 (缩放/环绕只改机位, 不与 SetFocus 抢焦点)。
         // 概览/俯视: 使用可平移的地面焦点, 不跟随机器人中点。
@@ -228,7 +250,7 @@ public partial class MatchCamera : Camera3D
         {
             return;
         }
-        _followFocus = new Vector3((float)frame.CameraFocus.X, 0.05f, (float)frame.CameraFocus.Z);
+        _followFocus = new Vector3(focus.X, 0.05f, focus.Z);
         ResetGoals();
     }
 

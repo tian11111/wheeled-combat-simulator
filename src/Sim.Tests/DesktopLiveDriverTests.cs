@@ -11,6 +11,33 @@ namespace Sim.Tests;
 [Collection("cli-console")]
 public class DesktopLiveDriverTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReviewSuspension_FreezesDriverAndPreservesPauseState(bool initiallyPaused)
+    {
+        var scenario = Samples.Scenario() with { Field = Samples.Scenario().Field with { MatchDuration = 20.0 } };
+        using var driver = new DesktopLiveDriver(scenario, new ControllerProfile(), new ControllerProfile());
+        driver.Start();
+        Assert.True(driver.RequestArm());
+        await WaitUntil(() => driver.Status.Phase == Sim.Core.MatchControlPhase.Running && driver.Status.Tick > 0);
+        if (initiallyPaused)
+        {
+            Assert.True(driver.RequestPause());
+            await WaitUntil(() => driver.Status.Paused);
+        }
+        Assert.True(driver.RequestReviewSuspend());
+        await WaitUntil(() => driver.ReviewSuspended);
+        var tick = driver.Status.Tick;
+        await Task.Delay(150);
+        Assert.Equal(tick, driver.Status.Tick);
+        Assert.Equal(initiallyPaused, driver.Status.Paused);
+        Assert.True(driver.RequestReviewResume());
+        await WaitUntil(() => !driver.ReviewSuspended);
+        Assert.Equal(initiallyPaused, driver.Status.Paused);
+        if (!initiallyPaused) await WaitUntil(() => driver.Status.Tick > tick);
+    }
+
     [Fact]
     public async Task BuiltInDriver_CommandsAreSerializedOnWorkerAndPublishesSnapshots()
     {

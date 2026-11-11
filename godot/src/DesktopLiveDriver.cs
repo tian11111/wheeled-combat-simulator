@@ -64,6 +64,7 @@ public sealed class DesktopLiveDriver : IDisposable
     private int _snapshotCount;
     private int _stopRequested;
     private int _disposed;
+    private int _reviewSuspended;
 
     // SCORE_BLOCK 展演交接状态（只在 worker 线程读写）: Arm 后先双方内置 FSM 预推进，
     // 交接前我方 Tick(null)，交接后逐 tick 注入 11 维 rlObservation 交给外部策略。
@@ -119,6 +120,8 @@ public sealed class DesktopLiveDriver : IDisposable
 
     public bool IsRunning => _worker?.IsAlive == true && Volatile.Read(ref _stopRequested) == 0;
 
+    public bool ReviewSuspended => Volatile.Read(ref _reviewSuspended) != 0;
+
     public void Start()
     {
         lock (_lifecycleGate)
@@ -159,6 +162,10 @@ public sealed class DesktopLiveDriver : IDisposable
     public bool RequestPause() => Post(new DriverCommand(DriverCommandKind.Pause));
 
     public bool RequestResume() => Post(new DriverCommand(DriverCommandKind.Resume));
+
+    public bool RequestReviewSuspend() => Post(new DriverCommand(DriverCommandKind.ReviewSuspend));
+
+    public bool RequestReviewResume() => Post(new DriverCommand(DriverCommandKind.ReviewResume));
 
     public bool RequestRestart(string role) => Post(new DriverCommand(DriverCommandKind.Restart, role));
 
@@ -231,6 +238,14 @@ public sealed class DesktopLiveDriver : IDisposable
                 }
 
                 var now = stopwatch.Elapsed.TotalSeconds;
+                if (ReviewSuspended)
+                {
+                    previous = now;
+                    accumulator = 0;
+                    _wake.Wait(8);
+                    _wake.Reset();
+                    continue;
+                }
                 accumulator = Math.Min(0.25, accumulator + Math.Max(0, now - previous));
                 previous = now;
                 var stepped = false;
@@ -294,6 +309,12 @@ public sealed class DesktopLiveDriver : IDisposable
                     break;
                 case DriverCommandKind.Resume:
                     _engine.Resume();
+                    break;
+                case DriverCommandKind.ReviewSuspend:
+                    Volatile.Write(ref _reviewSuspended, 1);
+                    break;
+                case DriverCommandKind.ReviewResume:
+                    Volatile.Write(ref _reviewSuspended, 0);
                     break;
                 case DriverCommandKind.Restart when command.Role is not null:
                     _engine.RestartRobot(command.Role);
@@ -582,6 +603,8 @@ public sealed class DesktopLiveDriver : IDisposable
         Arm,
         Pause,
         Resume,
+        ReviewSuspend,
+        ReviewResume,
         Restart,
         Stop,
     }

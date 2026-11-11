@@ -42,6 +42,9 @@ public partial class Main : Node
     private SettingsStore _settingsStore = null!;
     private SettingsPanel _settingsPanel = null!;
     private RealMatchReviewPanel _realReview = null!;
+    private MatchCamera.ViewState? _reviewCameraState;
+    private DesktopLiveDriver? _reviewSuspendedDriver;
+    private DesktopLiveDriver? _reviewPendingDriver;
     private DesktopSettings _settings = DesktopSettings.Default;
     // 视觉源工厂: 与 _settings.Vision 同步重建; null = 默认 classifyRate 桩(不注入
     // adapter, 行为逐位不变)。每场(ReplaceSession/ResetLiveSession/驱动)都调一次
@@ -154,9 +157,33 @@ public partial class Main : Node
         _realReview = new RealMatchReviewPanel { Name = "RealMatchReviewPanel" };
         GetNode<CanvasLayer>("Hud").AddChild(_realReview);
         _realReview.SetUiScale(_settings.UiScale);
+        _realReview.Closed += () =>
+        {
+            if (_reviewSuspendedDriver is { } driver && !driver.RequestReviewResume() && driver.IsRunning)
+                _hud.ShowNotice("无法恢复实况驱动，请重启比赛");
+            _reviewSuspendedDriver = null;
+            _hud.ProcessMode = ProcessModeEnum.Inherit;
+            foreach (var role in new[] { "us", "them" })
+            {
+                var root = _visualizer.RobotRoot(role)!;
+                root.Visible = true;
+                if (root.GetNodeOrNull<Node3D>("Ring") is { } ring) ring.Visible = true;
+            }
+            if (_reviewCameraState is { } state) _camera.RestoreView(state);
+            _reviewCameraState = null;
+        };
         _hud.ConfigureRealReview(() =>
         {
-            _realReview.Open(_session.Scenario, _robotModels);
+            if (_editor.Active) { _hud.ShowNotice("请先退出布局编辑"); return; }
+            if (_liveDriver is { IsRunning: true } driver)
+            {
+                if (!driver.RequestReviewSuspend()) { _hud.ShowNotice("无法暂停实况驱动，未打开复盘"); return; }
+                _reviewPendingDriver = driver;
+                _hud.ShowNotice("正在暂停比赛以打开实车复盘…");
+                _hud.ProcessMode = ProcessModeEnum.Disabled;
+                return;
+            }
+            OpenRealReview();
         });
 
         _hud.ConfigureTimeline(tick => _session.ReplaySeekTick(tick));
@@ -2007,6 +2034,13 @@ public partial class Main : Node
         _fileDialog.FileSelected += LoadReplay;
     }
 
+    private void OpenRealReview()
+    {
+        _reviewCameraState = _camera.SaveView();
+        _hud.ProcessMode = ProcessModeEnum.Disabled;
+        _realReview.Open(_session.Scenario, _visualizer);
+    }
+
     public override void _Process(double delta)
     {
         if (_session is null)
@@ -2014,6 +2048,21 @@ public partial class Main : Node
             return;
         }
         TickVisualFrameStats(delta);
+        if (_reviewPendingDriver is { } pending)
+        {
+            if (pending.ReviewSuspended)
+            {
+                _reviewPendingDriver = null;
+                _reviewSuspendedDriver = pending;
+                OpenRealReview();
+            }
+            else if (!pending.IsRunning)
+            {
+                _reviewPendingDriver = null;
+                _hud.ProcessMode = ProcessModeEnum.Inherit;
+                _hud.ShowNotice("实况驱动已停止，未打开复盘");
+            }
+        }
         HandleCommands();
 
         if (_settingsSmokeFramesLeft > 0)
@@ -2027,7 +2076,11 @@ public partial class Main : Node
             }
         }
 
-        if (_editor.Active)
+        if (_realReview.IsOpen)
+        {
+            Present(EmptyFrame());
+        }
+        else if (_editor.Active)
         {
             // 编辑模式: 只展示草稿预览帧, 不推进任何仿真时钟。
             Present(_editor.PreviewFrame
@@ -2217,8 +2270,14 @@ public partial class Main : Node
     private void Present(RenderFrame frame)
     {
         // 布局编辑器拥有鼠标时 (选择/拖动), 相机指针处理必须让位。
-        _camera.PointerInputEnabled = !_editor.Active && !_realReview.IsOpen;
+        _camera.PointerInputEnabled = !_editor.Active;
         _visualizer.ShowFrame(frame);
+        if (_realReview.IsOpen)
+        {
+            _realReview.PresentPoses();
+            if (_realReview.RecordedFocus is { } focus) _camera.SetFocus(focus);
+            return;
+        }
         _camera.SetFocus(frame);
         AccumulateEvents(frame, _session.Mode);
         var hud = frame.Hud with { RecentEvents = _eventBuffer.ToArray() };
@@ -2271,7 +2330,12 @@ public partial class Main : Node
 
     private void HandleCommands()
     {
-        if (_realReview is not null && _realReview.IsOpen) return;
+        if (_reviewPendingDriver is not null) return;
+        if (_realReview is not null && _realReview.IsOpen)
+        {
+            if (Input.IsActionJustPressed("camera_cycle")) _camera.CycleMode();
+            return;
+        }
         if (Input.IsActionJustPressed("settings_toggle"))
         {
             OpenSettings();

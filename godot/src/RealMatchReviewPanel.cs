@@ -2,6 +2,7 @@ using Godot;
 using System.Globalization;
 using System.Text;
 using Sim.Protocol;
+using Sim.Core;
 
 namespace Sim.GodotShell;
 
@@ -17,7 +18,8 @@ public partial class RealMatchReviewPanel : Control
     private CheckBox _stationary = null!;
     private ReviewChart _chart = null!;
     private ReviewMap _map = null!;
-    private RealMatchReview3D _view3D = null!;
+    private ArenaVisualizer _arena = null!;
+    private Scenario _scenario = null!;
     private Label _poseStatus = null!;
     private FileDialog _picker = null!;
     private Action<string>? _selected;
@@ -34,7 +36,7 @@ public partial class RealMatchReviewPanel : Control
     public override void _Ready()
     {
         Visible = false;
-        MouseFilter = MouseFilterEnum.Stop;
+        MouseFilter = MouseFilterEnum.Ignore;
         Build();
         SyncRect();
     }
@@ -46,15 +48,16 @@ public partial class RealMatchReviewPanel : Control
         if (IsInsideTree()) SyncRect();
     }
 
-    public void Open(Scenario scenario, IReadOnlyDictionary<string, RobotModelConfig>? models)
+    public void Open(Scenario scenario, ArenaVisualizer arena)
     {
+        _scenario = scenario;
+        _arena = arena;
         var field = scenario.Field;
         _map.FieldSize = field.FieldSize;
         _map.PlatformMinX = field.Platform.MinX;
         _map.PlatformMinY = field.Platform.MinY;
         _map.PlatformMaxX = field.Platform.MaxX;
         _map.PlatformMaxY = field.Platform.MaxY;
-        _view3D.Configure(scenario, models);
         UpdatePoses();
         _map.QueueRedraw();
         Visible = true;
@@ -86,7 +89,8 @@ public partial class RealMatchReviewPanel : Control
         }
     }
 
-    private void Close() { SetPlaying(false); Visible = false; }
+    public event Action? Closed;
+    private void Close() { SetPlaying(false); Visible = false; Closed?.Invoke(); }
 
     private void SyncRect()
     {
@@ -94,18 +98,15 @@ public partial class RealMatchReviewPanel : Control
         AnchorLeft = AnchorTop = AnchorRight = AnchorBottom = 0;
         Position = Vector2.Zero;
         Size = size;
-        PivotOffset = size / 2;
-        var w = Math.Min(1200, size.X * .94f / Scale.X);
-        var h = Math.Min(760, size.Y * .94f / Scale.Y);
-        _dialog.Position = (size - new Vector2(w, h)) / 2;
+        PivotOffset = Vector2.Zero;
+        var w = Math.Min(420, size.X * .42f / Scale.X);
+        var h = size.Y / Scale.Y - 20;
+        _dialog.Position = new Vector2(size.X / Scale.X - w - 10, 10);
         _dialog.Size = new Vector2(w, h);
     }
 
     private void Build()
     {
-        var backdrop = new ColorRect { Color = new Color(.005f, .012f, .028f, .78f), MouseFilter = MouseFilterEnum.Stop };
-        backdrop.SetAnchorsPreset(LayoutPreset.FullRect);
-        AddChild(backdrop);
         _dialog = new PanelContainer();
         var style = new StyleBoxFlat { BgColor = new Color(.055f, .085f, .14f, .98f), BorderColor = new Color(.3f, .52f, .82f), ContentMarginLeft = 14, ContentMarginRight = 14, ContentMarginTop = 10, ContentMarginBottom = 10 };
         style.SetBorderWidthAll(1);
@@ -116,10 +117,12 @@ public partial class RealMatchReviewPanel : Control
         var root = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         outer.AddChild(root);
         var header = Row(root);
-        var title = Label(header, "REAL MATCH REVIEW  /  实车复盘", 19);
+        var title = Label(header, "实车复盘", 19);
         title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         Button(header, "关闭", Close);
-        _status = Label(root, "选择记录或采样文件；不会改变比赛。", 12);
+        Label(root, "比赛已挂起；主界面比分为原比赛数据。", 12).AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _status = Label(root, "请选择记录或采样文件。", 12);
+        _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         var tabs = new TabContainer { CustomMinimumSize = new Vector2(0, 360), SizeFlagsVertical = SizeFlags.ExpandFill };
         root.AddChild(tabs);
         var record = Page(tabs, "记录复盘");
@@ -130,21 +133,14 @@ public partial class RealMatchReviewPanel : Control
         Button(row, "上一条", () => { SetPlaying(false); StepDecision(-1); });
         _play = Button(row, "播放", () => SetPlaying(!_playing));
         Button(row, "下一条", () => { SetPlaying(false); StepDecision(1); });
-        _step = Label(row, "未载入记录", 12);
+        _step = Label(record, "未载入记录", 12);
         _timeline = new HSlider { MinValue = 0, MaxValue = 1, Step = 1, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(100, 24) };
         _timeline.ValueChanged += value => { if (!_sync) { SetPlaying(false); SetStep((int)value); } };
         record.AddChild(_timeline);
-        var content = Row(record);
-        var visual = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        content.AddChild(visual);
-        _view3D = new RealMatchReview3D { CustomMinimumSize = new Vector2(360, 250), SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
-        visual.AddChild(_view3D);
-        _poseStatus = Label(visual, "未记录位姿", 12);
+        _poseStatus = Label(record, "未记录位姿", 12);
         _poseStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        var info = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        content.AddChild(info);
-        Label(info, "记录详情：▶ 为当前事件，其余按原顺序列出", 12);
-        _details = Text(info, 250);
+        Label(record, "记录详情：▶ 为当前事件", 12);
+        _details = Text(record, 180);
         Label(record, "独立日志：无可靠时间戳，不与记录同步", 12);
         _log = Text(record, 120);
 
@@ -152,20 +148,25 @@ public partial class RealMatchReviewPanel : Control
         row = Row(sample);
         Button(row, "导入采样 CSV…", () => Pick("导入采样 CSV", false, ["*.csv ; 采样 CSV"], LoadSeries));
         Button(row, "保存参考点…", () => Pick("保存参考点", true, ["*.json ; 参考点 JSON"], SaveReferences));
+        row = Row(sample);
         Button(row, "打开参考点…", () => Pick("打开参考点", false, ["*.json ; 参考点 JSON"], LoadReferences));
-        Label(sample, "按原列名展示；两版左右通道映射待核实。曲线横轴为相对时间，按行降采样，缺失处断开。", 12);
-        _chart = new ReviewChart { CustomMinimumSize = new Vector2(400, 180), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        Label(sample, "按原列名展示；两版左右通道映射待核实。曲线横轴为相对时间，按行降采样，缺失处断开。", 12).AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _chart = new ReviewChart { CustomMinimumSize = new Vector2(300, 180), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         sample.AddChild(_chart);
         _stats = Label(sample, "未载入采样", 12);
         _stats.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         row = Row(sample);
         _start = Field(row, "起始索引", "0"); _end = Field(row, "结束索引", "0");
+        row = Row(sample);
         _stationary = new CheckBox { Text = "确认区间静止" }; row.AddChild(_stationary);
         row = Row(sample);
-        _name = Field(row, "点名", ""); _x = Field(row, "X (m)", ""); _y = Field(row, "Y (m)", ""); _heading = Field(row, "航向 (rad)", "");
+        _name = Field(row, "点名", ""); _x = Field(row, "X (m)", "");
+        row = Row(sample);
+        _y = Field(row, "Y (m)", ""); _heading = Field(row, "航向 (rad)", "");
+        row = Row(sample);
         Button(row, "建立参考点", AddReference);
-        Label(sample, "场地示意：原点在左下角；浅色边框为台沿，圆点为人工标注。无小车位置或轨迹。", 12);
-        _map = new ReviewMap { CustomMinimumSize = new Vector2(400, 280), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        Label(sample, "场地示意：原点在左下角；浅色边框为台沿，圆点为人工标注。无小车位置或轨迹。", 12).AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _map = new ReviewMap { CustomMinimumSize = new Vector2(300, 280), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _map.Selected += ShowReference;
         sample.AddChild(_map);
         _referenceDetail = Label(sample, "尚未选择参考点", 12);
@@ -189,7 +190,7 @@ public partial class RealMatchReviewPanel : Control
     private static Button Button(Container parent, string text, Action action) { var b = new Button { Text = text, CustomMinimumSize = new Vector2(0, 32) }; b.Pressed += action; parent.AddChild(b); return b; }
     private static TextEdit Text(Container parent, float height)
     {
-        var t = new TextEdit { Editable = false, CustomMinimumSize = new Vector2(400, height), SizeFlagsHorizontal = SizeFlags.ExpandFill, WrapMode = TextEdit.LineWrappingMode.Boundary };
+        var t = new TextEdit { Editable = false, CustomMinimumSize = new Vector2(300, height), SizeFlagsHorizontal = SizeFlags.ExpandFill, WrapMode = TextEdit.LineWrappingMode.Boundary };
         t.AddThemeColorOverride("font_readonly_color", new Color(.85f, .90f, .96f));
         parent.AddChild(t);
         return t;
@@ -258,11 +259,41 @@ public partial class RealMatchReviewPanel : Control
     {
         var us = RealMatchReviewData.PoseAtOrBefore(_poses, "us", _recording is null ? -1 : _index);
         var them = RealMatchReviewData.PoseAtOrBefore(_poses, "them", _recording is null ? -1 : _index);
-        _view3D.ShowPoses(us, them);
+        ShowPose("us", us);
+        ShowPose("them", them);
         static string Describe(string role, ReviewPose? pose) => pose is null ? role + "：未记录位姿"
             : $"{role}：记录于 {pose.Time:0.###} s · source: {pose.Source}";
         _poseStatus.Text = Describe("我方", us) + "\n" + Describe("对手", them)
-            + "\n擂台为当前场景示意；最近记录无插值或外推。\n高度为显示投影，不是实测。\n" + _view3D.AppearanceStatus;
+            + "\n擂台为当前场景示意；最近记录无插值或外推。\n高度为显示投影，不是实测。";
+    }
+    public void PresentPoses() { if (Visible) UpdatePoses(); }
+
+    public Vector3? RecordedFocus
+    {
+        get
+        {
+            var us = _arena.RobotRoot("us")!;
+            var them = _arena.RobotRoot("them")!;
+            if (us.Visible && them.Visible) return (us.Position + them.Position) / 2;
+            if (us.Visible) return us.Position;
+            if (them.Visible) return them.Position;
+            return null;
+        }
+    }
+
+    private void ShowPose(string role, ReviewPose? pose)
+    {
+        var root = _arena.RobotRoot(role)!;
+        root.Visible = pose is not null;
+        if (root.GetNodeOrNull<Node3D>("Ring") is { } ring) ring.Visible = false;
+        if (pose is null) return;
+        var field = _scenario.Field;
+        var transform = new FieldTransform(field.Pose?.X ?? 0, field.Pose?.Y ?? 0, field.Pose?.Th ?? 0);
+        var (x, y) = transform.LocalToWorldPoint(pose.X, pose.Y);
+        var p = field.Platform;
+        var height = pose.X >= p.MinX && pose.X <= p.MaxX && pose.Y >= p.MinY && pose.Y <= p.MaxY ? field.PlatformHeight + .001 : 0;
+        root.Position = new Vector3((float)x, (float)height, (float)y);
+        root.Rotation = new Vector3(0, (float)(Math.PI / 2 - transform.LocalToWorldHeading(pose.Heading)), 0);
     }
     private void LoadSeries(string path) => Run(() =>
     {
