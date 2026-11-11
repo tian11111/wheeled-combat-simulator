@@ -1,0 +1,14 @@
+{
+  "format": "real-match-v1",
+  "events": [
+    {"time": 0.0, "type": "sensor", "values": {"source": "synthetic-example", "gray_front_raw": 702, "gray_front_processed": 650, "ir1": 1320}},
+    {"time": 0.0, "type": "pose", "values": {"role": "us", "x": 0.5, "y": 0.5, "heading": 0.0, "source": "synthetic-example"}},
+    {"time": 0.0, "type": "decision", "values": {"action": "巡台", "reason": "示例：未触发台沿警戒"}},
+    {"time": 0.1, "type": "state", "values": {"state": "PATROL"}},
+    {"time": 0.2, "type": "safety", "values": {"alert": false}},
+    {"time": 0.2, "type": "pose", "values": {"role": "them", "x": 1.5, "y": 1.5, "heading": 3.14, "source": "synthetic-example"}},
+    {"time": 0.2, "type": "vision", "values": {"result": "未发现目标"}},
+    {"time": 0.3, "type": "motor", "values": {"left_command": 200, "right_command": 200}},
+    {"time": 0.4, "type": "pose", "values": {"role": "us", "x": 0.7, "y": 0.5, "heading": 0.2, "source": "synthetic-example"}}
+  ]
+}

@@ -287,6 +287,11 @@ Sim.Tests(链接 godot/src/SnapshotView.cs 做无 Godot 回归)
   消费 `context.Random`）、unknown 原因码、导入错误矩阵与 evidence_only 门禁
   见 [vision-replay-contract.md](./vision-replay-contract.md)。
 
+## 实车记录查看契约（real-match-v1）
+
+- 实车记录和手动标注的场地参考是独立查看数据，不进入模拟回放/仿真内核；
+  CSV/JSON、缺失值、时间顺序和原子保存等约束见 [real-match-review-contract.md](./real-match-review-contract.md)。
+
 ## MuJoCo 域标定契约（domain-calib-v1，10-02 落地）
 
 - 改轮-地接触参数 / 原地转向补偿 / MuJoCo 模型几何执行器 / 任何 MuJoCo 域行为钉值前，

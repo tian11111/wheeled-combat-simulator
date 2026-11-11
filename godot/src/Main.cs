@@ -41,6 +41,7 @@ public partial class Main : Node
     private FileDialog _fileDialog = null!;
     private SettingsStore _settingsStore = null!;
     private SettingsPanel _settingsPanel = null!;
+    private RealMatchReviewPanel _realReview = null!;
     private DesktopSettings _settings = DesktopSettings.Default;
     // 视觉源工厂: 与 _settings.Vision 同步重建; null = 默认 classifyRate 桩(不注入
     // adapter, 行为逐位不变)。每场(ReplaceSession/ResetLiveSession/驱动)都调一次
@@ -150,6 +151,13 @@ public partial class Main : Node
         _settingsPanel.PreflightCompleted += (role, ok, message)
             => _hud.ShowPreflightNotice(role, ok, message);
         _hud.ConfigureSettings(OpenSettings);
+        _realReview = new RealMatchReviewPanel { Name = "RealMatchReviewPanel" };
+        GetNode<CanvasLayer>("Hud").AddChild(_realReview);
+        _realReview.SetUiScale(_settings.UiScale);
+        _hud.ConfigureRealReview(() =>
+        {
+            _realReview.Open(_session.Scenario, _robotModels);
+        });
 
         _hud.ConfigureTimeline(tick => _session.ReplaySeekTick(tick));
 
@@ -1308,6 +1316,7 @@ public partial class Main : Node
         }
         _hud?.SetUiScale(settings.UiScale);
         _settingsPanel?.SetUiScale(settings.UiScale);
+        _realReview?.SetUiScale(settings.UiScale);
     }
 
     private void OpenSettings()
@@ -2141,8 +2150,13 @@ public partial class Main : Node
     {
         var buckets = new Dictionary<string, int>
         {
-            ["us"] = 0, ["them"] = 0, ["buff"] = 0, ["debuff"] = 0,
-            ["platform"] = 0, ["floor"] = 0, ["model"] = 0,
+            ["us"] = 0,
+            ["them"] = 0,
+            ["buff"] = 0,
+            ["debuff"] = 0,
+            ["platform"] = 0,
+            ["floor"] = 0,
+            ["model"] = 0,
         };
         var w = img.GetWidth();
         var h = img.GetHeight();
@@ -2203,7 +2217,7 @@ public partial class Main : Node
     private void Present(RenderFrame frame)
     {
         // 布局编辑器拥有鼠标时 (选择/拖动), 相机指针处理必须让位。
-        _camera.PointerInputEnabled = !_editor.Active;
+        _camera.PointerInputEnabled = !_editor.Active && !_realReview.IsOpen;
         _visualizer.ShowFrame(frame);
         _camera.SetFocus(frame);
         AccumulateEvents(frame, _session.Mode);
@@ -2257,6 +2271,7 @@ public partial class Main : Node
 
     private void HandleCommands()
     {
+        if (_realReview is not null && _realReview.IsOpen) return;
         if (Input.IsActionJustPressed("settings_toggle"))
         {
             OpenSettings();

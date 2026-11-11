@@ -39,6 +39,7 @@ public partial class HudPanel : Control
     private Label? _controllerStatus;
     private bool _controllerNoticeActive;
     private Button? _settingsButton;
+    private Button? _reviewButton;
 
     private PanelContainer? _replayBar;
     private Label? _replayTick;
@@ -286,6 +287,9 @@ public partial class HudPanel : Control
         };
         ApplyButtonTheme(_settingsButton, AccentBlue);
         vbox.AddChild(_settingsButton);
+        _reviewButton = new Button { Text = "实车复盘", CustomMinimumSize = new Vector2(0, 32), FocusMode = FocusModeEnum.None };
+        ApplyButtonTheme(_reviewButton, AccentBlue);
+        vbox.AddChild(_reviewButton);
     }
 
     /// <summary>Wires the glass-console settings button to the desktop shell.</summary>
@@ -295,6 +299,11 @@ public partial class HudPanel : Control
         {
             _settingsButton.Pressed += onOpen;
         }
+    }
+
+    public void ConfigureRealReview(Action onOpen)
+    {
+        if (_reviewButton is not null) _reviewButton.Pressed += onOpen;
     }
 
     /// <summary>

@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "simulation and evidence boundaries"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "UI interaction and visual verification"}
+{"file": ".trellis/spec/frontend/settings-ui.md", "reason": "native file dialogs and scaling"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "targeted tests"}

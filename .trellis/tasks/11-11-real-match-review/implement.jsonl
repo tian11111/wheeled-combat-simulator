@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/sim/index.md", "reason": "simulation determinism and provenance"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Godot desktop patterns"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "UI integration and input ownership"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "visual and interaction validation"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "record to UI contract"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "existing controls and models"}
